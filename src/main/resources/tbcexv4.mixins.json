@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "package": "io.github.stuff_stuffs.tbcexv4.common.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "MixinChunkHolder",
+    "MixinChunkSection",
+    "MixinMinecraftServer",
+    "MixinServerLightingProvider",
+    "MixinThreadedAnvilChunkStorage"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

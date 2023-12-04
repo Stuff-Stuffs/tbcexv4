@@ -1,0 +1,12 @@
+{
+  "type": "tbcexv4:void_world",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "lakes": false,
+      "features": false,
+      "layers": [],
+      "structure_overrides": []
+    }
+  }
+}
