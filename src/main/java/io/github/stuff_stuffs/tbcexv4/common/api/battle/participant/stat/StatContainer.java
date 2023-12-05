@@ -6,7 +6,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransa
 
 @EventViewable(viewClass = StatContainerView.class)
 public interface StatContainer extends StatContainerView {
-    <T> ModifierHandle addStateModifier(Stat<T> stat, Modifier<T> modifier, StatModificationPhase phase, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
+    <T> ModifierHandle addStatModifier(Stat<T> stat, Modifier<T> modifier, StatModificationPhase phase, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
     interface ModificationContext {
     }

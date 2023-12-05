@@ -30,7 +30,7 @@ public class StatContainerImpl extends DeltaSnapshotParticipant<StatContainerImp
     }
 
     @Override
-    public <T> ModifierHandle addStateModifier(final Stat<T> stat, final Modifier<T> modifier, final StatModificationPhase phase, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
+    public <T> ModifierHandle addStatModifier(final Stat<T> stat, final Modifier<T> modifier, final StatModificationPhase phase, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         if (participant.phase() == BattleParticipantPhase.FINISHED) {
             throw new RuntimeException();
         }
