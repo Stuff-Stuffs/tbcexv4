@@ -2,6 +2,8 @@ package io.github.stuff_stuffs.tbcexv4.common.impl.battle.tracer;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.BattleTraceEvent;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapshotParticipant;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import org.jetbrains.annotations.Nullable;
 
@@ -10,7 +12,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
-public class BattleTracerImpl implements BattleTracer {
+public class BattleTracerImpl extends DeltaSnapshotParticipant<BattleTracerImpl.Delta> implements BattleTracer {
     private final List<NodeImpl<?>> nodes;
 
     public BattleTracerImpl() {
@@ -28,12 +30,13 @@ public class BattleTracerImpl implements BattleTracer {
     }
 
     @Override
-    public <T extends BattleTraceEvent> Span<T> push(final T event) {
-        return push(event, null);
+    public <T extends BattleTraceEvent> Span<T> push(final T event, final BattleTransactionContext transactionContext) {
+        return push(event, transactionContext);
     }
 
-    private <T extends BattleTraceEvent> Span<T> push(final T event, final @Nullable NodeImpl<?> parent) {
+    private <T extends BattleTraceEvent> Span<T> push(final T event, final @Nullable NodeImpl<?> parent, final BattleTransactionContext transactionContext) {
         final int id = nodes.size();
+        delta(transactionContext, new Delta(id));
         final HandleImpl<T> handle = new HandleImpl<>(id, this);
         final NodeImpl<T> node = new NodeImpl<>(event, handle, parent);
         nodes.add(node);
@@ -52,6 +55,11 @@ public class BattleTracerImpl implements BattleTracer {
     public <T extends BattleTraceEvent> Stream<? extends Node<T>> eventStream(final Class<T> type) {
         //noinspection unchecked
         return nodes.stream().filter(node -> type.isInstance(node.event)).map(node -> (NodeImpl<T>) node);
+    }
+
+    @Override
+    protected void revertDelta(final Delta delta) {
+        nodes.set(delta.id, null);
     }
 
     private record HandleImpl<T extends BattleTraceEvent>(int id, BattleTracerImpl parent) implements Handle<T> {
@@ -103,11 +111,11 @@ public class BattleTracerImpl implements BattleTracer {
         }
 
         @Override
-        public <T0 extends BattleTraceEvent> Span<T0> push(final T0 event) {
+        public <T0 extends BattleTraceEvent> Span<T0> push(final T0 event, final BattleTransactionContext transactionContext) {
             if (!open) {
                 throw new RuntimeException();
             }
-            return tracer.push(event, node);
+            return tracer.push(event, node, transactionContext);
         }
 
         @Override
@@ -124,5 +132,8 @@ public class BattleTracerImpl implements BattleTracer {
         public void close() {
             open = false;
         }
+    }
+
+    public record Delta(int id) {
     }
 }

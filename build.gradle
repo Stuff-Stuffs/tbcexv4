@@ -36,6 +36,24 @@ allprojects {
 	}
 }
 
+sourceSets {
+	testmod {
+		compileClasspath += main.compileClasspath
+		runtimeClasspath += main.runtimeClasspath
+	}
+
+	testmodClient {
+		compileClasspath += main.compileClasspath
+		runtimeClasspath += main.runtimeClasspath
+		compileClasspath += client.compileClasspath
+		runtimeClasspath += client.runtimeClasspath
+
+		compileClasspath += testmod.compileClasspath
+		runtimeClasspath += testmod.runtimeClasspath
+	}
+}
+
+
 loom {
 	accessWidenerPath = file("src/main/resources/tbcexv4.accesswidener")
 
@@ -55,6 +73,18 @@ loom {
 			vmArg "-Dfabric-api.datagen.modid=tbcexv4"
 
 			runDir "build/datagen"
+		}
+		testmodClient {
+			client()
+			ideConfigGenerated project.rootProject == project
+			name = "Testmod Client"
+			source sourceSets.testmodClient
+		}
+		testmodServer {
+			server()
+			ideConfigGenerated project.rootProject == project
+			name = "Testmod Server"
+			source sourceSets.testmod
 		}
 	}
 }
@@ -85,10 +115,11 @@ dependencies {
 	annotationProcessor "io.github.stuff_stuffs:EventGen:1.40-SNAPSHOT"
 	implementation "io.github.stuff_stuffs:EventGen:1.40-SNAPSHOT"
 
-	// Uncomment the following line to enable the deprecated Fabric API modules. 
-	// These are included in the Fabric API production distribution and allow you to update your mod to the latest modules at a later more convenient time.
-
-	// modImplementation "net.fabricmc.fabric-api:fabric-api-deprecated:${project.fabric_version}"
+	testmodImplementation sourceSets.main.output
+	testmodClientImplementation sourceSets.main.output
+	testmodClientImplementation sourceSets.client.output
+	testmodClientImplementation sourceSets.testmod.output
+	testImplementation sourceSets.testmodClient.output
 }
 
 processResources {

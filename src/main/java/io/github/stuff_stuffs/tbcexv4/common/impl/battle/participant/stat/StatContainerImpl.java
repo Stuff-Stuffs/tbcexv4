@@ -8,6 +8,8 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatCon
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatModificationPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapshotParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.TopologicalSort;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.BasicParticipantEvents;
 import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap;
@@ -18,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class StatContainerImpl implements StatContainer {
+public class StatContainerImpl extends DeltaSnapshotParticipant<StatContainerImpl.Delta> implements StatContainer {
     private final BattleParticipant participant;
     private final Map<Stat<?>, SingleContainer<?>> containers;
 
@@ -28,7 +30,7 @@ public class StatContainerImpl implements StatContainer {
     }
 
     @Override
-    public <T> ModifierHandle addStateModifier(final Stat<T> stat, final Modifier<T> modifier, final StatModificationPhase phase, final BattleTracer.Span<?> tracer) {
+    public <T> ModifierHandle addStateModifier(final Stat<T> stat, final Modifier<T> modifier, final StatModificationPhase phase, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         if (participant.phase() == BattleParticipantPhase.FINISHED) {
             throw new RuntimeException();
         }
@@ -36,8 +38,9 @@ public class StatContainerImpl implements StatContainer {
         //noinspection unchecked
         final ModifierHandle handle = ((SingleContainer<T>) containers.computeIfAbsent(stat, SingleContainer::new)).addModifier(modifier, phase);
         final T newVal = get(stat);
-        try (final var span = tracer.push(new CoreBattleTraceEvents.AddParticipantStateModifier(participant.handle(), stat))) {
-            participant.events().invoker(BasicParticipantEvents.POST_ADD_MODIFIER_EVENT_KEY).onPostAddModifierEvent(participant, stat, oldVal, newVal, span);
+        delta(transactionContext, new Delta(handle));
+        try (final var span = tracer.push(new CoreBattleTraceEvents.AddParticipantStateModifier(participant.handle(), stat), transactionContext)) {
+            participant.events().invoker(BasicParticipantEvents.POST_ADD_MODIFIER_EVENT_KEY).onPostAddModifierEvent(participant, stat, oldVal, newVal, transactionContext, span);
         }
         return handle;
     }
@@ -47,6 +50,13 @@ public class StatContainerImpl implements StatContainer {
         //noinspection unchecked
         return ((SingleContainer<T>) containers.computeIfAbsent(stat, SingleContainer::new)).compute(new ModificationContext() {
         });
+    }
+
+    @Override
+    protected void revertDelta(final Delta delta) {
+        if (delta.handle.alive()) {
+            delta.handle.kill();
+        }
     }
 
     private static final class SingleContainer<T> {
@@ -117,5 +127,8 @@ public class StatContainerImpl implements StatContainer {
     }
 
     private record Entry<T>(Modifier<T> modifier, StatModificationPhase phase) {
+    }
+
+    public record Delta(ModifierHandle handle) {
     }
 }

@@ -13,6 +13,8 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleP
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapshotParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.BasicParticipantEvents;
@@ -22,7 +24,7 @@ import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
 
 import java.util.UUID;
 
-public class BattleParticipantImpl implements BattleParticipant {
+public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattleParticipantImpl.Delta> implements BattleParticipant {
     private final UUID id;
     private final EventMap events;
     private final BattleStateImpl battleState;
@@ -42,21 +44,29 @@ public class BattleParticipantImpl implements BattleParticipant {
         phase = BattleParticipantPhase.INIT;
         events().registerMut(BasicParticipantEvents.POST_ADD_MODIFIER_EVENT_KEY, new PostAddModifierEvent() {
             @Override
-            public <T> void onPostAddModifierEvent(final BattleParticipant participant, final Stat<T> stat, final T oldValue, final T newValue, final BattleTracer.Span<?> trace) {
+            public <T> void onPostAddModifierEvent(final BattleParticipant participant, final Stat<T> stat, final T oldValue, final T newValue, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> trace) {
                 if (participant.phase() == BattleParticipantPhase.BATTLE && stat == Tbcexv4Registries.Stats.MAX_HEALTH) {
                     if (((Double) newValue) <= 0.0001) {
-                        tryKill(trace);
+                        tryKill(transactionContext, trace);
                     }
                 }
             }
         });
     }
 
-    private void tryKill(final BattleTracer.Span<?> span) {
+    public void finish(final BattleTransactionContext context) {
+        if (phase == BattleParticipantPhase.FINISHED) {
+            throw new RuntimeException();
+        }
+        delta(context, new PhaseDelta(phase));
+        phase = BattleParticipantPhase.FINISHED;
+    }
+
+    private void tryKill(final BattleTransactionContext transactionContext, final BattleTracer.Span<?> span) {
         if (phase() == BattleParticipantPhase.FINISHED) {
             throw new RuntimeException();
         }
-        final Result<Unit, BattleState.RemoveParticipantError> result = battleState.removeParticipant(handle(), BattleState.RemoveParticipantReason.DEAD, span);
+        final Result<Unit, BattleState.RemoveParticipantError> result = battleState.removeParticipant(handle(), BattleState.RemoveParticipantReason.DEAD, transactionContext, span);
         if (result instanceof Result.Failure<Unit, BattleState.RemoveParticipantError>) {
             if (health() <= 0.0001) {
                 throw new RuntimeException();
@@ -117,7 +127,7 @@ public class BattleParticipantImpl implements BattleParticipant {
     }
 
     @Override
-    public Result<Unit, SetBoundsError> setBounds(final BattleParticipantBounds bounds, final BattleTracer.Span<?> tracer) {
+    public Result<Unit, SetBoundsError> setBounds(final BattleParticipantBounds bounds, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         battleState.ensureBattleOngoing();
         if (bounds.equals(this.bounds)) {
             return new Result.Success<>(Unit.INSTANCE);
@@ -125,19 +135,20 @@ public class BattleParticipantImpl implements BattleParticipant {
         if (!battleState.bounds().check(bounds, pos)) {
             return new Result.Failure<>(SetBoundsError.OUTSIDE_BATTLE);
         }
-        if (!events().invoker(BasicParticipantEvents.PRE_SET_BOUNDS_EVENT_KEY).onPreSetBoundsEvent(this, bounds, tracer)) {
+        if (!events().invoker(BasicParticipantEvents.PRE_SET_BOUNDS_EVENT_KEY).onPreSetBoundsEvent(this, bounds, transactionContext, tracer)) {
             return new Result.Failure<>(SetBoundsError.EVENT);
         }
         final BattleParticipantBounds old = this.bounds;
+        delta(transactionContext, new BoundsDelta(old));
         this.bounds = bounds;
-        try (final var span = tracer.push(new CoreBattleTraceEvents.SetParticipantBounds(old, bounds))) {
-            events().invoker(BasicParticipantEvents.POST_SET_BOUNDS_EVENT_KEY).onPostSetBoundsEvent(this, old, span);
+        try (final var span = tracer.push(new CoreBattleTraceEvents.SetParticipantBounds(old, bounds), transactionContext)) {
+            events().invoker(BasicParticipantEvents.POST_SET_BOUNDS_EVENT_KEY).onPostSetBoundsEvent(this, old, transactionContext, span);
         }
         return new Result.Success<>(Unit.INSTANCE);
     }
 
     @Override
-    public Result<Unit, SetPosError> setPos(final BattlePos pos, final BattleTracer.Span<?> tracer) {
+    public Result<Unit, SetPosError> setPos(final BattlePos pos, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         battleState.ensureBattleOngoing();
         if (pos.equals(this.pos)) {
             return new Result.Success<>(Unit.INSTANCE);
@@ -145,68 +156,109 @@ public class BattleParticipantImpl implements BattleParticipant {
         if (!battleState.bounds().check(bounds, pos)) {
             return new Result.Failure<>(SetPosError.OUTSIDE_BATTLE);
         }
-        if (!events().invoker(BasicParticipantEvents.PRE_SET_POS_EVENT_KEY).onPreSetPosEvent(this, pos, tracer)) {
+        if (!events().invoker(BasicParticipantEvents.PRE_SET_POS_EVENT_KEY).onPreSetPosEvent(this, pos, transactionContext, tracer)) {
             return new Result.Failure<>(SetPosError.EVENT);
         }
         final BattlePos oldPos = this.pos;
+        delta(transactionContext, new PosDelta(oldPos));
         this.pos = pos;
-        try (final var span = tracer.push(new CoreBattleTraceEvents.SetParticipantPos(oldPos, pos))) {
-            events().invoker(BasicParticipantEvents.POST_SET_POS_EVENT_KEY).onPostSetPosEvent(this, oldPos, span);
+        try (final var span = tracer.push(new CoreBattleTraceEvents.SetParticipantPos(oldPos, pos), transactionContext)) {
+            events().invoker(BasicParticipantEvents.POST_SET_POS_EVENT_KEY).onPostSetPosEvent(this, oldPos, transactionContext, span);
         }
         return new Result.Success<>(Unit.INSTANCE);
     }
 
     @Override
-    public double damage(final double amount, final BattleTracer.Span<?> tracer) {
+    public double damage(final double amount, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         battleState.ensureBattleOngoing();
-        final double modified = events().invoker(BasicParticipantEvents.PRE_DAMAGE_EVENT_KEY).onPreDamageEvent(this, amount, tracer);
+        final double modified = events().invoker(BasicParticipantEvents.PRE_DAMAGE_EVENT_KEY).onPreDamageEvent(this, amount, transactionContext, tracer);
         if (modified <= 0.0 || !Double.isFinite(modified)) {
             return 0.0;
         }
         final double oldHealth = health();
+        delta(transactionContext, new HealthDelta(oldHealth));
         health = Math.max(oldHealth - modified, 0.0);
         final double min = Math.min(oldHealth, modified);
-        try (final var span = tracer.push(new CoreBattleTraceEvents.DamageParticipant(handle(), min))) {
-            events().invoker(BasicParticipantEvents.POST_DAMAGE_EVENT_KEY).onPostDamageEvent(this, min, modified - min, span);
+        try (final var span = tracer.push(new CoreBattleTraceEvents.DamageParticipant(handle(), min), transactionContext)) {
+            events().invoker(BasicParticipantEvents.POST_DAMAGE_EVENT_KEY).onPostDamageEvent(this, min, modified - min, transactionContext, span);
         }
         if (health() <= 0) {
-            tryKill(tracer);
+            tryKill(transactionContext, tracer);
         }
         return min;
     }
 
     @Override
-    public double heal(final double amount, final BattleTracer.Span<?> tracer) {
+    public double heal(final double amount, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         battleState.ensureBattleOngoing();
-        final double modified = events().invoker(BasicParticipantEvents.PRE_HEAL_EVENT_KEY).onPreHealEvent(this, amount, tracer);
+        final double modified = events().invoker(BasicParticipantEvents.PRE_HEAL_EVENT_KEY).onPreHealEvent(this, amount, transactionContext, tracer);
         if (modified <= 0.0 || !Double.isFinite(modified)) {
             return 0.0;
         }
         final double oldHealth = health;
+        delta(transactionContext, new HealthDelta(oldHealth));
         health = Math.min(oldHealth + modified, stats().get(Tbcexv4Registries.Stats.MAX_HEALTH));
         final double overflow = Math.max(modified - (health - oldHealth), 0.0);
         final double healed = Math.max(health - oldHealth, 0.0);
-        try (final var span = tracer.push(new CoreBattleTraceEvents.HealParticipant(handle(), modified, overflow))) {
-            events().invoker(BasicParticipantEvents.POST_HEAL_EVENT_KEY).onPostHealEvent(this, healed, overflow, span);
+        try (final var span = tracer.push(new CoreBattleTraceEvents.HealParticipant(handle(), modified, overflow), transactionContext)) {
+            events().invoker(BasicParticipantEvents.POST_HEAL_EVENT_KEY).onPostHealEvent(this, healed, overflow, transactionContext, span);
         }
         return healed;
     }
 
     @Override
-    public double setHealth(final double amount, final BattleTracer.Span<?> tracer) {
+    public double setHealth(final double amount, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         battleState.ensureBattleOngoing();
-        final double modified = events().invoker(BasicParticipantEvents.PRE_SET_HEALTH_EVENT_KEY).onPreSetHealthEvent(this, amount, tracer);
+        final double modified = events().invoker(BasicParticipantEvents.PRE_SET_HEALTH_EVENT_KEY).onPreSetHealthEvent(this, amount, transactionContext, tracer);
         if (!Double.isFinite(modified)) {
             return health();
         }
         final double oldHealth = health();
+        delta(transactionContext, new HealthDelta(oldHealth));
         health = modified;
-        try (final var span = tracer.push(new CoreBattleTraceEvents.ParticipantSetHealth(handle(), oldHealth, health()))) {
-            events().invoker(BasicParticipantEvents.POST_SET_HEALTH_EVENT_KEY).onPostSetHealthEvent(this, oldHealth, span);
+        try (final var span = tracer.push(new CoreBattleTraceEvents.ParticipantSetHealth(handle(), oldHealth, health()), transactionContext)) {
+            events().invoker(BasicParticipantEvents.POST_SET_HEALTH_EVENT_KEY).onPostSetHealthEvent(this, oldHealth, transactionContext, span);
         }
-        if (health() <= 0) {
-            tryKill(tracer);
+        if (health() <= 0.0001) {
+            tryKill(transactionContext, tracer);
         }
         return health();
+    }
+
+    @Override
+    protected void revertDelta(final Delta delta) {
+        delta.apply(this);
+    }
+
+    public sealed interface Delta {
+        void apply(BattleParticipantImpl participant);
+    }
+
+    private record PhaseDelta(BattleParticipantPhase phase) implements Delta {
+        @Override
+        public void apply(final BattleParticipantImpl participant) {
+            participant.phase = phase;
+        }
+    }
+
+    private record HealthDelta(double health) implements Delta {
+        @Override
+        public void apply(final BattleParticipantImpl participant) {
+            participant.health = health;
+        }
+    }
+
+    private record PosDelta(BattlePos pos) implements Delta {
+        @Override
+        public void apply(final BattleParticipantImpl participant) {
+            participant.pos = pos;
+        }
+    }
+
+    private record BoundsDelta(BattleParticipantBounds bounds) implements Delta {
+        @Override
+        public void apply(final BattleParticipantImpl participant) {
+            participant.bounds = bounds;
+        }
     }
 }

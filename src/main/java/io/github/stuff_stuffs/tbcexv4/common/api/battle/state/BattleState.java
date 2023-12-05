@@ -10,11 +10,15 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleP
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 
 @EventViewable(viewClass = BattleStateView.class)
 public interface BattleState extends BattleStateView {
+    BattleTransactionManager transactionManager();
+
     @Override
     EventMap events();
 
@@ -24,18 +28,19 @@ public interface BattleState extends BattleStateView {
     @Override
     BattleParticipant participant(BattleParticipantHandle handle);
 
-    Result<Unit, RemoveParticipantError> removeParticipant(BattleParticipantHandle handle, RemoveParticipantReason reason, BattleTracer.Span<?> tracer);
+    Result<Unit, RemoveParticipantError> removeParticipant(BattleParticipantHandle handle, RemoveParticipantReason reason, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
-    Result<BattleParticipantHandle, AddParticipantError> addParticipant(BattleParticipantInitialState battleParticipant, BattleTracer.Span<?> tracer);
+    Result<BattleParticipantHandle, AddParticipantError> addParticipant(BattleParticipantInitialState battleParticipant, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
-    Result<Unit, SetBoundsError> setBounds(BattleBounds bounds, BattleTracer.Span<?> tracer);
+    Result<Unit, SetBoundsError> setBounds(BattleBounds bounds, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
-    Result<Unit, SetTeamRelationError> setRelation(BattleParticipantTeam first, BattleParticipantTeam second, BattleParticipantTeamRelation relation, BattleTracer.Span<?> tracer);
+    Result<Unit, SetTeamRelationError> setRelation(BattleParticipantTeam first, BattleParticipantTeam second, BattleParticipantTeamRelation relation, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
     enum AddParticipantError {
         OUT_OF_BOUNDS,
         ID_OVERLAP,
-        EVENT
+        EVENT,
+        UNKNOWN
     }
 
     enum SetBoundsError {
