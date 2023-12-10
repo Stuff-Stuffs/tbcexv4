@@ -1,7 +1,7 @@
 package io.github.stuff_stuffs.tbcexv4.common.mixin;
 
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
-import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattleServerWorld;
+import io.github.stuff_stuffs.tbcexv4.common.internal.world.ServerBattleWorld;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.ChunkSectionExtensions;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.world.HeightLimitView;
@@ -28,14 +28,14 @@ public class MixinChunkHolder {
 
     @Inject(method = "markForLightUpdate", at = @At("HEAD"), cancellable = true)
     private void hook(final LightType lightType, final int y, final CallbackInfo ci) {
-        if (world instanceof BattleServerWorld) {
+        if (world instanceof ServerBattleWorld) {
             ci.cancel();
         }
     }
 
     @Inject(method = "flushUpdates", at = @At("HEAD"))
     private void flushHook(final WorldChunk chunk, final CallbackInfo ci) {
-        if (chunk.getWorld() instanceof BattleServerWorld) {
+        if (chunk.getWorld() instanceof ServerBattleWorld) {
             final ChunkSection[] array = chunk.getSectionArray();
             boolean needsFlush = false;
             for (ChunkSection section : array) {

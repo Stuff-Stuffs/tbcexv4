@@ -7,6 +7,8 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantBounds;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantPhase;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachment;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatContainer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
@@ -21,20 +23,26 @@ import io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.BasicP
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.PostAddModifierEvent;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.stat.StatContainerImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattleParticipantImpl.Delta> implements BattleParticipant {
     private final UUID id;
     private final EventMap events;
     private final BattleStateImpl battleState;
     private final StatContainer stats;
+    private final Map<BattleParticipantAttachmentType<?>, BattleParticipantAttachment> attachments;
     private double health;
     private BattleParticipantBounds bounds;
     private BattlePos pos;
     private BattleParticipantPhase phase;
 
-    public BattleParticipantImpl(final UUID id, final EventMap events, final BattleStateImpl battleState, final BattleParticipantBounds bounds, final BattlePos pos) {
+    public BattleParticipantImpl(final UUID id, final EventMap events, final BattleStateImpl battleState, final Consumer<BattleParticipantAttachment.Builder> builder, final BattleParticipantBounds bounds, final BattlePos pos, final BattleTransactionContext transactionContext) {
         this.id = id;
         this.events = events;
         this.battleState = battleState;
@@ -42,6 +50,15 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
         this.pos = pos;
         stats = new StatContainerImpl(this);
         phase = BattleParticipantPhase.INIT;
+        attachments = new Reference2ObjectOpenHashMap<>();
+        builder.accept(new BattleParticipantAttachment.Builder() {
+            @Override
+            public <T extends BattleParticipantAttachment> void accept(final T value, final BattleParticipantAttachmentType<T> type) {
+                if (attachments.putIfAbsent(type, value) != null) {
+                    throw new RuntimeException();
+                }
+            }
+        });
         events().registerMut(BasicParticipantEvents.POST_ADD_MODIFIER_EVENT_KEY, new PostAddModifierEvent() {
             @Override
             public <T> void onPostAddModifierEvent(final BattleParticipant participant, final Stat<T> stat, final T oldValue, final T newValue, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> trace) {
@@ -51,7 +68,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
                     }
                 }
             }
-        });
+        }, transactionContext);
     }
 
     public void finish(final BattleTransactionContext context) {
@@ -104,6 +121,12 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
     @Override
     public double health() {
         return Math.min(health, stats().get(Tbcexv4Registries.Stats.MAX_HEALTH));
+    }
+
+    @Override
+    public <T extends BattleParticipantAttachment> Optional<T> attachment(final BattleParticipantAttachmentType<? extends T> type) {
+        //noinspection unchecked
+        return Optional.ofNullable((T) attachments.getOrDefault(type, null));
     }
 
     @Override
@@ -226,6 +249,12 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
     }
 
     @Override
+    public <T extends BattleParticipantAttachment> void setAttachment(final T value, final BattleParticipantAttachmentType<T> type, final BattleTransactionContext transactionContext) {
+        //noinspection unchecked
+        delta(transactionContext, new SetAttachmentDelta<>((T) attachments.put(type, value), type));
+    }
+
+    @Override
     protected void revertDelta(final Delta delta) {
         delta.apply(this);
     }
@@ -259,6 +288,18 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
         @Override
         public void apply(final BattleParticipantImpl participant) {
             participant.bounds = bounds;
+        }
+    }
+
+    private record SetAttachmentDelta<T extends BattleParticipantAttachment>(@Nullable T previous,
+                                                                             BattleParticipantAttachmentType<T> type) implements Delta {
+        @Override
+        public void apply(final BattleParticipantImpl participant) {
+            if (previous == null) {
+                participant.attachments.remove(type);
+            } else {
+                participant.attachments.put(type, previous);
+            }
         }
     }
 }

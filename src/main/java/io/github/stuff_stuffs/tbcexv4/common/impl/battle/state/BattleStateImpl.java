@@ -10,6 +10,8 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.attachment.BattleAttachment;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.attachment.BattleAttachmentType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
@@ -20,12 +22,15 @@ import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.BasicEvents;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.BattleParticipantImpl;
-import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.env.BattleEnvironmentImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.transaction.BattleTransactionManagerImpl;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 import java.util.Optional;
@@ -33,22 +38,26 @@ import java.util.Set;
 import java.util.UUID;
 
 public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.Delta> implements BattleState {
-    private final BattleEnvironmentImpl environment;
+    private final BattleEnvironment environment;
+    private final RegistryKey<World> sourceWorld;
     private final EventMap events;
     private final BattleView battle;
     private final BattleParticipantContainer participantContainer;
     private final EventMap.Builder participantEvents;
     private final BattleTransactionManager transactionManager;
+    private final Map<BattleAttachmentType<?>, BattleAttachment> attachments;
     private BattlePhase phase;
     private BattleBounds bounds;
 
-    public BattleStateImpl(final Battle battle, final EventMap.Builder builder, final EventMap.Builder participantEvents) {
-        environment = new BattleEnvironmentImpl(battle);
+    public BattleStateImpl(final Battle battle, final BattleEnvironment environment, final RegistryKey<World> sourceWorld, final EventMap.Builder builder, final EventMap.Builder participantEvents) {
+        this.environment = environment;
+        this.sourceWorld = sourceWorld;
         events = builder.build();
         this.battle = battle;
         this.participantEvents = participantEvents;
         participantContainer = new BattleParticipantContainer();
         transactionManager = new BattleTransactionManagerImpl();
+        attachments = new Reference2ObjectOpenHashMap<>();
         phase = BattlePhase.INIT;
         bounds = new BattleBounds(0, 0, 0, battle.xSize(), battle.ySize(), battle.zSize());
     }
@@ -75,6 +84,12 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
     @Override
     public BattleParticipant participant(final BattleParticipantHandle handle) {
         return participantContainer.participants.get(handle);
+    }
+
+    @Override
+    public <T extends BattleAttachment> Optional<T> attachment(final BattleAttachmentType<? extends T> type) {
+        //noinspection unchecked
+        return Optional.ofNullable((T) attachments.getOrDefault(type, null));
     }
 
     @Override
@@ -117,13 +132,13 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
         if (participantContainer.participants.containsKey(handle)) {
             return new Result.Failure<>(AddParticipantError.UNKNOWN);
         }
-        final BattleParticipantImpl participant = new BattleParticipantImpl(handle.id(), participantEvents.build(), this, bounds, pos);
+        delta(transactionContext, new AddParticipantDelta(handle));
+        final BattleParticipantImpl participant = new BattleParticipantImpl(handle.id(), participantEvents.build(), this, battleParticipant::addAttachments, bounds, pos, transactionContext);
         participantContainer.participants.put(participant.handle(), participant);
         participantContainer.teams.put(participant.handle(), battleParticipant.team());
         participantContainer.byTeam.computeIfAbsent(battleParticipant.team(), k -> new ObjectOpenHashSet<>()).add(participant.handle());
-        battleParticipant.initialize(this, participant);
+        battleParticipant.initialize(this, participant, transactionContext, tracer);
         participant.start();
-        delta(transactionContext, new AddParticipantDelta(handle));
         try (final var span = tracer.push(new CoreBattleTraceEvents.AddParticipant(participant.handle()), transactionContext)) {
             events().invoker(BasicEvents.POST_ADD_PARTICIPANT_EVENT_KEY).onPostAddParticipantEvent(this, participant, transactionContext, span);
         }
@@ -133,6 +148,11 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
     @Override
     public BattleTransactionManager transactionManager() {
         return transactionManager;
+    }
+
+    @Override
+    public RegistryKey<World> sourceWorld() {
+        return sourceWorld;
     }
 
     @Override
@@ -202,6 +222,12 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             events().invoker(BasicEvents.POST_SET_TEAM_RELATION_EVENT_KEY).onPostSetTeamRelationEvent(this, first, second, old, transactionContext, span);
         }
         return new Result.Success<>(Unit.INSTANCE);
+    }
+
+    @Override
+    public <T extends BattleAttachment> void setAttachment(final T value, final BattleAttachmentType<T> type, final BattleTransactionContext transactionContext) {
+        //noinspection unchecked
+        delta(transactionContext, new SetAttachmentDelta<>((T) attachments.put(type, value), type));
     }
 
     @Override
@@ -287,6 +313,18 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
         @Override
         public void apply(final BattleStateImpl state) {
             state.phase = phase;
+        }
+    }
+
+    private record SetAttachmentDelta<T extends BattleAttachment>(@Nullable T previous,
+                                                                  BattleAttachmentType<T> type) implements Delta {
+        @Override
+        public void apply(final BattleStateImpl state) {
+            if (previous == null) {
+                state.attachments.remove(type);
+            } else {
+                state.attachments.put(type, previous);
+            }
         }
     }
 }

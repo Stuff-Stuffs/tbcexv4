@@ -8,6 +8,8 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantInitialState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.attachment.BattleAttachment;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.attachment.BattleAttachmentType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
@@ -35,6 +37,8 @@ public interface BattleState extends BattleStateView {
     Result<Unit, SetBoundsError> setBounds(BattleBounds bounds, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
     Result<Unit, SetTeamRelationError> setRelation(BattleParticipantTeam first, BattleParticipantTeam second, BattleParticipantTeamRelation relation, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
+
+    <T extends BattleAttachment> void setAttachment(T value, BattleAttachmentType<T> type, BattleTransactionContext transactionContext);
 
     enum AddParticipantError {
         OUT_OF_BOUNDS,

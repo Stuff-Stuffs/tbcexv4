@@ -76,7 +76,8 @@ public class BattlePersistentState extends PersistentState {
         }
     }
 
-    public Optional<BlockPos> allocate(final int size, final BattleServerWorld world) {
+    public Optional<BlockPos> allocate(int size, final ServerBattleWorld world) {
+        size = (size + 15) & ~15;
         final Iterator<Range> iterator = openRanges.iterator();
         while (iterator.hasNext()) {
             final Range next = iterator.next();

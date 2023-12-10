@@ -7,6 +7,7 @@
     "MixinChunkSection",
     "MixinMinecraftServer",
     "MixinServerLightingProvider",
+    "MixinServerPlayerEntity",
     "MixinThreadedAnvilChunkStorage"
   ],
   "injectors": {

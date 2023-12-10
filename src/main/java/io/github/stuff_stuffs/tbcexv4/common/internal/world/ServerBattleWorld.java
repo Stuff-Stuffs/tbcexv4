@@ -1,5 +1,6 @@
 package io.github.stuff_stuffs.tbcexv4.common.internal.world;
 
+import io.github.stuff_stuffs.tbcexv4.common.internal.BattleManager;
 import net.minecraft.block.BlockState;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
@@ -14,15 +15,21 @@ import net.minecraft.world.level.storage.LevelStorage;
 import net.minecraft.world.spawner.SpecialSpawner;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
-public final class BattleServerWorld extends ServerWorld {
+public final class ServerBattleWorld extends ServerWorld {
+    private final BattleManager battleManager;
     private boolean modifiable = false;
 
-    public BattleServerWorld(final MinecraftServer server, final Executor workerExecutor, final LevelStorage.Session session, final ServerWorldProperties properties, final RegistryKey<World> worldKey, final DimensionOptions dimensionOptions, final WorldGenerationProgressListener worldGenerationProgressListener, final boolean debugWorld, final long seed, final List<SpecialSpawner> spawners, final boolean shouldTickTime, @Nullable final RandomSequencesState randomSequencesState) {
+    public ServerBattleWorld(final MinecraftServer server, final Executor workerExecutor, final LevelStorage.Session session, final ServerWorldProperties properties, final RegistryKey<World> worldKey, final DimensionOptions dimensionOptions, final WorldGenerationProgressListener worldGenerationProgressListener, final boolean debugWorld, final long seed, final List<SpecialSpawner> spawners, final boolean shouldTickTime, @Nullable final RandomSequencesState randomSequencesState) {
         super(server, workerExecutor, session, properties, worldKey, dimensionOptions, worldGenerationProgressListener, debugWorld, seed, spawners, shouldTickTime, randomSequencesState);
+        final Path directory = session.getDirectory().path().resolve("tbcexv4");
+        battleManager = new BattleManager(this, directory.resolve("battles"), directory.resolve("data"));
     }
 
     private void setModifiable(final boolean modifiable) {
@@ -38,7 +45,23 @@ public final class BattleServerWorld extends ServerWorld {
         }
     }
 
-    public void runAction(final Consumer<ServerWorld> consumer) {
+    @Override
+    public void tick(final BooleanSupplier shouldKeepTicking) {
+        super.tick(shouldKeepTicking);
+        battleManager.tick();
+    }
+
+    @Override
+    public void close() throws IOException {
+        battleManager.close();
+        super.close();
+    }
+
+    public BattleManager battleManager() {
+        return battleManager;
+    }
+
+    public void runAction(final Consumer<World> consumer) {
         setModifiable(true);
         consumer.accept(this);
         setModifiable(false);

@@ -9,9 +9,9 @@ public interface BattleTransactionContext {
 
     int depth();
 
-    BattleTransactionContext getOpenTransaction(int nestingDepth);
+    BattleTransactionContext outerTransaction();
 
-    BattleTransactionManager.Lifecycle lifecycle();
+    boolean closed();
 
     interface CloseCallback {
         void onClose(BattleTransactionContext context, TransactionContext.Result result);

@@ -2,7 +2,6 @@ package io.github.stuff_stuffs.tbcexv4.common.api.battle;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateView;
-import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattleServerWorld;
 
 public interface BattleView {
     BattleHandle handle();
@@ -14,8 +13,6 @@ public interface BattleView {
     BattleAction action(int index);
 
     BattlePhase phase();
-
-    BattleServerWorld world();
 
     int worldX(int localX);
 

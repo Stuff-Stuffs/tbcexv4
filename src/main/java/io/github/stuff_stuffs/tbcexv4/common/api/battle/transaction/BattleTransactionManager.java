@@ -4,9 +4,4 @@ public interface BattleTransactionManager {
     BattleTransaction open();
 
     boolean isOpen();
-
-    enum Lifecycle {
-        OPEN,
-        CLOSING
-    }
 }

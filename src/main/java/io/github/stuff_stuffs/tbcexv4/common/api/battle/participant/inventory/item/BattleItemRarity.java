@@ -9,20 +9,21 @@ import net.minecraft.text.Text;
 public interface BattleItemRarity {
     Codec<BattleItemRarity> CODEC = Tbcexv4Util.implCodec(BattleItemRarityImpl.CODEC, BattleItemRarityImpl.class);
 
-    RarityClass rarityClass();
-
-    double progressToNextClass();
+    RarityClass rarity();
 
     int level();
 
     Text asText();
 
-    static BattleItemRarity of(final RarityClass rarityClass, final double progress, final int level) {
-        return new BattleItemRarityImpl(rarityClass, progress, level);
+    default BattleItemRarity withLevel(final int level) {
+        if (level == level()) {
+            return this;
+        }
+        return of(rarity(), level);
     }
 
-    static BattleItemRarity of(double rarity, int level) {
-        return BattleItemRarityImpl.of(rarity, level);
+    static BattleItemRarity of(final RarityClass rarity, final int level) {
+        return new BattleItemRarityImpl(rarity, level);
     }
 
     enum RarityClass {

@@ -21,12 +21,20 @@ public class EquipmentSlotImpl implements EquipmentSlot {
 
     @Override
     public TagKey<EquipmentSlot> blockedBy() {
-        return TagKey.of(Tbcexv4Registries.EquipmentSlots.KEY, Tbcexv4.id("equipment_slots_blocked_by/" + permute(Tbcexv4Registries.EquipmentSlots.REGISTRY.getId(this))));
+        final Identifier id = Tbcexv4Registries.EquipmentSlots.REGISTRY.getId(this);
+        if (id == null) {
+            throw new RuntimeException("Null equipment slot id! Either unregistered or accessed to early!");
+        }
+        return TagKey.of(Tbcexv4Registries.EquipmentSlots.KEY, Tbcexv4.id("equipment_slots_blocked_by/" + permute(id)));
     }
 
     @Override
     public TagKey<EquipmentSlot> blocks() {
-        return TagKey.of(Tbcexv4Registries.EquipmentSlots.KEY, Tbcexv4.id("equipment_slots_blocks/" + permute(Tbcexv4Registries.EquipmentSlots.REGISTRY.getId(this))));
+        final Identifier id = Tbcexv4Registries.EquipmentSlots.REGISTRY.getId(this);
+        if (id == null) {
+            throw new RuntimeException("Null equipment slot id! Either unregistered or accessed to early!");
+        }
+        return TagKey.of(Tbcexv4Registries.EquipmentSlots.KEY, Tbcexv4.id("equipment_slots_blocks/" + permute(id)));
     }
 
     private static String permute(final Identifier id) {

@@ -6,12 +6,19 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.attachment.BattleAttachment;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.attachment.BattleAttachmentType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironmentView;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMapView;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.world.World;
 
+import java.util.Optional;
 import java.util.Set;
 
 public interface BattleStateView {
+    RegistryKey<World> sourceWorld();
+
     EventMapView events();
 
     BattleEnvironmentView environment();
@@ -27,4 +34,6 @@ public interface BattleStateView {
     Set<BattleParticipantHandle> participants(BattleParticipantTeam team);
 
     BattleParticipantView participant(BattleParticipantHandle handle);
+
+    <T extends BattleAttachment> Optional<T> attachment(BattleAttachmentType<? extends T> type);
 }

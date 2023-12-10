@@ -8,6 +8,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.BasicEvents;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.env.BasicEnvEvents;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.BasicParticipantEvents;
+import io.github.stuff_stuffs.tbcexv4.common.internal.network.Tbcexv4CommonNetwork;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattlePersistentState;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
@@ -55,9 +56,10 @@ public class Tbcexv4 implements ModInitializer {
                 addEvent(builder, key.key, key.factoryMethod);
             }
         });
+        Tbcexv4CommonNetwork.init();
     }
 
-    private static  <Mut, View> void addEvent(final EventMap.Builder builder, final EventKey<Mut, View> key, final MethodHandle handle) {
+    private static <Mut, View> void addEvent(final EventMap.Builder builder, final EventKey<Mut, View> key, final MethodHandle handle) {
         try {
             //noinspection unchecked
             builder.add(key, (EventKey.Factory<Mut, View>) handle.invoke());

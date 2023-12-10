@@ -3,6 +3,8 @@ package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant;
 import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.event_gen.api.event.gen.EventViewable;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachment;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatContainer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
@@ -30,6 +32,8 @@ public interface BattleParticipant extends BattleParticipantView {
     double heal(double amount, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
     double setHealth(double amount, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
+
+    <T extends BattleParticipantAttachment> void setAttachment(T value, BattleParticipantAttachmentType<T> type, BattleTransactionContext transactionContext);
 
     enum SetBoundsError {
         EVENT,

@@ -7,4 +7,8 @@ import java.util.UUID;
 
 public record BattleHandle(UUID id) {
     public static final Codec<BattleHandle> CODEC = Uuids.STRING_CODEC.xmap(BattleHandle::new, BattleHandle::id);
+
+    public String toFileName() {
+        return id.toString() + ".battle";
+    }
 }

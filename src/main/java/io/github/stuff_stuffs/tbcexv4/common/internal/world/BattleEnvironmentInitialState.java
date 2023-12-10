@@ -15,6 +15,7 @@ import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.ChunkSectionPos;
 import net.minecraft.world.LightType;
+import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.BiomeKeys;
 import net.minecraft.world.chunk.ChunkNibbleArray;
@@ -87,7 +88,7 @@ public class BattleEnvironmentInitialState {
         return depth;
     }
 
-    public void apply(final ServerWorld world, final int baseSectionX, final int baseSectionZ) {
+    public void apply(final World world, final int baseSectionX, final int baseSectionZ) {
         for (int i = 0; i < width; i++) {
             for (int k = 0; k < depth; k++) {
                 final WorldChunk chunk = world.getChunk(baseSectionX + i, baseSectionZ + k);
@@ -102,14 +103,21 @@ public class BattleEnvironmentInitialState {
         }
     }
 
-    private static final class ChunkSection {
+    public ChunkSection get(final int x, final int y, final int z) {
+        if (x < 0 || x >= width || y < 0 || y >= height || z < 0 || z >= depth) {
+            throw new RuntimeException();
+        }
+        return sections[x + width * (y + height * z)];
+    }
+
+    public static final class ChunkSection {
         private static final Codec<PalettedContainer<BlockState>> CODEC = PalettedContainer.createPalettedContainerCodec(
                 Block.STATE_IDS, BlockState.CODEC, PalettedContainer.PaletteProvider.BLOCK_STATE, Blocks.AIR.getDefaultState()
         );
-        private final PalettedContainer<BlockState> blockStates;
-        private final PalettedContainer<RegistryEntry<Biome>> biomes;
-        private final ChunkNibbleArray skyLight;
-        private final ChunkNibbleArray blockLight;
+        public final PalettedContainer<BlockState> blockStates;
+        public final PalettedContainer<RegistryEntry<Biome>> biomes;
+        public final ChunkNibbleArray skyLight;
+        public final ChunkNibbleArray blockLight;
 
         private ChunkSection(final net.minecraft.world.chunk.ChunkSection section, final ChunkSectionPos pos, final LightingProvider provider, final Registry<Biome> biomeRegistry) {
             if (section != null) {

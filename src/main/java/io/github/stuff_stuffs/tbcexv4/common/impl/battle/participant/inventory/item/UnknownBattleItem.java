@@ -72,6 +72,6 @@ public class UnknownBattleItem implements BattleItem {
 
     @Override
     public BattleItemRarity rarity() {
-        return BattleItemRarity.of(0.0, 0);
+        return BattleItemRarity.of(BattleItemRarity.RarityClass.JUNK, 0);
     }
 }

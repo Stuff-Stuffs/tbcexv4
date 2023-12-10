@@ -2,10 +2,12 @@ package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.util.Identifier;
+import net.minecraft.util.Uuids;
 
-public record BattleParticipantTeam(Identifier id) {
+import java.util.UUID;
+
+public record BattleParticipantTeam(UUID id) {
     public static final Codec<BattleParticipantTeam> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Identifier.CODEC.fieldOf("id").forGetter(BattleParticipantTeam::id)
+            Uuids.STRING_CODEC.fieldOf("id").forGetter(BattleParticipantTeam::id)
     ).apply(instance, BattleParticipantTeam::new));
 }

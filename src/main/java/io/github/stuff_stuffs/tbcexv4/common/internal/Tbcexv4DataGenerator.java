@@ -1,15 +1,20 @@
 package io.github.stuff_stuffs.tbcexv4.common.internal;
 
+import io.github.stuff_stuffs.event_gen.api.event.gen.EventComparisonInfo;
 import io.github.stuff_stuffs.event_gen.api.event.gen.EventInfo;
 import io.github.stuff_stuffs.event_gen.api.event.gen.EventKeyLocation;
 import io.github.stuff_stuffs.event_gen.api.event.gen.EventPackageLocation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleBounds;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.DamagePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantBounds;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantInitialState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.InventoryHandle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.Equipment;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.EquipmentSlot;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItem;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
@@ -86,6 +91,7 @@ public class Tbcexv4DataGenerator implements DataGeneratorEntrypoint {
         public abstract <T> void PostAddModifierEvent(BattleParticipant participant, Stat<T> stat, T oldValue, T newValue, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
 
         @EventInfo(defaultValue = "damage", combiner = "io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util.selectSecond")
+        @EventComparisonInfo(comparedType = DamagePhase.class, comparator = "io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries.DamagePhases.COMPARATOR")
         public abstract double PreDamageEvent(BattleParticipant participant, double damage, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
 
         @EventInfo()
@@ -102,17 +108,33 @@ public class Tbcexv4DataGenerator implements DataGeneratorEntrypoint {
 
         @EventInfo()
         public abstract void PostSetHealthEvent(BattleParticipant participant, double oldHealth, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+    }
 
+    @EventKeyLocation(location = "io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.ParticipantInventoryEvents")
+    @EventPackageLocation("io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.inventory")
+    public static abstract class InventoryEvents {
         @EventInfo(defaultValue = "true", combiner = "Boolean.logicalAnd")
-        public abstract boolean PreSetInventoryStack(BattleParticipant participant, InventoryHandle handle, Optional<BattleItemStack> newStack, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+        public abstract boolean PreSetStack(BattleParticipant participant, InventoryHandle handle, Optional<BattleItemStack> newStack, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
 
         @EventInfo()
-        public abstract void PostSetInventoryStack(BattleParticipant participant, InventoryHandle handle, Optional<BattleItemStack> oldStack, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+        public abstract void PostSetStack(BattleParticipant participant, InventoryHandle handle, Optional<BattleItemStack> oldStack, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
 
         @EventInfo(defaultValue = "true", combiner = "Boolean.logicalAnd")
-        public abstract boolean PreGiveInventoryStack(BattleParticipant participant, BattleItemStack newStack, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+        public abstract boolean PreGiveStack(BattleParticipant participant, BattleItemStack newStack, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
 
         @EventInfo()
-        public abstract void PostGiveInventoryStack(BattleParticipant participant, InventoryHandle handle, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+        public abstract void PostGiveStack(BattleParticipant participant, InventoryHandle handle, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+
+        @EventInfo(defaultValue = "true", combiner = "Boolean.logicalAnd")
+        public abstract boolean PreUnequip(BattleParticipant participant, Equipment equipment, BattleItem item, EquipmentSlot slot, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+
+        @EventInfo()
+        public abstract void PostUnequip(BattleParticipant participant, Equipment equipment, BattleItem item, EquipmentSlot slot, InventoryHandle handle, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+
+        @EventInfo(defaultValue = "true", combiner = "Boolean.logicalAnd")
+        public abstract boolean PreEquip(BattleParticipant participant, Equipment equipment, BattleItem item, EquipmentSlot slot, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
+
+        @EventInfo()
+        public abstract void PostEquip(BattleParticipant participant, Equipment equipment, BattleItem item, EquipmentSlot slot, BattleTransactionContext transactionContext, BattleTracer.Span<?> span);
     }
 }

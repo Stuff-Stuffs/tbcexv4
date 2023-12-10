@@ -13,7 +13,7 @@ import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
 import java.util.function.Function;
 
 public class StartBattleAction implements BattleAction {
-    public static final Function<BattleCodecContext, Codec<StartBattleAction>> CODEC_FACTORY = context -> Codec.unit(new StartBattleAction());
+    public static final Function<BattleCodecContext, Codec<StartBattleAction>> CODEC_FACTORY = context -> Codec.unit(StartBattleAction::new);
 
     @Override
     public BattleActionType<?> type() {
