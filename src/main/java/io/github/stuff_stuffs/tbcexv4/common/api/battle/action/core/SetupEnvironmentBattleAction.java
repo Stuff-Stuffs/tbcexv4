@@ -3,11 +3,11 @@ package io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core;
 import com.mojang.serialization.Codec;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.env.ServerBattleEnvironmentImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4ClientDelegates;
@@ -30,15 +30,19 @@ public class SetupEnvironmentBattleAction implements BattleAction {
     }
 
     @Override
-    public void apply(final BattleState state, final BattleTracer tracer) {
-        final BattleView battle = ((ServerBattleEnvironmentImpl) state.environment()).battle();
+    public void apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer) {
         //INTERNALS AHEAD
-        if (battle instanceof ServerBattleImpl server) {
+        if (state.environment() instanceof ServerBattleEnvironmentImpl environment && environment.battle() instanceof ServerBattleImpl server) {
             server.world().runAction(world -> {
-                this.state.apply(world, ChunkSectionPos.getSectionCoord(battle.worldX(0)), ChunkSectionPos.getSectionCoord(battle.worldZ(0)));
+                this.state.apply(world, ChunkSectionPos.getSectionCoord(environment.battle().worldX(0)), ChunkSectionPos.getSectionCoord(environment.battle().worldZ(0)));
             });
         } else {
             Tbcexv4ClientDelegates.SETUP_CLIENT_ENV_DELEGATE.accept(this.state, state.environment());
         }
+        transactionContext.addCloseCallback((context, result) -> {
+            if (result.wasAborted()) {
+                throw new RuntimeException("Tried to revert a setup action, this should be impossible!");
+            }
+        });
     }
 }

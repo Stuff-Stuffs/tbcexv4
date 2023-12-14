@@ -21,8 +21,10 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapsho
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.BasicEvents;
+import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.BattleParticipantImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.transaction.BattleTransactionManagerImpl;
+import io.github.stuff_stuffs.tbcexv4.common.internal.BattleManager;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
@@ -131,6 +133,10 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
         }
         if (participantContainer.participants.containsKey(handle)) {
             return new Result.Failure<>(AddParticipantError.UNKNOWN);
+        }
+        if (battle instanceof ServerBattleImpl serverBattle) {
+            final BattleManager manager = serverBattle.world().battleManager();
+            manager.addBattle(handle.id(), battle.handle());
         }
         delta(transactionContext, new AddParticipantDelta(handle));
         final BattleParticipantImpl participant = new BattleParticipantImpl(handle.id(), participantEvents.build(), this, battleParticipant::addAttachments, bounds, pos, transactionContext);
@@ -297,6 +303,10 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
         @Override
         public void apply(final BattleStateImpl state) {
             state.participantContainer.remove(handle);
+            if (state.battle instanceof ServerBattleImpl serverBattle) {
+                final BattleManager manager = serverBattle.world().battleManager();
+                manager.removeBattle(handle.id(), state.battle.handle());
+            }
         }
     }
 
@@ -306,12 +316,27 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             state.participantContainer.participants.put(participant.handle(), participant);
             state.participantContainer.teams.put(participant.handle(), participant.team());
             state.participantContainer.byTeam.computeIfAbsent(participant.team(), k -> new ObjectOpenHashSet<>()).add(participant.handle());
+            if (state.battle instanceof ServerBattleImpl serverBattle) {
+                final BattleManager manager = serverBattle.world().battleManager();
+                manager.addBattle(participant.handle().id(), state.battle.handle());
+            }
         }
     }
 
     private record PhaseDelta(BattlePhase phase) implements Delta {
         @Override
         public void apply(final BattleStateImpl state) {
+            if (state.battle instanceof ServerBattleImpl serverBattle) {
+                if (state.phase == BattlePhase.FINISHED) {
+                    for (final BattleParticipantHandle handle : state.participants()) {
+                        serverBattle.world().battleManager().unresolveBattle(handle.id(), state.battle.handle());
+                    }
+                } else if (phase == BattlePhase.FINISHED) {
+                    for (final BattleParticipantHandle handle : state.participants()) {
+                        serverBattle.world().battleManager().resolveBattle(handle.id(), state.battle.handle());
+                    }
+                }
+            }
             state.phase = phase;
         }
     }

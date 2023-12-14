@@ -19,11 +19,20 @@ public class MixinChunkSection implements ChunkSectionExtensions {
     @Shadow
     private ReadableContainer<RegistryEntry<Biome>> biomeContainer;
 
+    @Shadow
+    private short nonEmptyBlockCount;
+    @Shadow
+    private short randomTickableBlockCount;
+    @Shadow
+    private short nonEmptyFluidCount;
     @Unique
     private boolean tbcexv4$needsFlush;
 
     @Override
-    public void tbcexv4$copy(final PalettedContainer<BlockState> blocks, final ReadableContainer<RegistryEntry<Biome>> biomes) {
+    public void tbcexv4$copy(final short nonEmptyBlockCount, final short randomTickableCount, final short nonEmptyFluidCount, final PalettedContainer<BlockState> blocks, final ReadableContainer<RegistryEntry<Biome>> biomes) {
+        this.nonEmptyBlockCount = nonEmptyBlockCount;
+        randomTickableBlockCount = randomTickableCount;
+        this.nonEmptyFluidCount = nonEmptyFluidCount;
         blockStateContainer = blocks.copy();
         biomeContainer = biomes;
     }

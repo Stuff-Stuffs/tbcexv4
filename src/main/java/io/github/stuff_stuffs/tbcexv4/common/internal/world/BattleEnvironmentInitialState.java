@@ -3,6 +3,7 @@ package io.github.stuff_stuffs.tbcexv4.common.internal.world;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.*;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
+import io.github.stuff_stuffs.tbcexv4.common.mixin.AccessorChunkSection;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -14,14 +15,11 @@ import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.ChunkSectionPos;
-import net.minecraft.world.LightType;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.BiomeKeys;
-import net.minecraft.world.chunk.ChunkNibbleArray;
 import net.minecraft.world.chunk.PalettedContainer;
 import net.minecraft.world.chunk.WorldChunk;
-import net.minecraft.world.chunk.light.LightingProvider;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,9 +40,9 @@ public class BattleEnvironmentInitialState {
         final int maxY = Math.max(lower.getSectionY(), upper.getSectionY());
         final int maxZ = Math.max(lower.getSectionZ(), upper.getSectionZ());
 
-        final int width = maxX - minX;
-        final int height = maxY - minY;
-        final int depth = maxZ - minZ;
+        final int width = maxX - minX + 1;
+        final int height = maxY - minY + 1;
+        final int depth = maxZ - minZ + 1;
         final ChunkSection[] sections = new ChunkSection[width * height * depth];
         for (int i = 0; i < width; i++) {
             for (int k = 0; k < depth; k++) {
@@ -52,13 +50,11 @@ public class BattleEnvironmentInitialState {
                 for (int j = 0; j < height; j++) {
                     final int index = i + width * (j + height * k);
                     final Registry<Biome> registry = world.getRegistryManager().get(RegistryKeys.BIOME);
-                    final LightingProvider lightingProvider = world.getLightingProvider();
-                    final ChunkSectionPos sectionPos = ChunkSectionPos.from(i + minX, j + minY, k + minZ);
                     if (j + minY < world.getBottomSectionCoord() || j + minY >= world.getTopSectionCoord()) {
-                        sections[index] = new ChunkSection(null, sectionPos, lightingProvider, registry);
+                        sections[index] = new ChunkSection(null, registry);
                     } else {
                         final int sectionIndex = world.sectionCoordToIndex(j + minY);
-                        sections[index] = new ChunkSection(chunk.getSection(sectionIndex), sectionPos, lightingProvider, registry);
+                        sections[index] = new ChunkSection(chunk.getSection(sectionIndex), registry);
                     }
                 }
             }
@@ -94,11 +90,11 @@ public class BattleEnvironmentInitialState {
                 final WorldChunk chunk = world.getChunk(baseSectionX + i, baseSectionZ + k);
                 for (int j = 0; j < height; j++) {
                     final ChunkSection section = sections[i + width * (j + height * k)];
-                    ((ChunkSectionExtensions) chunk.getSection(j)).tbcexv4$copy(section.blockStates, section.biomes);
-                    final ChunkSectionPos pos = ChunkSectionPos.from(baseSectionX + i, j, baseSectionZ + k);
-                    world.getLightingProvider().enqueueSectionData(LightType.BLOCK, pos, section.blockLight.copy());
-                    world.getLightingProvider().enqueueSectionData(LightType.SKY, pos, section.skyLight.copy());
+                    final ChunkSectionExtensions chunkSection = (ChunkSectionExtensions) chunk.getSection(j);
+                    chunkSection.tbcexv4$copy(section.nonEmptyBlockCount, section.randomTickableCount, section.nonEmptyFluidCount, section.blockStates, section.biomes);
+                    chunkSection.tbcexv4$setNeedsFlush();
                 }
+                chunk.setNeedsSaving(true);
             }
         }
     }
@@ -114,40 +110,40 @@ public class BattleEnvironmentInitialState {
         private static final Codec<PalettedContainer<BlockState>> CODEC = PalettedContainer.createPalettedContainerCodec(
                 Block.STATE_IDS, BlockState.CODEC, PalettedContainer.PaletteProvider.BLOCK_STATE, Blocks.AIR.getDefaultState()
         );
+        public final short nonEmptyBlockCount;
+        public final short randomTickableCount;
+        public final short nonEmptyFluidCount;
         public final PalettedContainer<BlockState> blockStates;
         public final PalettedContainer<RegistryEntry<Biome>> biomes;
-        public final ChunkNibbleArray skyLight;
-        public final ChunkNibbleArray blockLight;
 
-        private ChunkSection(final net.minecraft.world.chunk.ChunkSection section, final ChunkSectionPos pos, final LightingProvider provider, final Registry<Biome> biomeRegistry) {
+        private ChunkSection(final net.minecraft.world.chunk.ChunkSection section, final Registry<Biome> biomeRegistry) {
             if (section != null) {
+                nonEmptyBlockCount = ((AccessorChunkSection) section).getNonEmptyBlockCount();
+                randomTickableCount = ((AccessorChunkSection) section).getRandomTickableBlockCount();
+                nonEmptyFluidCount = ((AccessorChunkSection) section).getNonEmptyFluidCount();
                 blockStates = section.getBlockStateContainer().copy();
                 biomes = ((PalettedContainer<RegistryEntry<Biome>>) section.getBiomeContainer()).copy();
-                final ChunkNibbleArray skyLightSection = provider.get(LightType.SKY).getLightSection(pos);
-                skyLight = skyLightSection != null ? skyLightSection.copy() : new ChunkNibbleArray(15);
-                final ChunkNibbleArray blockLightSection = provider.get(LightType.BLOCK).getLightSection(pos);
-                blockLight = blockLightSection != null ? blockLightSection.copy() : new ChunkNibbleArray(15);
             } else {
+                nonEmptyBlockCount = 0;
+                randomTickableCount = 0;
+                nonEmptyFluidCount = 0;
                 blockStates = new PalettedContainer<>(Block.STATE_IDS, Blocks.AIR.getDefaultState(), PalettedContainer.PaletteProvider.BLOCK_STATE);
                 biomes = new PalettedContainer<>(biomeRegistry.getIndexedEntries(), biomeRegistry.entryOf(BiomeKeys.PLAINS), PalettedContainer.PaletteProvider.BIOME);
-                skyLight = new ChunkNibbleArray(15);
-                blockLight = new ChunkNibbleArray(15);
             }
         }
 
-        private ChunkSection(final PalettedContainer<BlockState> blockStates, final PalettedContainer<RegistryEntry<Biome>> biomes, final ChunkNibbleArray skyLight, final ChunkNibbleArray blockLight) {
+        private ChunkSection(final short nonEmptyBlockCount, final short randomTickableCount, final short nonEmptyFluidCount, final PalettedContainer<BlockState> blockStates, final PalettedContainer<RegistryEntry<Biome>> biomes) {
+            this.nonEmptyBlockCount = nonEmptyBlockCount;
+            this.randomTickableCount = randomTickableCount;
+            this.nonEmptyFluidCount = nonEmptyFluidCount;
             this.blockStates = blockStates;
             this.biomes = biomes;
-            this.skyLight = skyLight;
-            this.blockLight = blockLight;
         }
 
         private NbtCompound serialize(final Registry<Biome> biomeRegistry) {
             final NbtCompound nbt = new NbtCompound();
             nbt.put("blocks", CODEC.encodeStart(NbtOps.INSTANCE, blockStates).getOrThrow(false, Tbcexv4.LOGGER::error));
             nbt.put("biomes", createBiomeCodec(biomeRegistry).encodeStart(NbtOps.INSTANCE, biomes).getOrThrow(false, Tbcexv4.LOGGER::error));
-            nbt.putByteArray("skyLight", skyLight.asByteArray());
-            nbt.putByteArray("blockLight", blockLight.asByteArray());
             return nbt;
         }
 
@@ -157,10 +153,11 @@ public class BattleEnvironmentInitialState {
                 final DataResult<PalettedContainer<RegistryEntry<Biome>>> biomesRes = createBiomeCodec(biomeRegistry).parse(NbtOps.INSTANCE, nbt.get("biomes"));
                 return biomesRes.flatMap(biomeContainer -> DataResult.success(
                         new ChunkSection(
+                                nbt.getShort("nonEmptyBlock"),
+                                nbt.getShort("randomTickable"),
+                                nbt.getShort("nonEmptyFluid"),
                                 blockContainer,
-                                biomeContainer,
-                                new ChunkNibbleArray(nbt.getByteArray("skyLight")),
-                                new ChunkNibbleArray(nbt.getByteArray("blockLight"))
+                                biomeContainer
                         )
                 ));
             });

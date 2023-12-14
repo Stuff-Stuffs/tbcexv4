@@ -7,7 +7,7 @@ import net.minecraft.world.chunk.PalettedContainer;
 import net.minecraft.world.chunk.ReadableContainer;
 
 public interface ChunkSectionExtensions {
-    void tbcexv4$copy(PalettedContainer<BlockState> blocks, ReadableContainer<RegistryEntry<Biome>> biomes);
+    void tbcexv4$copy(short nonEmptyBlockCount, short randomTickableCount, short nonEmptyFluidCount, PalettedContainer<BlockState> blocks, ReadableContainer<RegistryEntry<Biome>> biomes);
 
     void tbcexv4$setNeedsFlush();
 

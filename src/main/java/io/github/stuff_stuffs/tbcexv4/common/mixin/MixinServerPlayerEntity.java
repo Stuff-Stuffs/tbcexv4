@@ -14,6 +14,8 @@ import java.util.Objects;
 public class MixinServerPlayerEntity implements ServerPlayerExtensions {
     @Unique
     private @Nullable BattleHandle tbcev4$watching = null;
+    @Unique
+    private int tbcexv4$watchIndex = -1;
 
     @Override
     public @Nullable BattleHandle tbcexv4$watching() {
@@ -24,8 +26,21 @@ public class MixinServerPlayerEntity implements ServerPlayerExtensions {
     public void tbcev4$setWatching(@Nullable final BattleHandle handle) {
         @Nullable final BattleHandle prev = tbcev4$watching;
         tbcev4$watching = handle;
+        if(handle==null) {
+            tbcexv4$watchIndex = 0;
+        }
         if (!Objects.equals(prev, handle)) {
             Tbcexv4InternalEvents.BATTLE_WATCH_EVENT.invoker().onWatch(prev, handle, (ServerPlayerEntity) (Object) this);
         }
+    }
+
+    @Override
+    public int tbcexv4$watchIndex() {
+        return tbcexv4$watchIndex;
+    }
+
+    @Override
+    public void tbcexv4$setWatchIndex(final int index) {
+        tbcexv4$watchIndex = index;
     }
 }

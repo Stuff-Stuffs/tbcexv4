@@ -25,6 +25,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransa
 import net.fabricmc.fabric.api.datagen.v1.DataGeneratorEntrypoint;
 import net.fabricmc.fabric.api.datagen.v1.FabricDataGenerator;
 import net.minecraft.block.BlockState;
+import net.minecraft.world.biome.Biome;
 
 import java.util.Optional;
 
@@ -70,6 +71,12 @@ public class Tbcexv4DataGenerator implements DataGeneratorEntrypoint {
 
         @EventInfo()
         public abstract void PostSetBlockStateEvent(BattleState state, int x, int y, int z, BlockState oldState, BattleTransactionContext transactionContext, BattleTracer.Span<?> span);
+
+        @EventInfo(defaultValue = "true", combiner = "Boolean.logicalAnd")
+        public abstract boolean PreSetBiome(BattleState state, int x, int y, int z, Biome oldBiome, Biome newBiome, BattleTransactionContext transactionContext, BattleTracer.Span<?> span);
+
+        @EventInfo()
+        public abstract void PostSetBiome(BattleState state, int x, int y, int z, Biome oldBiome, Biome newBiome, BattleTransactionContext transactionContext, BattleTracer.Span<?> span);
     }
 
     @EventKeyLocation(location = "io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.BasicParticipantEvents")

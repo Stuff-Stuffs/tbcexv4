@@ -20,18 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class MixinChunkHolder {
     @Shadow
     @Final
-    private HeightLimitView world;
-
-    @Shadow
-    @Final
     private LightingProvider lightingProvider;
-
-    @Inject(method = "markForLightUpdate", at = @At("HEAD"), cancellable = true)
-    private void hook(final LightType lightType, final int y, final CallbackInfo ci) {
-        if (world instanceof ServerBattleWorld) {
-            ci.cancel();
-        }
-    }
 
     @Inject(method = "flushUpdates", at = @At("HEAD"))
     private void flushHook(final WorldChunk chunk, final CallbackInfo ci) {

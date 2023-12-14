@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(ThreadedAnvilChunkStorage.class)
-public interface MixinThreadedAnvilChunkStorage {
+public interface AccessorThreadedAnvilChunkStorage {
     @Accessor(value = "world")
-    ServerWorld tbcexv4$world();
+    ServerWorld getWorld();
 }

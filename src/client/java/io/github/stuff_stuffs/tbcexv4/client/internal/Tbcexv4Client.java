@@ -2,6 +2,7 @@ package io.github.stuff_stuffs.tbcexv4.client.internal;
 
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.ClientBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.state.env.ClientBattleEnvironmentImpl;
+import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BattleUiComponents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
@@ -10,17 +11,24 @@ import io.github.stuff_stuffs.tbcexv4.common.internal.network.Tbcexv4CommonNetwo
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.WatchRequestPacket;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.WatchRequestResponsePacket;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattleEnvironmentInitialState;
+import io.wispforest.owo.ui.core.ParentComponent;
+import io.wispforest.owo.ui.layers.Layers;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.nbt.NbtOps;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.Optional;
+import java.util.Set;
 
 public class Tbcexv4Client implements ClientModInitializer {
-    public static @Nullable BattleHandle WATCHING = null;
+    private static @Nullable BattleHandle WATCHING = null;
     private static @Nullable ClientBattleImpl WATCHED_BATTLE = null;
+    private static final Set<BattleHandle> POSSIBLE_CONTROLLING = new ObjectOpenHashSet<>();
 
     @Override
     public void onInitializeClient() {
@@ -29,9 +37,14 @@ public class Tbcexv4Client implements ClientModInitializer {
             WATCHING = packet.handle();
             final WatchRequestResponsePacket.Info info = packet.info();
             if (info == null) {
-                throw new RuntimeException();
+                WATCHED_BATTLE = null;
+            } else {
+                WATCHED_BATTLE = new ClientBattleImpl(player.clientWorld, packet.handle(), info.sourceWorld(), info.min(), info.xSize(), info.ySize(), info.zSize());
             }
-            WATCHED_BATTLE = new ClientBattleImpl(player.clientWorld, packet.handle(), info.sourceWorld(), info.min(), info.xSize(), info.ySize(), info.zSize());
+        });
+        ClientPlayNetworking.registerGlobalReceiver(Tbcexv4CommonNetwork.CONTROLLING_BATTLE_UPDATE_PACKET_TYPE, (packet, player, responseSender) -> {
+            POSSIBLE_CONTROLLING.clear();
+            POSSIBLE_CONTROLLING.addAll(packet.handles());
         });
         Tbcexv4ClientDelegates.SETUP_CLIENT_ENV_DELEGATE = (state, environment) -> {
             final int width = state.width();
@@ -62,7 +75,23 @@ public class Tbcexv4Client implements ClientModInitializer {
                 WATCHED_BATTLE.pushAction(result.get());
             }
         });
+        Layers.add((hSizing, vSizing) -> {
+            final ParentComponent component = BattleUiComponents.createSelectBattleComponent();
+            component.sizing(hSizing, vSizing);
+            component.id("root");
+            return component;
+        }, instance -> {
+            instance.aggressivePositioning = true;
+            instance.alignComponentToHandledScreenCoordinates(instance.adapter.rootComponent, 10, 10);
+        }, InventoryScreen.class);
+    }
 
+    public static Set<BattleHandle> possibleControlling() {
+        return Collections.unmodifiableSet(POSSIBLE_CONTROLLING);
+    }
+
+    public static @Nullable BattleHandle watching() {
+        return WATCHING;
     }
 
     public static void requestWatching(@Nullable final BattleHandle handle) {

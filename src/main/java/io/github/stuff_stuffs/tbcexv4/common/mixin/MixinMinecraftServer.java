@@ -2,30 +2,65 @@ package io.github.stuff_stuffs.tbcexv4.common.mixin;
 
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.ServerBattleWorld;
+import io.github.stuff_stuffs.tbcexv4.common.internal.world.VoidChunkGenerator;
+import net.minecraft.registry.CombinedDynamicRegistries;
 import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.ServerDynamicRegistryType;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.WorldGenerationProgressListener;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.random.RandomSequencesState;
+import net.minecraft.world.SaveProperties;
 import net.minecraft.world.World;
+import net.minecraft.world.biome.BiomeKeys;
+import net.minecraft.world.biome.source.FixedBiomeSource;
 import net.minecraft.world.dimension.DimensionOptions;
-import net.minecraft.world.level.ServerWorldProperties;
+import net.minecraft.world.gen.chunk.ChunkGenerator;
+import net.minecraft.world.level.UnmodifiableLevelProperties;
 import net.minecraft.world.level.storage.LevelStorage;
-import net.minecraft.world.spawner.SpecialSpawner;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 @Mixin(MinecraftServer.class)
-public class MixinMinecraftServer {
-    @Redirect(method = "createWorlds", at = @At(value = "NEW", target = "Lnet/minecraft/server/world/ServerWorld;<init>(Lnet/minecraft/server/MinecraftServer;Ljava/util/concurrent/Executor;Lnet/minecraft/world/level/storage/LevelStorage$Session;Lnet/minecraft/world/level/ServerWorldProperties;Lnet/minecraft/registry/RegistryKey;Lnet/minecraft/world/dimension/DimensionOptions;Lnet/minecraft/server/WorldGenerationProgressListener;ZJLjava/util/List;ZLnet/minecraft/util/math/random/RandomSequencesState;)V"))
-    private ServerWorld hook(final MinecraftServer server, final Executor workerExecutor, final LevelStorage.Session session, final ServerWorldProperties properties, final RegistryKey<World> worldKey, final DimensionOptions dimensionOptions, final WorldGenerationProgressListener worldGenerationProgressListener, final boolean debugWorld, final long seed, final List<SpecialSpawner> spawners, final boolean shouldTickTime, final RandomSequencesState randomSequencesState) {
-        if (worldKey.equals(Tbcexv4.BATTLE_WORLD_KEY)) {
-            return new ServerBattleWorld(server, workerExecutor, session, properties, worldKey, dimensionOptions, worldGenerationProgressListener, debugWorld, seed, spawners, shouldTickTime, randomSequencesState);
+public abstract class MixinMinecraftServer {
+    @Shadow
+    @Final
+    private Map<RegistryKey<World>, ServerWorld> worlds;
+
+    @Shadow
+    @Final
+    private Executor workerExecutor;
+
+    @Shadow
+    @Final
+    protected LevelStorage.Session session;
+
+    @Shadow
+    @Final
+    protected SaveProperties saveProperties;
+
+    @Shadow
+    public abstract ServerWorld getOverworld();
+
+    @Shadow
+    public abstract CombinedDynamicRegistries<ServerDynamicRegistryType> getCombinedDynamicRegistries();
+
+    @Inject(method = "createWorlds", at = @At("RETURN"))
+    private void createBattleWorlds(final WorldGenerationProgressListener worldGenerationProgressListener, final CallbackInfo ci) {
+        final UnmodifiableLevelProperties unmodifiableLevelProperties = new UnmodifiableLevelProperties(saveProperties, saveProperties.getMainWorldProperties());
+        final ServerWorld overworld = getOverworld();
+        final ChunkGenerator generator = new VoidChunkGenerator(new FixedBiomeSource(getCombinedDynamicRegistries().getCombinedRegistryManager().get(RegistryKeys.BIOME).getEntry(BiomeKeys.PLAINS).get()));
+        for (final Map.Entry<RegistryKey<World>, ServerWorld> entry : worlds.entrySet().stream().toList()) {
+            final RegistryKey<World> key = Tbcexv4.battleWorldKey(entry.getKey());
+            worlds.put(key, new ServerBattleWorld((MinecraftServer) (Object) this, workerExecutor, session, unmodifiableLevelProperties, key, new DimensionOptions(entry.getValue().getDimensionEntry(), generator), worldGenerationProgressListener, false, 0, List.of(), false, overworld.getRandomSequences()));
         }
-        return new ServerWorld(server, workerExecutor, session, properties, worldKey, dimensionOptions, worldGenerationProgressListener, debugWorld, seed, spawners, shouldTickTime, randomSequencesState);
     }
 }

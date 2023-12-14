@@ -1,5 +1,9 @@
 package io.github.stuff_stuffs.tbcexv4.common.internal.world;
 
+import com.mojang.datafixers.util.Pair;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util;
 import it.unimi.dsi.fastutil.objects.ObjectAVLTreeSet;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
@@ -17,10 +21,10 @@ public class BattlePersistentState extends PersistentState {
 
     public BattlePersistentState() {
         this(new ObjectAVLTreeSet<>(Range.COMPARATOR), new ObjectAVLTreeSet<>(Range.COMPARATOR));
-        openRanges.add(new Range(-100_000, 100_000));
+        openRanges.add(new Range(0, (30_000_000 + 15) / 16));
     }
 
-    public BattlePersistentState(final ObjectAVLTreeSet<Range> openRanges, final ObjectAVLTreeSet<Range> closedRanges) {
+    private BattlePersistentState(final ObjectAVLTreeSet<Range> openRanges, final ObjectAVLTreeSet<Range> closedRanges) {
         this.openRanges = openRanges;
         this.closedRanges = closedRanges;
     }
@@ -38,12 +42,13 @@ public class BattlePersistentState extends PersistentState {
         }
     }
 
-    public void deallocate(final BlockPos pos, final int size) {
-        final Range range = new Range(pos.getX(), pos.getX() + size);
+    public void deallocate(final Token token) {
+        final TokenImpl casted = (TokenImpl) token;
+        final Range range = new Range(casted.start, casted.end);
         if (closedRanges.remove(range)) {
-            openRanges.add(range);
             merge(range);
         }
+        markDirty();
     }
 
     private void merge(Range range) {
@@ -54,7 +59,6 @@ public class BattlePersistentState extends PersistentState {
                 if (last.end >= range.start) {
                     openRanges.remove(last);
                     range = new Range(last.start, Math.max(last.end, range.end));
-                    openRanges.add(range);
                     continue;
                 }
             }
@@ -62,22 +66,21 @@ public class BattlePersistentState extends PersistentState {
         }
         while (true) {
             final SortedSet<Range> tailSet = openRanges.tailSet(range);
-            if (tailSet.size() > 1) {
-                final Iterator<Range> iterator = tailSet.iterator();
-                iterator.next();
-                final Range next = iterator.next();
+            if (!tailSet.isEmpty()) {
+                final Range next = tailSet.first();
                 if (next.start <= range.end) {
                     openRanges.remove(next);
-                    range = new Range(next.start, range.end);
+                    range = new Range(range.start, next.end);
                     continue;
                 }
             }
             break;
         }
+        openRanges.add(range);
     }
 
-    public Optional<BlockPos> allocate(int size, final ServerBattleWorld world) {
-        size = (size + 15) & ~15;
+    public Optional<Pair<Token, BlockPos>> allocate(int size, final ServerBattleWorld world) {
+        size = (size + 15) / 16;
         final Iterator<Range> iterator = openRanges.iterator();
         while (iterator.hasNext()) {
             final Range next = iterator.next();
@@ -89,7 +92,9 @@ public class BattlePersistentState extends PersistentState {
                 if (s != size) {
                     openRanges.add(new Range(end, next.end));
                 }
-                return Optional.of(new BlockPos(start, world.getBottomY(), 0));
+                closedRanges.add(new Range(start, end));
+                markDirty();
+                return Optional.of(Pair.of(new TokenImpl(start, end), new BlockPos(start * 16, world.getBottomY(), 0)));
             }
         }
         return Optional.empty();
@@ -118,5 +123,16 @@ public class BattlePersistentState extends PersistentState {
 
     private record Range(int start, int end) {
         private static final Comparator<Range> COMPARATOR = Comparator.comparingInt(Range::start);
+    }
+
+    private record TokenImpl(int start, int end) implements Token {
+        public static final Codec<TokenImpl> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.INT.fieldOf("start").forGetter(token -> token.start),
+                Codec.INT.fieldOf("end").forGetter(token -> token.end)
+        ).apply(instance, TokenImpl::new));
+    }
+
+    public interface Token {
+        Codec<Token> CODEC = Tbcexv4Util.implCodec(TokenImpl.CODEC, TokenImpl.class);
     }
 }

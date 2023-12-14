@@ -24,10 +24,10 @@ public record BattleBounds(int x0, int y0, int z0, int x1, int y1, int z1) {
     }
 
     public boolean check(final BattleParticipantBounds bounds, final BattlePos pos) {
-        if (pos.x() - bounds.width() * 0.5 < x0 || pos.y() < y0 || pos.z() - bounds.width() * 0.5 < z0) {
+        if (pos.x() + 0.5 - bounds.width() * 0.5 < x0 || pos.y() < y0 || pos.z() + 0.5 - bounds.width() * 0.5 < z0) {
             return false;
         }
-        if (pos.x() + bounds.width() * 0.5 > (x1 - 1) || pos.y() + bounds.height() > (y1 - 1) || pos.z() + bounds.width() * 0.5 > (z1 - 1)) {
+        if (pos.x() + 0.5 + bounds.width() * 0.5 > (x1 - 1) || pos.y() + bounds.height() > (y1 - 1) || pos.z() + 0.5 + bounds.width() * 0.5 > (z1 - 1)) {
             return false;
         }
         return true;

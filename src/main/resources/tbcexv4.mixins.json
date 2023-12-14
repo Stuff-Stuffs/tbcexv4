@@ -3,12 +3,16 @@
   "package": "io.github.stuff_stuffs.tbcexv4.common.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "AccessorChunkSection",
+    "AccessorThreadedAnvilChunkStorage",
     "MixinChunkHolder",
     "MixinChunkSection",
+    "MixinEntityChunkDataAccess",
     "MixinMinecraftServer",
-    "MixinServerLightingProvider",
+    "MixinSerializingRegionBasedStorage",
     "MixinServerPlayerEntity",
-    "MixinThreadedAnvilChunkStorage"
+    "MixinServerPlayerInteractionManger",
+    "MixinVersionedChunkStorage"
   ],
   "injectors": {
     "defaultRequire": 1

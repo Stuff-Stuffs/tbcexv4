@@ -1,5 +1,6 @@
 package io.github.stuff_stuffs.tbcexv4.common.impl.battle;
 
+import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
@@ -10,10 +11,12 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateEventInitEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransaction;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.env.ServerBattleEnvironmentImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
+import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattlePersistentState;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.ServerBattleWorld;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
@@ -86,7 +89,10 @@ public class ServerBattleImpl implements Battle {
     @Override
     public void pushAction(final BattleAction action) {
         actions.add(action);
-        action.apply(state, tracer);
+        try(var open = state.transactionManager().open()) {
+            action.apply(state, open, tracer);
+            open.commit();
+        }
     }
 
     @Override
@@ -165,11 +171,11 @@ public class ServerBattleImpl implements Battle {
         return nbt;
     }
 
-    public static Optional<ServerBattleImpl> deserialize(final NbtCompound nbt, final BattleHandle handle, final ServerBattleWorld world) {
+    public static Optional<Pair<BattlePersistentState.Token, ServerBattleImpl>> deserialize(final NbtCompound nbt, final BattleHandle handle, final ServerBattleWorld world) {
         if (nbt.getLong("version") != VERSION) {
             return Optional.empty();
         }
-        final Optional<BlockPos> min = Tbcexv4.getBattlePersistentState(world).allocate(nbt.getInt("x"), world);
+        final Optional<Pair<BattlePersistentState.Token, BlockPos>> min = Tbcexv4.getBattlePersistentState(world).allocate(nbt.getInt("x"), world);
         if (min.isEmpty()) {
             return Optional.empty();
         }
@@ -177,7 +183,7 @@ public class ServerBattleImpl implements Battle {
         if (sourceWorld.isEmpty()) {
             throw new RuntimeException();
         }
-        final ServerBattleImpl battle = new ServerBattleImpl(world, handle, sourceWorld.get(), min.get(), nbt.getInt("x"), nbt.getInt("y"), nbt.getInt("z"));
+        final ServerBattleImpl battle = new ServerBattleImpl(world, handle, sourceWorld.get(), min.get().getSecond(), nbt.getInt("x"), nbt.getInt("y"), nbt.getInt("z"));
         final NbtList actions = nbt.getList("actions", NbtElement.COMPOUND_TYPE);
         final Codec<BattleAction> codec = BattleAction.codec(world::getRegistryManager);
         for (final NbtElement action : actions) {
@@ -189,6 +195,6 @@ public class ServerBattleImpl implements Battle {
             final BattleAction battleAction = result.get();
             battle.pushAction(battleAction);
         }
-        return Optional.of(battle);
+        return Optional.of(Pair.of(min.get().getFirst(), battle));
     }
 }

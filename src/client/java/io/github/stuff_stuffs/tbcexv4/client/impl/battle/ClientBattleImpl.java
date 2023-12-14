@@ -138,6 +138,9 @@ public class ClientBattleImpl implements Battle {
     @Override
     public void pushAction(final BattleAction action) {
         actions.add(action);
-        action.apply(state, tracer);
+        try (final var open = state.transactionManager().open()) {
+            action.apply(state, open, tracer);
+            open.commit();
+        }
     }
 }

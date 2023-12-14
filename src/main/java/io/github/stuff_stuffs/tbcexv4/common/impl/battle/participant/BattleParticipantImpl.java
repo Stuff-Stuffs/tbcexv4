@@ -9,6 +9,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.Inventory;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatContainer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
@@ -21,6 +22,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.BasicParticipantEvents;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.PostAddModifierEvent;
+import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.inventory.InventoryImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.stat.StatContainerImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
@@ -37,6 +39,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
     private final BattleStateImpl battleState;
     private final StatContainer stats;
     private final Map<BattleParticipantAttachmentType<?>, BattleParticipantAttachment> attachments;
+    private final InventoryImpl inventory;
     private double health;
     private BattleParticipantBounds bounds;
     private BattlePos pos;
@@ -51,6 +54,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
         stats = new StatContainerImpl(this);
         phase = BattleParticipantPhase.INIT;
         attachments = new Reference2ObjectOpenHashMap<>();
+        inventory = new InventoryImpl(this);
         builder.accept(new BattleParticipantAttachment.Builder() {
             @Override
             public <T extends BattleParticipantAttachment> void accept(final T value, final BattleParticipantAttachmentType<T> type) {
@@ -116,6 +120,11 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
     @Override
     public StatContainer stats() {
         return stats;
+    }
+
+    @Override
+    public Inventory inventory() {
+        return inventory;
     }
 
     @Override

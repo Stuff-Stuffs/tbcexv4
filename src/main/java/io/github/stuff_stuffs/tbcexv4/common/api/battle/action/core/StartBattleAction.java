@@ -8,6 +8,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
 
 import java.util.function.Function;
@@ -21,11 +22,11 @@ public class StartBattleAction implements BattleAction {
     }
 
     @Override
-    public void apply(final BattleState state, final BattleTracer tracer) {
+    public void apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer) {
         if (state.phase() != BattlePhase.INIT) {
             throw new RuntimeException();
         }
-        try (final var transaction = state.transactionManager().open()) {
+        try (final var transaction = transactionContext.openNested()) {
             ((BattleStateImpl) state).start(transaction);
             transaction.commit();
         }

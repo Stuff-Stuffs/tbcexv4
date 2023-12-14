@@ -98,6 +98,7 @@ base {
 
 repositories {
 	mavenLocal()
+	maven { url 'https://maven.wispforest.io' }
 }
 
 // Add the generated resources to the main source set
@@ -114,6 +115,9 @@ sourceSets {
 dependencies {
 	annotationProcessor "io.github.stuff_stuffs:EventGen:1.40-SNAPSHOT"
 	implementation "io.github.stuff_stuffs:EventGen:1.40-SNAPSHOT"
+	modImplementation "io.wispforest:owo-lib:${project.owo_version}"
+	annotationProcessor "io.wispforest:owo-lib:${project.owo_version}"
+	include "io.wispforest:owo-sentinel:${project.owo_version}"
 
 	testmodImplementation sourceSets.main.output
 	testmodClientImplementation sourceSets.main.output

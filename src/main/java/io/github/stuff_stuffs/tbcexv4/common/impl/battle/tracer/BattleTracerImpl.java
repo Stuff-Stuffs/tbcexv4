@@ -31,7 +31,7 @@ public class BattleTracerImpl extends DeltaSnapshotParticipant<BattleTracerImpl.
 
     @Override
     public <T extends BattleTraceEvent> Span<T> push(final T event, final BattleTransactionContext transactionContext) {
-        return push(event, transactionContext);
+        return push(event, null, transactionContext);
     }
 
     private <T extends BattleTraceEvent> Span<T> push(final T event, final @Nullable NodeImpl<?> parent, final BattleTransactionContext transactionContext) {

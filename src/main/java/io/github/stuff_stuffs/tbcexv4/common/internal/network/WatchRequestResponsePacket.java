@@ -50,7 +50,7 @@ public record WatchRequestResponsePacket(@Nullable BattleHandle handle, @Nullabl
 
     @Override
     public PacketType<?> getType() {
-        return Tbcexv4CommonNetwork.WATCH_REQUEST_PACKET_TYPE;
+        return Tbcexv4CommonNetwork.WATCH_REQUEST_RESPONSE_PACKET_TYPE;
     }
 
     public record Info(int xSize, int ySize, int zSize, BlockPos min, RegistryKey<World> sourceWorld) {

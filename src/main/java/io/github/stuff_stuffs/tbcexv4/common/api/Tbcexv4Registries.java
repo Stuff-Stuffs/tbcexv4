@@ -6,6 +6,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.SetupEnvironmentBattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.StartBattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.EquipmentSlot;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
@@ -105,8 +106,10 @@ public final class Tbcexv4Registries {
         public static final RegistryKey<Registry<BattleParticipantAttachmentType<?>>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("battle_participant_attachment_types"));
         public static final Registry<BattleParticipantAttachmentType<?>> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
         public static final Codec<BattleParticipantAttachmentType<?>> CODEC = REGISTRY.getCodec();
+        public static final BattleParticipantAttachmentType<BattleParticipantPlayerControllerAttachment> PLAYER_CONTROLLER_TYPE = new BattleParticipantAttachmentType<>(context -> BattleParticipantPlayerControllerAttachment.CODEC);
 
         public static void init() {
+            Registry.register(REGISTRY, Tbcexv4.id("player_controller"), PLAYER_CONTROLLER_TYPE);
         }
     }
 

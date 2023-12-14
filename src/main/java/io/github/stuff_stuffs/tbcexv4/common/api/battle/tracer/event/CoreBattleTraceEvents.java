@@ -11,6 +11,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleP
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import net.minecraft.block.BlockState;
+import net.minecraft.world.biome.Biome;
 
 import java.util.Optional;
 
@@ -80,6 +81,10 @@ public final class CoreBattleTraceEvents {
             BattleParticipantHandle handle,
             BattleState.RemoveParticipantReason reason
     ) implements BattleTraceEvent {
+    }
+
+    public record SetBiome(int x, int y, int z, Biome oldBiome, Biome newBiome) implements BattleTraceEvent {
+
     }
 
     private CoreBattleTraceEvents() {

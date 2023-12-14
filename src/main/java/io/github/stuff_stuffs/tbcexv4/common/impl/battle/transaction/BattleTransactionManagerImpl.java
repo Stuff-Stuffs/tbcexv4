@@ -20,6 +20,14 @@ public class BattleTransactionManagerImpl implements BattleTransactionManager {
         return transaction;
     }
 
+    public void pop(final int depth) {
+        if (stack.size() == depth + 1) {
+            stack.remove(depth);
+        } else {
+            throw new RuntimeException();
+        }
+    }
+
     @Override
     public boolean isOpen() {
         return !stack.isEmpty();

@@ -78,6 +78,7 @@ public class BattleTransactionImpl implements BattleTransaction {
             abort();
         }
         closed = true;
+        manager.pop(depth);
         final int s = callbacks.size();
         for (int i = s - 1; i >= 0; i--) {
             callbacks.get(i).onClose(this, result);

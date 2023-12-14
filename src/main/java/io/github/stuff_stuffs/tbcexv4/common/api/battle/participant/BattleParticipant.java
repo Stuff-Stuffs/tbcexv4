@@ -5,6 +5,7 @@ import io.github.stuff_stuffs.event_gen.api.event.gen.EventViewable;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.Inventory;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatContainer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
@@ -22,6 +23,9 @@ public interface BattleParticipant extends BattleParticipantView {
 
     @Override
     StatContainer stats();
+
+    @Override
+    Inventory inventory();
 
     Result<Unit, SetBoundsError> setBounds(BattleParticipantBounds bounds, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 

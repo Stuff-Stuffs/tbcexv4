@@ -9,6 +9,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapsho
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.env.BasicEnvEvents;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.world.biome.Biome;
 
 public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotParticipant<AbstractBattleEnvironmentImpl.Delta> implements BattleEnvironment {
     protected final Battle battle;
@@ -19,7 +20,7 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
 
     @Override
     public boolean setBlockState(final int x, final int y, final int z, final BlockState state, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
-        if (x < 0 || y < 0 || z < 0 || x > battle.xSize() || y > battle.ySize() || z > battle.zSize()) {
+        if (x < 0 || y < 0 || z < 0 || x >= battle.xSize() || y >= battle.ySize() || z >= battle.zSize()) {
             return false;
         }
         final BlockState oldState = getBlockState0(x, y, z);
@@ -39,10 +40,35 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
 
     @Override
     public BlockState blockState(final int x, final int y, final int z) {
-        if (x < 0 || y < 0 || z < 0 || x > battle.xSize() || y > battle.ySize() || z > battle.zSize()) {
+        if (x < 0 || y < 0 || z < 0 || x >= battle.xSize() || y >= battle.ySize() || z >= battle.zSize()) {
             return Blocks.AIR.getDefaultState();
         }
         return getBlockState0(x, y, z);
+    }
+
+    @Override
+    public Biome biome(final int x, final int y, final int z) {
+        return getBiome0(Math.max(Math.min(x, battle.xSize() - 1), 0), Math.max(Math.min(y, battle.ySize() - 1), 0), Math.max(Math.min(z, battle.zSize() - 1), 0));
+    }
+
+    @Override
+    public boolean setBiome(final int x, final int y, final int z, final Biome biome, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
+        if (x < 0 || y < 0 || z < 0 || x >= battle.xSize() || y >= battle.ySize() || z >= battle.zSize()) {
+            return false;
+        }
+        final Biome current = getBiome0(x, y, z);
+        if (current == biome) {
+            return true;
+        }
+        if (!battle.state().events().invoker(BasicEnvEvents.PRE_SET_BIOME_KEY).onPreSetBiome(battle.state(), x, y, z, current, biome, transactionContext, tracer)) {
+            return false;
+        }
+        setBiome0(x, y, z, biome);
+        delta(transactionContext, new BiomeDelta(x, y, z, current));
+        try (final var span = tracer.push(new CoreBattleTraceEvents.SetBiome(x, y, z, current, biome), transactionContext)) {
+            battle.state().events().invoker(BasicEnvEvents.POST_SET_BIOME_KEY).onPostSetBiome(battle.state(), x, y, z, current, biome, transactionContext, span);
+        }
+        return true;
     }
 
     @Override
@@ -54,6 +80,10 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
 
     protected abstract BlockState getBlockState0(int x, int y, int z);
 
+    protected abstract void setBiome0(int x, int y, int z, Biome biome);
+
+    protected abstract Biome getBiome0(int x, int y, int z);
+
     public sealed interface Delta {
         void apply(AbstractBattleEnvironmentImpl environment);
     }
@@ -62,6 +92,13 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
         @Override
         public void apply(final AbstractBattleEnvironmentImpl environment) {
             environment.setBlockState0(x, y, z, state);
+        }
+    }
+
+    private record BiomeDelta(int x, int y, int z, Biome biome) implements Delta {
+        @Override
+        public void apply(final AbstractBattleEnvironmentImpl environment) {
+            environment.setBiome0(x, y, z, biome);
         }
     }
 }

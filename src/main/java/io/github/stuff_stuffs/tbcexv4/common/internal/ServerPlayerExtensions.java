@@ -7,4 +7,8 @@ public interface ServerPlayerExtensions {
     @Nullable BattleHandle tbcexv4$watching();
 
     void tbcev4$setWatching(@Nullable BattleHandle handle);
+
+    int tbcexv4$watchIndex();
+
+    void tbcexv4$setWatchIndex(int index);
 }

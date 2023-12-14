@@ -3,6 +3,7 @@ package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.InventoryView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatContainerView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateView;
@@ -26,6 +27,8 @@ public interface BattleParticipantView {
     BattleParticipantHandle handle();
 
     StatContainerView stats();
+
+    InventoryView inventory();
 
     double health();
 
