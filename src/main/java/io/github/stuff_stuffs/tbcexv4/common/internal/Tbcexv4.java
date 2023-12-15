@@ -1,5 +1,6 @@
 package io.github.stuff_stuffs.tbcexv4.common.internal;
 
+import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.event_gen.api.event.EventKey;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Api;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
@@ -18,6 +19,7 @@ import io.github.stuff_stuffs.tbcexv4.common.internal.world.ServerBattleWorld;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -25,6 +27,7 @@ import net.minecraft.network.packet.s2c.play.ChunkDataS2CPacket;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.ChunkPos;
@@ -50,6 +53,7 @@ public class Tbcexv4 implements ModInitializer {
     public static final String MOD_ID = "tbcexv4";
     public static final String GENERATED_MOD_ID = "tbcexv4_generated";
     public static final Logger LOGGER = LoggerFactory.getLogger("tbcexv4");
+    public static final ChunkTicketType<Unit> BATTLE_LOAD_CHUNK_TICKET_TYPE = ChunkTicketType.create(MOD_ID + ":battle_load", (a, b) -> 0, 1);
     private static final Map<RegistryKey<World>, Map<ChunkPos, Chunk>> UPDATED_BIOMES = new Object2ReferenceOpenHashMap<>();
 
     @Override
@@ -61,6 +65,9 @@ public class Tbcexv4 implements ModInitializer {
             if (current != null) {
                 entity.changeGameMode(GameMode.SPECTATOR);
                 final ServerBattleWorld world = (ServerBattleWorld) entity.getServerWorld().getServer().getWorld(battleWorldKey(current.sourceWorld()));
+                if (world == null) {
+                    throw new RuntimeException("Failed to get battle world, something in registration went wrong!");
+                }
                 final Optional<? extends Battle> opt = world.battleManager().getOrLoadBattle(current);
                 if (opt.isPresent()) {
                     final Battle battle = opt.get();
@@ -69,8 +76,31 @@ public class Tbcexv4 implements ModInitializer {
             }
             ((ServerPlayerExtensions) entity).tbcexv4$setWatchIndex(0);
         });
+        ServerTickEvents.START_WORLD_TICK.register(world -> {
+            final RegistryKey<World> key = world.getRegistryKey();
+            if (!checkGenerated(key.getValue())) {
+                getBattlePersistentState(world).tick((ServerBattleWorld) world.getServer().getWorld(battleWorldKey(key)));
+            }
+        });
+        ServerChunkEvents.CHUNK_LOAD.register(new ServerChunkEvents.Load() {
+            @Override
+            public void onChunkLoad(final ServerWorld world, final WorldChunk chunk) {
+                if (checkGenerated(world.getRegistryKey().getValue())) {
+                    LOGGER.warn("Loaded chunk at {}, {}", chunk.getPos().getStartX(), chunk.getPos().getStartZ());
+                }
+            }
+        });
+        ServerChunkEvents.CHUNK_UNLOAD.register((world, chunk) -> {
+            if (checkGenerated(world.getRegistryKey().getValue())) {
+                LOGGER.warn("Unloaded chunk at {}, {}", chunk.getPos().getStartX(), chunk.getPos().getStartZ());
+            }
+        });
         ServerTickEvents.END_WORLD_TICK.register(world -> {
-            final Map<ChunkPos, Chunk> updated = UPDATED_BIOMES.remove(world.getRegistryKey());
+            final RegistryKey<World> key = world.getRegistryKey();
+            if (!checkGenerated(key.getValue())) {
+                getBattlePersistentState(world).tick((ServerBattleWorld) world.getServer().getWorld(battleWorldKey(key)));
+            }
+            final Map<ChunkPos, Chunk> updated = UPDATED_BIOMES.remove(key);
             if (updated == null) {
                 return;
             }

@@ -27,6 +27,7 @@ public final class Tbcexv4Api {
             ServerPlayNetworking.send(entity, new WatchRequestResponsePacket(null, null));
         } else {
             ((ServerPlayerExtensions) entity).tbcev4$setWatching(battle.handle());
+            ((ServerPlayerExtensions) entity).tbcexv4$setWatchIndex(0);
             ServerPlayNetworking.send(entity,
                     new WatchRequestResponsePacket(
                             battle.handle(),

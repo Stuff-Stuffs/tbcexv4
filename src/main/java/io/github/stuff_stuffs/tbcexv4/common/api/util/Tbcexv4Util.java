@@ -4,8 +4,11 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.dynamic.Codecs;
 
+import java.nio.file.Path;
 import java.util.function.Function;
 
 public final class Tbcexv4Util {
@@ -31,6 +34,16 @@ public final class Tbcexv4Util {
             }
             return DataResult.error(() -> "Somebody implemented internal interface " + clazz + " with class " + val.getClass());
         });
+    }
+
+    public static Path resolveRegistryKey(final Path parent, final RegistryKey<?> key) {
+        final Identifier value = key.getValue();
+        Path path = parent.resolve(value.getNamespace());
+        final String idPath = value.getPath();
+        for (final String s : idPath.split("/")) {
+            path = path.resolve(s);
+        }
+        return path;
     }
 
     private Tbcexv4Util() {

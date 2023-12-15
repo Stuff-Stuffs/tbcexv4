@@ -36,6 +36,7 @@ public final class Tbcexv4CommonNetwork {
                     responseSender.sendPacket(new WatchRequestResponsePacket(null, null));
                 } else {
                     ((ServerPlayerExtensions) player).tbcev4$setWatching(packet.handle());
+                    ((ServerPlayerExtensions) player).tbcexv4$setWatchIndex(0);
                     final Battle battle = opt.get();
                     responseSender.sendPacket(new WatchRequestResponsePacket(packet.handle(), new WatchRequestResponsePacket.Info(battle.xSize(), battle.ySize(), battle.zSize(), new BlockPos(battle.worldX(0), battle.worldY(0), battle.worldZ(0)), battle.state().sourceWorld())));
                 }

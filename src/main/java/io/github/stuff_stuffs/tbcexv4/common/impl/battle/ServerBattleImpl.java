@@ -175,7 +175,7 @@ public class ServerBattleImpl implements Battle {
         if (nbt.getLong("version") != VERSION) {
             return Optional.empty();
         }
-        final Optional<Pair<BattlePersistentState.Token, BlockPos>> min = Tbcexv4.getBattlePersistentState(world).allocate(nbt.getInt("x"), world);
+        final Optional<Pair<BattlePersistentState.Token, BlockPos>> min = Tbcexv4.getBattlePersistentState(world).allocate(nbt.getInt("x"), nbt.getInt("z"), world);
         if (min.isEmpty()) {
             return Optional.empty();
         }

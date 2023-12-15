@@ -1,23 +1,25 @@
 package io.github.stuff_stuffs.tbcexv4.common.internal.world;
 
 import com.mojang.datafixers.util.Pair;
+import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util;
+import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
 import it.unimi.dsi.fastutil.objects.ObjectAVLTreeSet;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.PersistentState;
 
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.Optional;
-import java.util.SortedSet;
+import java.util.*;
 
 public class BattlePersistentState extends PersistentState {
     public static final Type<BattlePersistentState> TYPE = new Type<>(BattlePersistentState::new, BattlePersistentState::new, null);
     private final ObjectAVLTreeSet<Range> openRanges;
     private final ObjectAVLTreeSet<Range> closedRanges;
+    private final Set<TokenImpl> ongoing = new ObjectOpenHashSet<>();
 
     public BattlePersistentState() {
         this(new ObjectAVLTreeSet<>(Range.COMPARATOR), new ObjectAVLTreeSet<>(Range.COMPARATOR));
@@ -48,6 +50,7 @@ public class BattlePersistentState extends PersistentState {
         if (closedRanges.remove(range)) {
             merge(range);
         }
+        ongoing.remove(token);
         markDirty();
     }
 
@@ -79,8 +82,9 @@ public class BattlePersistentState extends PersistentState {
         openRanges.add(range);
     }
 
-    public Optional<Pair<Token, BlockPos>> allocate(int size, final ServerBattleWorld world) {
+    public Optional<Pair<Token, BlockPos>> allocate(int size, int depth, final ServerBattleWorld world) {
         size = (size + 15) / 16;
+        depth = (depth + 15) / 16;
         final Iterator<Range> iterator = openRanges.iterator();
         while (iterator.hasNext()) {
             final Range next = iterator.next();
@@ -94,7 +98,14 @@ public class BattlePersistentState extends PersistentState {
                 }
                 closedRanges.add(new Range(start, end));
                 markDirty();
-                return Optional.of(Pair.of(new TokenImpl(start, end), new BlockPos(start * 16, world.getBottomY(), 0)));
+                final TokenImpl token = new TokenImpl(start, end, depth);
+                ongoing.add(token);
+                for (int i = 0; i < size; i++) {
+                    for (int j = 0; j < depth; j++) {
+                        world.getChunkManager().addTicket(Tbcexv4.BATTLE_LOAD_CHUNK_TICKET_TYPE, new ChunkPos(i + token.start, j), 1, Unit.INSTANCE);
+                    }
+                }
+                return Optional.of(Pair.of(token, new BlockPos(start * 16, world.getBottomY(), 0)));
             }
         }
         return Optional.empty();
@@ -121,14 +132,27 @@ public class BattlePersistentState extends PersistentState {
         return nbt;
     }
 
+    public void tick(final ServerBattleWorld world) {
+        for (final TokenImpl token : ongoing) {
+            final int width = token.end - token.start;
+            final int depth = token.depth;
+            for (int i = 0; i < width; i++) {
+                for (int j = 0; j < depth; j++) {
+                    world.getChunkManager().addTicket(Tbcexv4.BATTLE_LOAD_CHUNK_TICKET_TYPE, new ChunkPos(i + token.start, j), 1, Unit.INSTANCE);
+                }
+            }
+        }
+    }
+
     private record Range(int start, int end) {
         private static final Comparator<Range> COMPARATOR = Comparator.comparingInt(Range::start);
     }
 
-    private record TokenImpl(int start, int end) implements Token {
+    private record TokenImpl(int start, int end, int depth) implements Token {
         public static final Codec<TokenImpl> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 Codec.INT.fieldOf("start").forGetter(token -> token.start),
-                Codec.INT.fieldOf("end").forGetter(token -> token.end)
+                Codec.INT.fieldOf("end").forGetter(token -> token.end),
+                Codec.INT.fieldOf("depth").forGetter(token -> token.depth)
         ).apply(instance, TokenImpl::new));
     }
 

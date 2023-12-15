@@ -6,6 +6,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
+import io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.BattleUpdatePacket;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.WatchRequestResponsePacket;
@@ -51,7 +52,7 @@ public class BattleManager implements AutoCloseable {
     }
 
     public Optional<Battle> createBattle(final int width, final int height, final int depth) {
-        final Optional<Pair<BattlePersistentState.Token, BlockPos>> allocation = Tbcexv4.getBattlePersistentState(sourceWorld).allocate(width, world);
+        final Optional<Pair<BattlePersistentState.Token, BlockPos>> allocation = Tbcexv4.getBattlePersistentState(sourceWorld).allocate(width, depth, world);
         if (allocation.isEmpty()) {
             return Optional.empty();
         }
@@ -124,8 +125,8 @@ public class BattleManager implements AutoCloseable {
             return data;
         }
         try {
-            final NbtCompound compound = NbtIo.readCompressed(dataDirectory.resolve(idToFilename(id)), NbtTagSizeTracker.ofUnlimitedBytes());
-            final Optional<LoadedPlayerData> result = LoadedPlayerData.CODEC.parse(NbtOps.INSTANCE, compound).result();
+            final NbtCompound compound = NbtIo.readCompressed(idToFilename(id), NbtTagSizeTracker.ofUnlimitedBytes());
+            final Optional<LoadedPlayerData> result = LoadedPlayerData.CODEC.parse(NbtOps.INSTANCE, compound.get("data")).result();
             if (result.isPresent()) {
                 data = result.get();
                 data.lastAccessed = ticks;
@@ -143,8 +144,8 @@ public class BattleManager implements AutoCloseable {
         return data;
     }
 
-    private static String idToFilename(final UUID id) {
-        return id.toString() + ".battle_data";
+    private Path idToFilename(final UUID id) {
+        return Tbcexv4Util.resolveRegistryKey(dataDirectory, sourceWorld.getRegistryKey()).resolve(id.toString() + ".battle_data");
     }
 
     public void tick() {
@@ -252,9 +253,13 @@ public class BattleManager implements AutoCloseable {
         }
         final NbtCompound wrapper = new NbtCompound();
         wrapper.put("data", result.get());
-        final Path path = battleDirectory.resolve(idToFilename(id));
+        final Path path = idToFilename(id);
         return CompletableFuture.supplyAsync(() -> {
             try {
+                final Path parent = path.getParent();
+                if (!Files.isDirectory(parent)) {
+                    Files.createDirectories(parent);
+                }
                 NbtIo.writeCompressed(wrapper, path);
             } catch (final Throwable e) {
                 return new DataSaveResult(id, e);
@@ -313,7 +318,7 @@ public class BattleManager implements AutoCloseable {
     private static final class LoadedPlayerData {
         private static final Codec<LoadedPlayerData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 BattleHandle.CODEC.listOf().xmap(Set::copyOf, List::copyOf).fieldOf("battles").forGetter(data -> data.battles),
-                BattleHandle.CODEC.listOf().xmap(Set::copyOf, List::copyOf).fieldOf("unresolved").forGetter(data -> data.battles)
+                BattleHandle.CODEC.listOf().xmap(Set::copyOf, List::copyOf).fieldOf("unresolved").forGetter(data -> data.unresolvedBattles)
         ).apply(instance, LoadedPlayerData::new));
         private final Set<BattleHandle> battles;
         private final Set<BattleHandle> unresolvedBattles;

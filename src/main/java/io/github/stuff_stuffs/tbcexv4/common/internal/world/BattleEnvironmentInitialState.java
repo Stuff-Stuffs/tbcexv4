@@ -144,6 +144,9 @@ public class BattleEnvironmentInitialState {
             final NbtCompound nbt = new NbtCompound();
             nbt.put("blocks", CODEC.encodeStart(NbtOps.INSTANCE, blockStates).getOrThrow(false, Tbcexv4.LOGGER::error));
             nbt.put("biomes", createBiomeCodec(biomeRegistry).encodeStart(NbtOps.INSTANCE, biomes).getOrThrow(false, Tbcexv4.LOGGER::error));
+            nbt.putShort("nonEmptyBlock", nonEmptyBlockCount);
+            nbt.putShort("randomTickable", randomTickableCount);
+            nbt.putShort("nonEmptyFluid", nonEmptyFluidCount);
             return nbt;
         }
 
