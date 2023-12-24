@@ -97,58 +97,62 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
     @Override
     public Result<Unit, RemoveParticipantError> removeParticipant(final BattleParticipantHandle handle, final RemoveParticipantReason reason, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         ensureBattleOngoing();
-        if (!participantContainer.participants.containsKey(handle)) {
-            return new Result.Failure<>(RemoveParticipantError.MISSING_PARTICIPANT);
+        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreRemoveParticipant(handle, reason), transactionContext)) {
+            if (!participantContainer.participants.containsKey(handle)) {
+                return new Result.Failure<>(RemoveParticipantError.MISSING_PARTICIPANT);
+            }
+            if (!events().invoker(BasicEvents.PRE_REMOVE_PARTICIPANT_EVENT_KEY).onPreRemoveParticipantEvent(participantContainer.participants.get(handle), reason, transactionContext, preSpan)) {
+                return new Result.Failure<>(RemoveParticipantError.EVENT);
+            }
+            final BattleParticipantImpl participant = participantContainer.participants.get(handle);
+            if (participant != null) {
+                participant.finish(transactionContext);
+                delta(transactionContext, new RemoveParticipantDelta(participant));
+            }
+            participantContainer.remove(handle);
+            try (final var span = preSpan.push(new CoreBattleTraceEvents.RemoveParticipant(handle, reason), transactionContext)) {
+                events().invoker(BasicEvents.POST_REMOVE_PARTICIPANT_EVENT_KEY).onPostRemoveParticipantEvent(this, handle, reason, transactionContext, span);
+            }
+            return new Result.Success<>(Unit.INSTANCE);
         }
-        if (!events().invoker(BasicEvents.PRE_REMOVE_PARTICIPANT_EVENT_KEY).onPreRemoveParticipantEvent(participantContainer.participants.get(handle), reason, transactionContext, tracer)) {
-            return new Result.Failure<>(RemoveParticipantError.EVENT);
-        }
-        final BattleParticipantImpl participant = participantContainer.participants.get(handle);
-        if (participant != null) {
-            participant.finish(transactionContext);
-            delta(transactionContext, new RemoveParticipantDelta(participant));
-        }
-        participantContainer.remove(handle);
-        try (final var span = tracer.push(new CoreBattleTraceEvents.RemoveParticipant(handle, reason), transactionContext)) {
-            events().invoker(BasicEvents.POST_REMOVE_PARTICIPANT_EVENT_KEY).onPostRemoveParticipantEvent(this, handle, reason, transactionContext, span);
-        }
-        return new Result.Success<>(Unit.INSTANCE);
     }
 
     @Override
     public Result<BattleParticipantHandle, AddParticipantError> addParticipant(final BattleParticipantInitialState battleParticipant, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         ensureBattleOngoing();
         final Optional<UUID> id = battleParticipant.id();
-        if (id.isPresent() && participantContainer.participants.containsKey(new BattleParticipantHandle(id.get()))) {
-            return new Result.Failure<>(AddParticipantError.ID_OVERLAP);
-        }
-        final BattleParticipantBounds bounds = battleParticipant.bounds();
-        final BattlePos pos = battleParticipant.pos();
-        if (!this.bounds.check(bounds, pos)) {
-            return new Result.Failure<>(AddParticipantError.OUT_OF_BOUNDS);
-        }
         final BattleParticipantHandle handle = new BattleParticipantHandle(id.orElseGet(MathHelper::randomUuid));
-        if (!events().invoker(BasicEvents.PRE_ADD_PARTICIPANT_EVENT_KEY).onPreAddParticipantEvent(this, battleParticipant, handle, transactionContext, tracer)) {
-            return new Result.Failure<>(AddParticipantError.EVENT);
+        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreAddParticipant(handle), transactionContext)) {
+            if (id.isPresent() && participantContainer.participants.containsKey(new BattleParticipantHandle(id.get()))) {
+                return new Result.Failure<>(AddParticipantError.ID_OVERLAP);
+            }
+            final BattleParticipantBounds bounds = battleParticipant.bounds();
+            final BattlePos pos = battleParticipant.pos();
+            if (!this.bounds.check(bounds, pos)) {
+                return new Result.Failure<>(AddParticipantError.OUT_OF_BOUNDS);
+            }
+            if (!events().invoker(BasicEvents.PRE_ADD_PARTICIPANT_EVENT_KEY).onPreAddParticipantEvent(this, battleParticipant, handle, transactionContext, preSpan)) {
+                return new Result.Failure<>(AddParticipantError.EVENT);
+            }
+            if (participantContainer.participants.containsKey(handle)) {
+                return new Result.Failure<>(AddParticipantError.UNKNOWN);
+            }
+            if (battle instanceof ServerBattleImpl serverBattle) {
+                final BattleManager manager = serverBattle.world().battleManager();
+                manager.addBattle(handle.id(), battle.handle());
+            }
+            delta(transactionContext, new AddParticipantDelta(handle));
+            final BattleParticipantImpl participant = new BattleParticipantImpl(handle.id(), participantEvents.build(), this, battleParticipant::addAttachments, bounds, pos, transactionContext);
+            participantContainer.participants.put(participant.handle(), participant);
+            participantContainer.teams.put(participant.handle(), battleParticipant.team());
+            participantContainer.byTeam.computeIfAbsent(battleParticipant.team(), k -> new ObjectOpenHashSet<>()).add(participant.handle());
+            battleParticipant.initialize(this, participant, transactionContext, preSpan);
+            participant.start();
+            try (final var span = preSpan.push(new CoreBattleTraceEvents.AddParticipant(participant.handle()), transactionContext)) {
+                events().invoker(BasicEvents.POST_ADD_PARTICIPANT_EVENT_KEY).onPostAddParticipantEvent(this, participant, transactionContext, span);
+            }
+            return new Result.Success<>(participant.handle());
         }
-        if (participantContainer.participants.containsKey(handle)) {
-            return new Result.Failure<>(AddParticipantError.UNKNOWN);
-        }
-        if (battle instanceof ServerBattleImpl serverBattle) {
-            final BattleManager manager = serverBattle.world().battleManager();
-            manager.addBattle(handle.id(), battle.handle());
-        }
-        delta(transactionContext, new AddParticipantDelta(handle));
-        final BattleParticipantImpl participant = new BattleParticipantImpl(handle.id(), participantEvents.build(), this, battleParticipant::addAttachments, bounds, pos, transactionContext);
-        participantContainer.participants.put(participant.handle(), participant);
-        participantContainer.teams.put(participant.handle(), battleParticipant.team());
-        participantContainer.byTeam.computeIfAbsent(battleParticipant.team(), k -> new ObjectOpenHashSet<>()).add(participant.handle());
-        battleParticipant.initialize(this, participant, transactionContext, tracer);
-        participant.start();
-        try (final var span = tracer.push(new CoreBattleTraceEvents.AddParticipant(participant.handle()), transactionContext)) {
-            events().invoker(BasicEvents.POST_ADD_PARTICIPANT_EVENT_KEY).onPostAddParticipantEvent(this, participant, transactionContext, span);
-        }
-        return new Result.Success<>(participant.handle());
     }
 
     @Override
@@ -189,51 +193,64 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
     @Override
     public Result<Unit, SetBoundsError> setBounds(final BattleBounds bounds, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         ensureBattleOngoing();
-        if (bounds.equals(this.bounds)) {
+        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreSetBounds(bounds), transactionContext)) {
+            if (bounds.equals(this.bounds)) {
+                return new Result.Success<>(Unit.INSTANCE);
+            }
+            if (bounds.x1() > battle.xSize() || bounds.y1() > battle.ySize() || bounds.z1() > battle.zSize()) {
+                return new Result.Failure<>(SetBoundsError.TOO_BIG);
+            }
+            for (final BattleParticipant value : participantContainer.participants.values()) {
+                if (!bounds.check(value.bounds(), value.pos())) {
+                    return new Result.Failure<>(SetBoundsError.PARTICIPANT_OUTSIDE);
+                }
+            }
+            if (!events().invoker(BasicEvents.PRE_SET_BOUNDS_EVENT_KEY).onPreSetBoundsEvent(this, bounds, transactionContext, preSpan)) {
+                return new Result.Failure<>(SetBoundsError.EVENT);
+            }
+            final BattleBounds oldBounds = this.bounds;
+            this.bounds = bounds;
+            delta(transactionContext, new BoundsDelta(oldBounds));
+            try (final var span = preSpan.push(new CoreBattleTraceEvents.SetBounds(oldBounds, bounds), transactionContext)) {
+                events().invoker(BasicEvents.POST_SET_BOUNDS_EVENT_KEY).onPostSetBoundsEvent(this, oldBounds, transactionContext, span);
+            }
             return new Result.Success<>(Unit.INSTANCE);
         }
-        if (bounds.x1() > battle.xSize() || bounds.y1() > battle.ySize() || bounds.z1() > battle.zSize()) {
-            return new Result.Failure<>(SetBoundsError.TOO_BIG);
-        }
-        for (final BattleParticipant value : participantContainer.participants.values()) {
-            if (!bounds.check(value.bounds(), value.pos())) {
-                return new Result.Failure<>(SetBoundsError.PARTICIPANT_OUTSIDE);
-            }
-        }
-        if (!events().invoker(BasicEvents.PRE_SET_BOUNDS_EVENT_KEY).onPreSetBoundsEvent(this, bounds, transactionContext, tracer)) {
-            return new Result.Failure<>(SetBoundsError.EVENT);
-        }
-        final BattleBounds oldBounds = this.bounds;
-        this.bounds = bounds;
-        delta(transactionContext, new BoundsDelta(oldBounds));
-        try (final var span = tracer.push(new CoreBattleTraceEvents.SetBounds(oldBounds, bounds), transactionContext)) {
-            events().invoker(BasicEvents.POST_SET_BOUNDS_EVENT_KEY).onPostSetBoundsEvent(this, oldBounds, transactionContext, span);
-        }
-        return new Result.Success<>(Unit.INSTANCE);
     }
 
     @Override
     public Result<Unit, SetTeamRelationError> setRelation(final BattleParticipantTeam first, final BattleParticipantTeam second, final BattleParticipantTeamRelation relation, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         ensureBattleOngoing();
-        final BattleParticipantTeamRelation oldRelation = participantContainer.relation(first, second);
-        if (oldRelation == relation) {
+        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreSetTeamRelation(first, second, relation), transactionContext)) {
+            final BattleParticipantTeamRelation oldRelation = participantContainer.relation(first, second);
+            if (oldRelation == relation) {
+                return new Result.Success<>(Unit.INSTANCE);
+            }
+            if (!events().invoker(BasicEvents.PRE_SET_TEAM_RELATION_EVENT_KEY).onPreSetTeamRelationEvent(this, first, second, relation, transactionContext, preSpan)) {
+                return new Result.Failure<>(SetTeamRelationError.EVENT);
+            }
+            final BattleParticipantTeamRelation old = participantContainer.setRelation(first, second, relation);
+            delta(transactionContext, new TeamRelationDelta(first, second, oldRelation));
+            try (final var span = preSpan.push(new CoreBattleTraceEvents.SetTeamRelation(first, second, oldRelation, relation), transactionContext)) {
+                events().invoker(BasicEvents.POST_SET_TEAM_RELATION_EVENT_KEY).onPostSetTeamRelationEvent(this, first, second, old, transactionContext, span);
+            }
             return new Result.Success<>(Unit.INSTANCE);
         }
-        if (!events().invoker(BasicEvents.PRE_SET_TEAM_RELATION_EVENT_KEY).onPreSetTeamRelationEvent(this, first, second, relation, transactionContext, tracer)) {
-            return new Result.Failure<>(SetTeamRelationError.EVENT);
-        }
-        final BattleParticipantTeamRelation old = participantContainer.setRelation(first, second, relation);
-        delta(transactionContext, new TeamRelationDelta(first, second, oldRelation));
-        try (final var span = tracer.push(new CoreBattleTraceEvents.SetTeamRelation(first, second, oldRelation, relation), transactionContext)) {
-            events().invoker(BasicEvents.POST_SET_TEAM_RELATION_EVENT_KEY).onPostSetTeamRelationEvent(this, first, second, old, transactionContext, span);
-        }
-        return new Result.Success<>(Unit.INSTANCE);
     }
 
     @Override
-    public <T extends BattleAttachment> void setAttachment(final T value, final BattleAttachmentType<T> type, final BattleTransactionContext transactionContext) {
-        //noinspection unchecked
-        delta(transactionContext, new SetAttachmentDelta<>((T) attachments.put(type, value), type));
+    public <T extends BattleAttachment> void setAttachment(final @Nullable T value, final BattleAttachmentType<T> type, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
+        try (final var span = tracer.push(new CoreBattleTraceEvents.SetAttachment(type), transactionContext)) {
+            //noinspection unchecked
+            final T old = (T) attachments.put(type, value);
+            delta(transactionContext, new SetAttachmentDelta<>(old, type));
+            if (old != null) {
+                old.deinit(this, transactionContext, span);
+            }
+            if (value != null) {
+                value.init(this, transactionContext, span);
+            }
+        }
     }
 
     @Override

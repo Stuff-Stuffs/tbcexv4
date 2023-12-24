@@ -3,6 +3,7 @@ package io.github.stuff_stuffs.tbcexv4test;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Api;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
@@ -35,7 +36,7 @@ public class Tbcexv4Test implements ModInitializer {
                 final ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
                 final ServerWorld world = (ServerWorld) player.getWorld();
                 final ServerBattleWorld battleWorld = (ServerBattleWorld) world.getServer().getWorld(Tbcexv4.battleWorldKey(player.getWorld().getRegistryKey()));
-                final Optional<Battle> opt = battleWorld.battleManager().createBattle(144, 144, 144);
+                final Optional<Battle> opt = battleWorld.battleManager().createBattle(144, 144, 144, Tbcexv4Registries.TurnManagerTypes.IN_ORDER_TURN_MANAGER_TYPE, Unit.INSTANCE);
                 if (opt.isEmpty()) {
                     return 1;
                 }

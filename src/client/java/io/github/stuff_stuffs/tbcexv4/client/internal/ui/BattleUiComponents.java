@@ -1,6 +1,7 @@
 package io.github.stuff_stuffs.tbcexv4.client.internal.ui;
 
 import io.github.stuff_stuffs.tbcexv4.client.api.Tbcexv4ClientApi;
+import io.github.stuff_stuffs.tbcexv4.client.internal.ui.component.FixedDropdownComponent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.wispforest.owo.ui.component.Components;
 import io.wispforest.owo.ui.component.DropdownComponent;
@@ -13,6 +14,7 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -20,9 +22,10 @@ public final class BattleUiComponents {
     public static ParentComponent createSelectBattleComponent() {
         final DropdownComponent dropdownComponent = new FixedDropdownComponent(Sizing.fill(25));
         dropdownComponent.closeWhenNotHovered();
-        final TickingParentComponent ticking = new TickingParentComponent(Sizing.content(), Sizing.content(), dropdownComponent);
+        final TickingParentComponent<?> ticking = new TickingParentComponent<>(Sizing.content(), Sizing.content(), dropdownComponent);
         ticking.onDraw().subscribe(new TickingParentComponent.OnDraw() {
             private float ticks = 0;
+            private Optional<BattleHandle> lastWatching = Optional.empty();
             private Set<BattleHandle> last = new ObjectOpenHashSet<>();
 
             @Override
@@ -31,14 +34,25 @@ public final class BattleUiComponents {
                 if (ticks >= 10) {
                     ticks = 0;
                     final Set<BattleHandle> handles = Tbcexv4ClientApi.possibleControlling();
+                    boolean refresh = false;
                     if (!(handles.containsAll(last) && last.containsAll(handles))) {
                         last = Set.copyOf(handles);
+                        refresh = true;
+                    }
+                    final Optional<BattleHandle> watching = Tbcexv4ClientApi.watching();
+                    if (!watching.equals(lastWatching)) {
+                        lastWatching = watching;
+                        refresh = true;
+                    }
+                    if (refresh) {
                         dropdownComponent.clearChildren();
                         final FlowLayout options = Containers.verticalFlow(Sizing.fill(), Sizing.content());
                         final ScrollContainer<FlowLayout> scroller = Containers.verticalScroll(Sizing.fill(), Sizing.fill(50), options);
-                        dropdownComponent.button(Text.of("EXIT"), component -> Tbcexv4ClientApi.requestWatch(null));
-                        dropdownComponent.child(scroller);
+                        if (watching.isPresent()) {
+                            options.child(Components.button(Text.of("EXIT"), component -> Tbcexv4ClientApi.requestWatch(null)));
+                        }
                         createBattleSelection(last, options::child);
+                        dropdownComponent.child(scroller);
                     }
                 }
             }
@@ -61,6 +75,10 @@ public final class BattleUiComponents {
             });
             consumer.accept(grid);
         }
+    }
+
+    public static Component createMainComponent() {
+
     }
 
     private BattleUiComponents() {

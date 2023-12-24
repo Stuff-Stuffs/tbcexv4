@@ -7,10 +7,10 @@ import io.wispforest.owo.ui.core.Sizing;
 import io.wispforest.owo.util.EventSource;
 import io.wispforest.owo.util.EventStream;
 
-public class TickingParentComponent extends WrappingParentComponent<Component> {
+public class TickingParentComponent<C extends Component> extends WrappingParentComponent<C> {
     private final EventStream<OnDraw> onDraw;
 
-    public TickingParentComponent(final Sizing horizontalSizing, final Sizing verticalSizing, final Component child) {
+    public TickingParentComponent(final Sizing horizontalSizing, final Sizing verticalSizing, final C child) {
         super(horizontalSizing, verticalSizing, child);
         onDraw = new EventStream<>(draws -> (context, mouseX, mouseY, partialTicks, delta) -> {
             for (final OnDraw draw : draws) {

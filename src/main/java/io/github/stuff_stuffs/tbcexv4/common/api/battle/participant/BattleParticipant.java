@@ -12,6 +12,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
+import org.jetbrains.annotations.Nullable;
 
 @EventViewable(viewClass = BattleParticipantView.class)
 public interface BattleParticipant extends BattleParticipantView {
@@ -37,7 +38,7 @@ public interface BattleParticipant extends BattleParticipantView {
 
     double setHealth(double amount, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
-    <T extends BattleParticipantAttachment> void setAttachment(T value, BattleParticipantAttachmentType<T> type, BattleTransactionContext transactionContext);
+    <T extends BattleParticipantAttachment> void setAttachment(@Nullable T value, BattleParticipantAttachmentType<T> type, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
     enum SetBoundsError {
         EVENT,

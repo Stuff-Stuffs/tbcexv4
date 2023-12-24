@@ -1,18 +1,25 @@
 package io.github.stuff_stuffs.tbcexv4.common.api.battle.state.attachment;
 
-import com.mojang.serialization.Codec;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
+import net.minecraft.text.Text;
 
-import java.util.function.Function;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 
 public final class BattleAttachmentType<T extends BattleAttachment> {
-    private final Function<BattleCodecContext, Codec<T>> codecFactory;
+    private final BiFunction<BattleParticipantView, T, Text> name;
+    private final BiPredicate<BattleParticipantView, T> visible;
 
-    public BattleAttachmentType(final Function<BattleCodecContext, Codec<T>> factory) {
-        codecFactory = factory;
+    public BattleAttachmentType(final BiFunction<BattleParticipantView, T, Text> name, final BiPredicate<BattleParticipantView, T> visible) {
+        this.name = name;
+        this.visible = visible;
     }
 
-    public Codec<T> codec(final BattleCodecContext context) {
-        return codecFactory.apply(context);
+    public Text name(final BattleParticipantView participant, final T value) {
+        return name.apply(participant, value);
+    }
+
+    public boolean visible(final BattleParticipantView participant, final T value) {
+        return visible.test(participant, value);
     }
 }

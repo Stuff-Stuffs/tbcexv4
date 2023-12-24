@@ -1,18 +1,23 @@
 package io.github.stuff_stuffs.tbcexv4.common.api;
 
+import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.DamagePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.SetupEnvironmentBattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.StartBattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachment;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequestType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.DebugBattleActionRequest;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.DebugBattleActionRequestType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.EquipmentSlot;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatModificationPhase;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.InOrderTurnManager;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManagerType;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.DamagePhaseImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.inventory.item.UnknownBattleItem;
+import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.stat.StatModificationPhaseImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
 import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
 import net.fabricmc.fabric.api.event.registry.RegistryEntryAddedCallback;
@@ -62,10 +67,12 @@ public final class Tbcexv4Registries {
         public static final RegistryKey<Registry<StatModificationPhase>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("stat_modification_phases"));
         public static final Registry<StatModificationPhase> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
         public static final Codec<StatModificationPhase> CODEC = REGISTRY.getCodec();
+        public static final Comparator<StatModificationPhase> COMPARATOR = StatModificationPhaseImpl.COMPARATOR;
         public static final StatModificationPhase BASE_STATS = StatModificationPhase.create(Set.of(), Set.of());
         public static final StatModificationPhase DEFAULT = StatModificationPhase.create(Set.of(Tbcexv4.id("base_stats")), Set.of());
 
         public static void init() {
+            RegistryEntryAddedCallback.event(REGISTRY).register((rawId, id, object) -> StatModificationPhaseImpl.SORTED.setFalse());
             Registry.register(REGISTRY, Tbcexv4.id("base_stats"), BASE_STATS);
             Registry.register(REGISTRY, Tbcexv4.id("default"), DEFAULT);
         }
@@ -78,7 +85,7 @@ public final class Tbcexv4Registries {
         public static final Comparator<DamagePhase> COMPARATOR = DamagePhaseImpl.COMPARATOR;
 
         public static void init() {
-            RegistryEntryAddedCallback.event(REGISTRY).register((rawId, id, object) -> DamagePhaseImpl.SORTED.setRelease(false));
+            RegistryEntryAddedCallback.event(REGISTRY).register((rawId, id, object) -> DamagePhaseImpl.SORTED.setFalse());
         }
     }
 
@@ -102,14 +109,25 @@ public final class Tbcexv4Registries {
         }
     }
 
-    public static final class BattleParticipantAttachmentTypes {
-        public static final RegistryKey<Registry<BattleParticipantAttachmentType<?>>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("battle_participant_attachment_types"));
-        public static final Registry<BattleParticipantAttachmentType<?>> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
-        public static final Codec<BattleParticipantAttachmentType<?>> CODEC = REGISTRY.getCodec();
-        public static final BattleParticipantAttachmentType<BattleParticipantPlayerControllerAttachment> PLAYER_CONTROLLER_TYPE = new BattleParticipantAttachmentType<>(context -> BattleParticipantPlayerControllerAttachment.CODEC);
+    public static final class TurnManagerTypes {
+        public static final RegistryKey<Registry<TurnManagerType<?>>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("turn_manager_types"));
+        public static final Registry<TurnManagerType<?>> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
+        public static final Codec<TurnManagerType<?>> CODEC = REGISTRY.getCodec();
+        public static final TurnManagerType<Unit> IN_ORDER_TURN_MANAGER_TYPE = new TurnManagerType<>((context, unit) -> new InOrderTurnManager(), context -> Codec.unit(Unit.INSTANCE));
 
         public static void init() {
-            Registry.register(REGISTRY, Tbcexv4.id("player_controller"), PLAYER_CONTROLLER_TYPE);
+            Registry.register(REGISTRY, Tbcexv4.id("in_order"), IN_ORDER_TURN_MANAGER_TYPE);
+        }
+    }
+
+    public static final class BattleActionRequestTypes {
+        public static final RegistryKey<Registry<BattleActionRequestType<?>>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("battle_action_request_type"));
+        public static final Registry<BattleActionRequestType<?>> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
+        public static final Codec<BattleActionRequestType<?>> CODEC = REGISTRY.getCodec();
+        public static final BattleActionRequestType<DebugBattleActionRequest> DEBUG_TYPE = new DebugBattleActionRequestType();
+
+        public static void init() {
+            Registry.register(REGISTRY, Tbcexv4.id("debug"), DEBUG_TYPE);
         }
     }
 
@@ -120,7 +138,7 @@ public final class Tbcexv4Registries {
         DamagePhases.init();
         ItemTypes.init();
         EquipmentSlots.init();
-        BattleParticipantAttachmentTypes.init();
+        TurnManagerTypes.init();
     }
 
     private Tbcexv4Registries() {

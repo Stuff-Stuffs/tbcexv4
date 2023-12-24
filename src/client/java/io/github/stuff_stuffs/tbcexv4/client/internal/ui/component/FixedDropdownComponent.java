@@ -1,4 +1,4 @@
-package io.github.stuff_stuffs.tbcexv4.client.internal.ui;
+package io.github.stuff_stuffs.tbcexv4.client.internal.ui.component;
 
 import io.wispforest.owo.ui.component.DropdownComponent;
 import io.wispforest.owo.ui.container.FlowLayout;

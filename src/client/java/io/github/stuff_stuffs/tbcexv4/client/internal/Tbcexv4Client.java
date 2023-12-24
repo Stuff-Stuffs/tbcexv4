@@ -1,45 +1,61 @@
 package io.github.stuff_stuffs.tbcexv4.client.internal;
 
+import io.github.stuff_stuffs.tbcexv4.client.api.DelayedResponse;
+import io.github.stuff_stuffs.tbcexv4.client.api.Tbcexv4ClientApi;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.ClientBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.state.env.ClientBattleEnvironmentImpl;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BattleUiComponents;
+import io.github.stuff_stuffs.tbcexv4.client.internal.ui.component.Tbcexv4UiComponents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
+import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
+import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4ClientDelegates;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.Tbcexv4CommonNetwork;
+import io.github.stuff_stuffs.tbcexv4.common.internal.network.TryBattleActionPacket;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.WatchRequestPacket;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.WatchRequestResponsePacket;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattleEnvironmentInitialState;
 import io.wispforest.owo.ui.core.ParentComponent;
 import io.wispforest.owo.ui.layers.Layers;
+import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.ingame.AbstractInventoryScreen;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.util.math.MathHelper;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collections;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 public class Tbcexv4Client implements ClientModInitializer {
     private static @Nullable BattleHandle WATCHING = null;
     private static @Nullable ClientBattleImpl WATCHED_BATTLE = null;
     private static final Set<BattleHandle> POSSIBLE_CONTROLLING = new ObjectOpenHashSet<>();
+    private static final Map<UUID, DelayedResponse<Tbcexv4ClientApi.RequestResult>> ONGOING_RESULTS = new Object2ReferenceOpenHashMap<>();
 
     @Override
     public void onInitializeClient() {
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> WATCHING = null);
+        ClientPlayConnectionEvents.INIT.register((handler, client) -> {
+            WATCHING = null;
+            WATCHED_BATTLE = null;
+        });
         ClientPlayNetworking.registerGlobalReceiver(Tbcexv4CommonNetwork.WATCH_REQUEST_RESPONSE_PACKET_TYPE, (packet, player, responseSender) -> {
-            WATCHING = packet.handle();
             final WatchRequestResponsePacket.Info info = packet.info();
-            if (info == null) {
+            final BattleCodecContext codecContext = BattleCodecContext.create(player.getWorld().getRegistryManager());
+            final Optional<ServerBattleImpl.TurnManagerContainer<?>> opt = packet.decodeTurnManager(codecContext);
+            if (info == null || opt.isEmpty()) {
+                WATCHING = null;
                 WATCHED_BATTLE = null;
             } else {
-                WATCHED_BATTLE = new ClientBattleImpl(player.clientWorld, packet.handle(), info.sourceWorld(), info.min(), info.xSize(), info.ySize(), info.zSize());
+                WATCHING = packet.handle();
+                final ServerBattleImpl.TurnManagerContainer<?> container = opt.get();
+                WATCHED_BATTLE = new ClientBattleImpl(player.clientWorld, packet.handle(), info.sourceWorld(), info.min(), info.xSize(), info.ySize(), info.zSize(), () -> container.create(codecContext));
             }
         });
         ClientPlayNetworking.registerGlobalReceiver(Tbcexv4CommonNetwork.CONTROLLING_BATTLE_UPDATE_PACKET_TYPE, (packet, player, responseSender) -> {
@@ -67,7 +83,7 @@ public class Tbcexv4Client implements ClientModInitializer {
                     throw new RuntimeException();
                 }
                 WATCHED_BATTLE.trim(packet.index());
-                final BattleCodecContext codecContext = player.clientWorld::getRegistryManager;
+                final BattleCodecContext codecContext = BattleCodecContext.create(player.getWorld().getRegistryManager());
                 final Optional<BattleAction> result = BattleAction.codec(codecContext).parse(NbtOps.INSTANCE, packet.element()).result();
                 if (result.isEmpty()) {
                     throw new RuntimeException();
@@ -75,19 +91,34 @@ public class Tbcexv4Client implements ClientModInitializer {
                 WATCHED_BATTLE.pushAction(result.get());
             }
         });
-        Layers.add((hSizing, vSizing) -> {
-            final ParentComponent component = BattleUiComponents.createSelectBattleComponent();
-            component.sizing(hSizing, vSizing);
-            component.id("root");
-            return component;
-        }, instance -> {
-            instance.aggressivePositioning = true;
-            instance.alignComponentToHandledScreenCoordinates(instance.adapter.rootComponent, 10, 10);
-        }, InventoryScreen.class);
+        ClientPlayNetworking.registerGlobalReceiver(Tbcexv4CommonNetwork.TRY_BATTLE_ACTION_RESPONSE_PACKET_TYPE, (packet, player, responseSender) -> {
+            final UUID uuid = packet.requestId();
+            final DelayedResponse<Tbcexv4ClientApi.RequestResult> response = ONGOING_RESULTS.remove(uuid);
+            if (response == null) {
+                Tbcexv4.LOGGER.error("Unknown ongoing request!");
+            } else {
+                final Tbcexv4ClientApi.RequestResult result;
+                if (packet.success()) {
+                    result = new Tbcexv4ClientApi.SuccessfulRequestResult(packet.desc());
+                } else {
+                    result = new Tbcexv4ClientApi.FailedRequestResult(packet.desc());
+                }
+                DelayedResponse.tryComplete(response, result);
+            }
+        });
+        Tbcexv4UiComponents.init();
+    }
+
+    public static DelayedResponse<Tbcexv4ClientApi.RequestResult> sendRequest(final BattleActionRequest request) {
+        final UUID id = MathHelper.randomUuid();
+        final DelayedResponse<Tbcexv4ClientApi.RequestResult> response = DelayedResponse.create();
+        ONGOING_RESULTS.put(id, response);
+        ClientPlayNetworking.send(new TryBattleActionPacket(request, id, BattleCodecContext.create(MinecraftClient.getInstance().world.getRegistryManager())));
+        return response;
     }
 
     public static Set<BattleHandle> possibleControlling() {
-        return Collections.unmodifiableSet(POSSIBLE_CONTROLLING);
+        return new ObjectOpenHashSet<>(POSSIBLE_CONTROLLING);
     }
 
     public static @Nullable BattleHandle watching() {

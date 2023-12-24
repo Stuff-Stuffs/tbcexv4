@@ -16,6 +16,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransa
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
+import org.jetbrains.annotations.Nullable;
 
 @EventViewable(viewClass = BattleStateView.class)
 public interface BattleState extends BattleStateView {
@@ -38,7 +39,7 @@ public interface BattleState extends BattleStateView {
 
     Result<Unit, SetTeamRelationError> setRelation(BattleParticipantTeam first, BattleParticipantTeam second, BattleParticipantTeamRelation relation, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
-    <T extends BattleAttachment> void setAttachment(T value, BattleAttachmentType<T> type, BattleTransactionContext transactionContext);
+    <T extends BattleAttachment> void setAttachment(@Nullable T value, BattleAttachmentType<T> type, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
     enum AddParticipantError {
         OUT_OF_BOUNDS,

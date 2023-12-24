@@ -19,13 +19,15 @@ import io.github.stuff_stuffs.tbcexv4.common.internal.world.ServerBattleWorld;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.packet.s2c.play.ChunkDataS2CPacket;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
+import net.minecraft.resource.LifecycledResourceManager;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
@@ -82,19 +84,6 @@ public class Tbcexv4 implements ModInitializer {
                 getBattlePersistentState(world).tick((ServerBattleWorld) world.getServer().getWorld(battleWorldKey(key)));
             }
         });
-        ServerChunkEvents.CHUNK_LOAD.register(new ServerChunkEvents.Load() {
-            @Override
-            public void onChunkLoad(final ServerWorld world, final WorldChunk chunk) {
-                if (checkGenerated(world.getRegistryKey().getValue())) {
-                    LOGGER.warn("Loaded chunk at {}, {}", chunk.getPos().getStartX(), chunk.getPos().getStartZ());
-                }
-            }
-        });
-        ServerChunkEvents.CHUNK_UNLOAD.register((world, chunk) -> {
-            if (checkGenerated(world.getRegistryKey().getValue())) {
-                LOGGER.warn("Unloaded chunk at {}, {}", chunk.getPos().getStartX(), chunk.getPos().getStartZ());
-            }
-        });
         ServerTickEvents.END_WORLD_TICK.register(world -> {
             final RegistryKey<World> key = world.getRegistryKey();
             if (!checkGenerated(key.getValue())) {
@@ -115,6 +104,16 @@ public class Tbcexv4 implements ModInitializer {
             for (final ServerPlayerEntity entity : server.getPlayerManager().getPlayerList()) {
                 if (entity.age % 20 == 0) {
                     ServerPlayNetworking.send(entity, new ControllingBattleUpdatePacket(List.copyOf(Tbcexv4Api.controlling(entity))));
+                }
+            }
+        });
+        ServerLifecycleEvents.END_DATA_PACK_RELOAD.register((server, resourceManager, success) -> {
+            if (success) {
+                final List<ServerPlayerEntity> list = server.getPlayerManager().getPlayerList();
+                for (final ServerWorld world : server.getWorlds()) {
+                    if (world instanceof ServerBattleWorld battleWorld) {
+                        battleWorld.battleManager().reload(list);
+                    }
                 }
             }
         });

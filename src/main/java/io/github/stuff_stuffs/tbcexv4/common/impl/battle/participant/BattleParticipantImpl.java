@@ -161,106 +161,125 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
     @Override
     public Result<Unit, SetBoundsError> setBounds(final BattleParticipantBounds bounds, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         battleState.ensureBattleOngoing();
-        if (bounds.equals(this.bounds)) {
+        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreSetParticipantBounds(bounds), transactionContext)) {
+            if (bounds.equals(this.bounds)) {
+                return new Result.Success<>(Unit.INSTANCE);
+            }
+            if (!battleState.bounds().check(bounds, pos)) {
+                return new Result.Failure<>(SetBoundsError.OUTSIDE_BATTLE);
+            }
+            if (!events().invoker(BasicParticipantEvents.PRE_SET_BOUNDS_EVENT_KEY).onPreSetBoundsEvent(this, bounds, transactionContext, preSpan)) {
+                return new Result.Failure<>(SetBoundsError.EVENT);
+            }
+            final BattleParticipantBounds old = this.bounds;
+            delta(transactionContext, new BoundsDelta(old));
+            this.bounds = bounds;
+            try (final var span = preSpan.push(new CoreBattleTraceEvents.SetParticipantBounds(old, bounds), transactionContext)) {
+                events().invoker(BasicParticipantEvents.POST_SET_BOUNDS_EVENT_KEY).onPostSetBoundsEvent(this, old, transactionContext, span);
+            }
             return new Result.Success<>(Unit.INSTANCE);
         }
-        if (!battleState.bounds().check(bounds, pos)) {
-            return new Result.Failure<>(SetBoundsError.OUTSIDE_BATTLE);
-        }
-        if (!events().invoker(BasicParticipantEvents.PRE_SET_BOUNDS_EVENT_KEY).onPreSetBoundsEvent(this, bounds, transactionContext, tracer)) {
-            return new Result.Failure<>(SetBoundsError.EVENT);
-        }
-        final BattleParticipantBounds old = this.bounds;
-        delta(transactionContext, new BoundsDelta(old));
-        this.bounds = bounds;
-        try (final var span = tracer.push(new CoreBattleTraceEvents.SetParticipantBounds(old, bounds), transactionContext)) {
-            events().invoker(BasicParticipantEvents.POST_SET_BOUNDS_EVENT_KEY).onPostSetBoundsEvent(this, old, transactionContext, span);
-        }
-        return new Result.Success<>(Unit.INSTANCE);
     }
 
     @Override
     public Result<Unit, SetPosError> setPos(final BattlePos pos, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         battleState.ensureBattleOngoing();
-        if (pos.equals(this.pos)) {
+        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreSetParticipantPos(pos), transactionContext)) {
+            if (pos.equals(this.pos)) {
+                return new Result.Success<>(Unit.INSTANCE);
+            }
+            if (!battleState.bounds().check(bounds, pos)) {
+                return new Result.Failure<>(SetPosError.OUTSIDE_BATTLE);
+            }
+            if (!events().invoker(BasicParticipantEvents.PRE_SET_POS_EVENT_KEY).onPreSetPosEvent(this, pos, transactionContext, preSpan)) {
+                return new Result.Failure<>(SetPosError.EVENT);
+            }
+            final BattlePos oldPos = this.pos;
+            delta(transactionContext, new PosDelta(oldPos));
+            this.pos = pos;
+            try (final var span = preSpan.push(new CoreBattleTraceEvents.SetParticipantPos(oldPos, pos), transactionContext)) {
+                events().invoker(BasicParticipantEvents.POST_SET_POS_EVENT_KEY).onPostSetPosEvent(this, oldPos, transactionContext, span);
+            }
             return new Result.Success<>(Unit.INSTANCE);
         }
-        if (!battleState.bounds().check(bounds, pos)) {
-            return new Result.Failure<>(SetPosError.OUTSIDE_BATTLE);
-        }
-        if (!events().invoker(BasicParticipantEvents.PRE_SET_POS_EVENT_KEY).onPreSetPosEvent(this, pos, transactionContext, tracer)) {
-            return new Result.Failure<>(SetPosError.EVENT);
-        }
-        final BattlePos oldPos = this.pos;
-        delta(transactionContext, new PosDelta(oldPos));
-        this.pos = pos;
-        try (final var span = tracer.push(new CoreBattleTraceEvents.SetParticipantPos(oldPos, pos), transactionContext)) {
-            events().invoker(BasicParticipantEvents.POST_SET_POS_EVENT_KEY).onPostSetPosEvent(this, oldPos, transactionContext, span);
-        }
-        return new Result.Success<>(Unit.INSTANCE);
     }
 
     @Override
     public double damage(final double amount, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         battleState.ensureBattleOngoing();
-        final double modified = events().invoker(BasicParticipantEvents.PRE_DAMAGE_EVENT_KEY).onPreDamageEvent(this, amount, transactionContext, tracer);
-        if (modified <= 0.0 || !Double.isFinite(modified)) {
-            return 0.0;
+        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreDamageParticipant(handle(), amount), transactionContext)) {
+            final double modified = events().invoker(BasicParticipantEvents.PRE_DAMAGE_EVENT_KEY).onPreDamageEvent(this, amount, transactionContext, preSpan);
+            if (modified <= 0.0 || !Double.isFinite(modified)) {
+                return 0.0;
+            }
+            final double oldHealth = health();
+            delta(transactionContext, new HealthDelta(oldHealth));
+            health = Math.max(oldHealth - modified, 0.0);
+            final double min = Math.min(oldHealth, modified);
+            try (final var span = preSpan.push(new CoreBattleTraceEvents.DamageParticipant(handle(), min), transactionContext)) {
+                events().invoker(BasicParticipantEvents.POST_DAMAGE_EVENT_KEY).onPostDamageEvent(this, min, modified - min, transactionContext, span);
+            }
+            if (health() <= 0) {
+                tryKill(transactionContext, preSpan);
+            }
+            return min;
         }
-        final double oldHealth = health();
-        delta(transactionContext, new HealthDelta(oldHealth));
-        health = Math.max(oldHealth - modified, 0.0);
-        final double min = Math.min(oldHealth, modified);
-        try (final var span = tracer.push(new CoreBattleTraceEvents.DamageParticipant(handle(), min), transactionContext)) {
-            events().invoker(BasicParticipantEvents.POST_DAMAGE_EVENT_KEY).onPostDamageEvent(this, min, modified - min, transactionContext, span);
-        }
-        if (health() <= 0) {
-            tryKill(transactionContext, tracer);
-        }
-        return min;
     }
 
     @Override
     public double heal(final double amount, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         battleState.ensureBattleOngoing();
-        final double modified = events().invoker(BasicParticipantEvents.PRE_HEAL_EVENT_KEY).onPreHealEvent(this, amount, transactionContext, tracer);
-        if (modified <= 0.0 || !Double.isFinite(modified)) {
-            return 0.0;
+        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreHealParticipant(handle(), amount), transactionContext)) {
+            final double modified = events().invoker(BasicParticipantEvents.PRE_HEAL_EVENT_KEY).onPreHealEvent(this, amount, transactionContext, preSpan);
+            if (modified <= 0.0 || !Double.isFinite(modified)) {
+                return 0.0;
+            }
+            final double oldHealth = health;
+            delta(transactionContext, new HealthDelta(oldHealth));
+            health = Math.min(oldHealth + modified, stats().get(Tbcexv4Registries.Stats.MAX_HEALTH));
+            final double overflow = Math.max(modified - (health - oldHealth), 0.0);
+            final double healed = Math.max(health - oldHealth, 0.0);
+            try (final var span = preSpan.push(new CoreBattleTraceEvents.HealParticipant(handle(), modified, overflow), transactionContext)) {
+                events().invoker(BasicParticipantEvents.POST_HEAL_EVENT_KEY).onPostHealEvent(this, healed, overflow, transactionContext, span);
+            }
+            return healed;
         }
-        final double oldHealth = health;
-        delta(transactionContext, new HealthDelta(oldHealth));
-        health = Math.min(oldHealth + modified, stats().get(Tbcexv4Registries.Stats.MAX_HEALTH));
-        final double overflow = Math.max(modified - (health - oldHealth), 0.0);
-        final double healed = Math.max(health - oldHealth, 0.0);
-        try (final var span = tracer.push(new CoreBattleTraceEvents.HealParticipant(handle(), modified, overflow), transactionContext)) {
-            events().invoker(BasicParticipantEvents.POST_HEAL_EVENT_KEY).onPostHealEvent(this, healed, overflow, transactionContext, span);
-        }
-        return healed;
     }
 
     @Override
     public double setHealth(final double amount, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         battleState.ensureBattleOngoing();
-        final double modified = events().invoker(BasicParticipantEvents.PRE_SET_HEALTH_EVENT_KEY).onPreSetHealthEvent(this, amount, transactionContext, tracer);
-        if (!Double.isFinite(modified)) {
+        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreParticipantSetHealth(handle(), amount), transactionContext)) {
+            final double modified = events().invoker(BasicParticipantEvents.PRE_SET_HEALTH_EVENT_KEY).onPreSetHealthEvent(this, amount, transactionContext, preSpan);
+            if (!Double.isFinite(modified)) {
+                return health();
+            }
+            final double oldHealth = health();
+            delta(transactionContext, new HealthDelta(oldHealth));
+            health = modified;
+            try (final var span = preSpan.push(new CoreBattleTraceEvents.ParticipantSetHealth(handle(), oldHealth, health()), transactionContext)) {
+                events().invoker(BasicParticipantEvents.POST_SET_HEALTH_EVENT_KEY).onPostSetHealthEvent(this, oldHealth, transactionContext, span);
+            }
+            if (health() <= 0.0001) {
+                tryKill(transactionContext, preSpan);
+            }
             return health();
         }
-        final double oldHealth = health();
-        delta(transactionContext, new HealthDelta(oldHealth));
-        health = modified;
-        try (final var span = tracer.push(new CoreBattleTraceEvents.ParticipantSetHealth(handle(), oldHealth, health()), transactionContext)) {
-            events().invoker(BasicParticipantEvents.POST_SET_HEALTH_EVENT_KEY).onPostSetHealthEvent(this, oldHealth, transactionContext, span);
-        }
-        if (health() <= 0.0001) {
-            tryKill(transactionContext, tracer);
-        }
-        return health();
     }
 
     @Override
-    public <T extends BattleParticipantAttachment> void setAttachment(final T value, final BattleParticipantAttachmentType<T> type, final BattleTransactionContext transactionContext) {
-        //noinspection unchecked
-        delta(transactionContext, new SetAttachmentDelta<>((T) attachments.put(type, value), type));
+    public <T extends BattleParticipantAttachment> void setAttachment(final @Nullable T value, final BattleParticipantAttachmentType<T> type, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
+        try (final var span = tracer.push(new CoreBattleTraceEvents.SetParticipantAttachment(type), transactionContext)) {
+            //noinspection unchecked
+            final T old = (T) attachments.put(type, value);
+            delta(transactionContext, new SetAttachmentDelta<>(old, type));
+            if (old != null) {
+                old.deinit(this, transactionContext, span);
+            }
+            if (value != null) {
+                value.init(this, transactionContext, span);
+            }
+        }
     }
 
     @Override

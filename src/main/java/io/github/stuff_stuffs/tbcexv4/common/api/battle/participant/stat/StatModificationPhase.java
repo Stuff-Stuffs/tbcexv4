@@ -6,9 +6,9 @@ import net.minecraft.util.Identifier;
 import java.util.Set;
 
 public interface StatModificationPhase {
-    Set<Identifier> dependencies();
+    Set<Identifier> before();
 
-    Set<Identifier> dependents();
+    Set<Identifier> after();
 
     static StatModificationPhase create(final Set<Identifier> dependencies, final Set<Identifier> dependents) {
         return new StatModificationPhaseImpl(dependencies, dependents);

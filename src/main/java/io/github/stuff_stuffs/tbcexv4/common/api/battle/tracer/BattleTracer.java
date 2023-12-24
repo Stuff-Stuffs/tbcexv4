@@ -20,7 +20,7 @@ public interface BattleTracer extends BattleTracerView {
         void close();
     }
 
-    static BattleTracer create() {
-        return new BattleTracerImpl();
+    static BattleTracer create(final BattleTraceEvent rootEvent) {
+        return new BattleTracerImpl(rootEvent);
     }
 }

@@ -9,9 +9,27 @@ import java.util.stream.Stream;
 public interface BattleTracerView {
     <T extends BattleTraceEvent> Node<T> byHandle(Handle<T> handle);
 
-    Stream<? extends Node<?>> eventStream();
+    boolean contains(Timestamp timestamp);
 
-    <T extends BattleTraceEvent> Stream<? extends Node<T>> eventStream(Class<T> type);
+    Node<?> byTimestamp(Timestamp timestamp);
+
+    Stream<? extends Node<?>> all();
+
+    <T extends BattleTraceEvent> Stream<? extends Node<T>> all(Class<T> type);
+
+    Stream<? extends Node<?>> after(Timestamp timestamp);
+
+    <T extends BattleTraceEvent> Stream<? extends Node<T>> after(Timestamp timestamp, Class<T> type);
+
+    Stream<? extends Node<?>> before(Timestamp timestamp);
+
+    <T extends BattleTraceEvent> Stream<? extends Node<T>> before(Timestamp timestamp, Class<T> type);
+
+    Stream<? extends Node<?>> between(Timestamp start, Timestamp end);
+
+    <T extends BattleTraceEvent> Stream<? extends Node<T>> between(Timestamp start, Timestamp end, Class<T> type);
+
+    Node<?> latest();
 
     interface Handle<T extends BattleTraceEvent> {
     }
@@ -24,11 +42,16 @@ public interface BattleTracerView {
         @Nullable Node<?> parent();
 
         Set<? extends Handle<?>> children();
+
+        Timestamp timeStamp();
     }
 
     interface SpanView<T extends BattleTraceEvent> {
         Node<T> node();
 
         BattleTracerView tracer();
+    }
+
+    interface Timestamp extends Comparable<Timestamp> {
     }
 }

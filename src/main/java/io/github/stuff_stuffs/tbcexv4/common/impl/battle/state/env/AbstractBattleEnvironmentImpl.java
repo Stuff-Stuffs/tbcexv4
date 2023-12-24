@@ -20,22 +20,24 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
 
     @Override
     public boolean setBlockState(final int x, final int y, final int z, final BlockState state, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
-        if (x < 0 || y < 0 || z < 0 || x >= battle.xSize() || y >= battle.ySize() || z >= battle.zSize()) {
-            return false;
-        }
-        final BlockState oldState = getBlockState0(x, y, z);
-        if (oldState == state) {
+        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreSetBlockState(x, y, z, state), transactionContext)) {
+            if (x < 0 || y < 0 || z < 0 || x >= battle.xSize() || y >= battle.ySize() || z >= battle.zSize()) {
+                return false;
+            }
+            final BlockState oldState = getBlockState0(x, y, z);
+            if (oldState == state) {
+                return true;
+            }
+            if (!battle.state().events().invoker(BasicEnvEvents.PRE_SET_BLOCK_STATE_EVENT_KEY).onPreSetBlockStateEvent(battle.state(), x, y, z, state, transactionContext, preSpan)) {
+                return false;
+            }
+            setBlockState0(x, y, z, state);
+            delta(transactionContext, new BlockDelta(x, y, z, oldState));
+            try (final var span = preSpan.push(new CoreBattleTraceEvents.SetBlockState(x, y, z, oldState, state), transactionContext)) {
+                battle.state().events().invoker(BasicEnvEvents.POST_SET_BLOCK_STATE_EVENT_KEY).onPostSetBlockStateEvent(battle.state(), x, y, z, oldState, transactionContext, span);
+            }
             return true;
         }
-        if (!battle.state().events().invoker(BasicEnvEvents.PRE_SET_BLOCK_STATE_EVENT_KEY).onPreSetBlockStateEvent(battle.state(), x, y, z, state, transactionContext, tracer)) {
-            return false;
-        }
-        setBlockState0(x, y, z, state);
-        delta(transactionContext, new BlockDelta(x, y, z, oldState));
-        try (final var span = tracer.push(new CoreBattleTraceEvents.SetBlockState(x, y, z, oldState, state), transactionContext)) {
-            battle.state().events().invoker(BasicEnvEvents.POST_SET_BLOCK_STATE_EVENT_KEY).onPostSetBlockStateEvent(battle.state(), x, y, z, oldState, transactionContext, span);
-        }
-        return true;
     }
 
     @Override
@@ -53,22 +55,24 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
 
     @Override
     public boolean setBiome(final int x, final int y, final int z, final Biome biome, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
-        if (x < 0 || y < 0 || z < 0 || x >= battle.xSize() || y >= battle.ySize() || z >= battle.zSize()) {
-            return false;
-        }
-        final Biome current = getBiome0(x, y, z);
-        if (current == biome) {
+        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreSetBiome(x, y, z, biome), transactionContext)) {
+            if (x < 0 || y < 0 || z < 0 || x >= battle.xSize() || y >= battle.ySize() || z >= battle.zSize()) {
+                return false;
+            }
+            final Biome current = getBiome0(x, y, z);
+            if (current == biome) {
+                return true;
+            }
+            if (!battle.state().events().invoker(BasicEnvEvents.PRE_SET_BIOME_KEY).onPreSetBiome(battle.state(), x, y, z, current, biome, transactionContext, preSpan)) {
+                return false;
+            }
+            setBiome0(x, y, z, biome);
+            delta(transactionContext, new BiomeDelta(x, y, z, current));
+            try (final var span = preSpan.push(new CoreBattleTraceEvents.SetBiome(x, y, z, current, biome), transactionContext)) {
+                battle.state().events().invoker(BasicEnvEvents.POST_SET_BIOME_KEY).onPostSetBiome(battle.state(), x, y, z, current, biome, transactionContext, span);
+            }
             return true;
         }
-        if (!battle.state().events().invoker(BasicEnvEvents.PRE_SET_BIOME_KEY).onPreSetBiome(battle.state(), x, y, z, current, biome, transactionContext, tracer)) {
-            return false;
-        }
-        setBiome0(x, y, z, biome);
-        delta(transactionContext, new BiomeDelta(x, y, z, current));
-        try (final var span = tracer.push(new CoreBattleTraceEvents.SetBiome(x, y, z, current, biome), transactionContext)) {
-            battle.state().events().invoker(BasicEnvEvents.POST_SET_BIOME_KEY).onPostSetBiome(battle.state(), x, y, z, current, biome, transactionContext, span);
-        }
-        return true;
     }
 
     @Override

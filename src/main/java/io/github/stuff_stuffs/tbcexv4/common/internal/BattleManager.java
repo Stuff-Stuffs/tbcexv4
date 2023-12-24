@@ -4,8 +4,10 @@ import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManagerType;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.BattleUpdatePacket;
@@ -51,7 +53,7 @@ public class BattleManager implements AutoCloseable {
         sourceWorld = world.getServer().getWorld(world.sourceKey());
     }
 
-    public Optional<Battle> createBattle(final int width, final int height, final int depth) {
+    public <P> Optional<Battle> createBattle(final int width, final int height, final int depth, final TurnManagerType<P> type, final P parameter) {
         final Optional<Pair<BattlePersistentState.Token, BlockPos>> allocation = Tbcexv4.getBattlePersistentState(sourceWorld).allocate(width, depth, world);
         if (allocation.isEmpty()) {
             return Optional.empty();
@@ -61,7 +63,7 @@ public class BattleManager implements AutoCloseable {
         do {
             handle = new BattleHandle(world.sourceKey(), new UUID(random.nextLong(), random.nextLong()));
         } while (getOrLoadBattle(handle).isPresent());
-        final ServerBattleImpl battle = new ServerBattleImpl(world, handle, world.sourceKey(), allocation.get().getSecond(), width, height, depth);
+        final ServerBattleImpl battle = new ServerBattleImpl(world, handle, world.sourceKey(), allocation.get().getSecond(), width, height, depth, new ServerBattleImpl.TurnManagerContainer<>(type, parameter));
         final LoadedBattle loadedBattle = new LoadedBattle(battle, allocation.get().getFirst(), ticks);
         loadedBattles.put(handle, loadedBattle);
         return Optional.of(battle);
@@ -150,7 +152,8 @@ public class BattleManager implements AutoCloseable {
 
     public void tick() {
         ticks++;
-        final Codec<BattleAction> codec = BattleAction.codec(world::getRegistryManager);
+        final BattleCodecContext codecContext = BattleCodecContext.create(world.getRegistryManager());
+        final Codec<BattleAction> codec = BattleAction.codec(codecContext);
         for (final ServerPlayerEntity player : List.copyOf(world.getPlayers())) {
             final BattleHandle handle = ((ServerPlayerExtensions) player).tbcexv4$watching();
             if (handle == null) {
@@ -161,7 +164,7 @@ public class BattleManager implements AutoCloseable {
                 final Optional<? extends Battle> battle = getOrLoadBattle(handle);
                 if (battle.isEmpty()) {
                     ((ServerPlayerExtensions) player).tbcev4$setWatching(null);
-                    ServerPlayNetworking.send(player, new WatchRequestResponsePacket(null, null));
+                    ServerPlayNetworking.send(player, WatchRequestResponsePacket.createEmpty());
                     player.networkHandler.player = player.getServer().getPlayerManager().respawnPlayer(player, true);
                 } else {
                     player.changeGameMode(GameMode.SPECTATOR);
@@ -293,6 +296,24 @@ public class BattleManager implements AutoCloseable {
         }
     }
 
+    public void reload(final List<ServerPlayerEntity> players) {
+        final Set<BattleHandle> active = new ObjectOpenHashSet<>(loadedBattles.keySet());
+        saveBattles(active);
+        for (final ServerPlayerEntity player : players) {
+            final BattleHandle handle = ((ServerPlayerExtensions) player).tbcexv4$watching();
+            if (handle == null || !handle.sourceWorld().equals(sourceWorld.getRegistryKey())) {
+                continue;
+            }
+            final Optional<? extends Battle> opt = getOrLoadBattle(handle);
+            if (opt.isPresent()) {
+                ((ServerPlayerExtensions) player).tbcev4$setWatching(null);
+                ((ServerPlayerExtensions) player).tbcev4$setWatching(handle);
+            } else {
+                ((ServerPlayerExtensions) player).tbcev4$setWatching(null);
+            }
+        }
+    }
+
     private static final class EncodeException extends RuntimeException {
     }
 
@@ -337,25 +358,13 @@ public class BattleManager implements AutoCloseable {
         }
     }
 
-    private static final class BattleSaveResult {
-        private final BattleHandle handle;
-        private final BattlePersistentState.@Nullable Token token;
-        private final @Nullable Throwable error;
-
-        private BattleSaveResult(final BattleHandle handle, final BattlePersistentState.@Nullable Token token, final @Nullable Throwable error) {
-            this.handle = handle;
-            this.token = token;
-            this.error = error;
-        }
+    private record BattleSaveResult(
+            BattleHandle handle,
+            BattlePersistentState.Token token,
+            @Nullable Throwable error
+    ) {
     }
 
-    private static final class DataSaveResult {
-        private final UUID id;
-        private final @Nullable Throwable error;
-
-        private DataSaveResult(final UUID id, final @Nullable Throwable error) {
-            this.id = id;
-            this.error = error;
-        }
+    private record DataSaveResult(UUID id, @Nullable Throwable error) {
     }
 }

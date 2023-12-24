@@ -6,10 +6,13 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantEventInitEvent;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateEventInitEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
 import net.minecraft.client.world.ClientWorld;
@@ -19,6 +22,8 @@ import net.minecraft.world.World;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 public class ClientBattleImpl implements Battle {
     private final List<BattleAction> actions;
@@ -29,10 +34,13 @@ public class ClientBattleImpl implements Battle {
     private final EventMap.Builder builder;
     private final EventMap.Builder participantEventBuilder;
     private final int xSize, ySize, zSize;
+    private final Supplier<TurnManager> turnManagerFactory;
+    private TurnManager turnManager;
     private BattleState state;
     private BattleTracer tracer;
 
-    public ClientBattleImpl(final ClientWorld world, final BattleHandle handle, final RegistryKey<World> sourceWorld, final BlockPos min, final int xSize, final int ySize, final int zSize) {
+    public ClientBattleImpl(final ClientWorld world, final BattleHandle handle, final RegistryKey<World> sourceWorld, final BlockPos min, final int xSize, final int ySize, final int zSize, final Supplier<TurnManager> factory) {
+        turnManagerFactory = factory;
         actions = new ArrayList<>();
         this.world = world;
         this.handle = handle;
@@ -45,8 +53,16 @@ public class ClientBattleImpl implements Battle {
         this.xSize = xSize;
         this.ySize = ySize;
         this.zSize = zSize;
+        initialize();
+    }
+
+    private void initialize() {
+        turnManager = turnManagerFactory.get();
         state = new BattleStateImpl(this, createEnv(), sourceWorld, builder, participantEventBuilder);
-        tracer = BattleTracer.create();
+        tracer = BattleTracer.create(new CoreBattleTraceEvents.Root());
+        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.TurnManagerSetup(), transaction)) {
+            turnManager.setup(state, transaction, span);
+        }
     }
 
     private BattleEnvironment createEnv() {
@@ -56,9 +72,7 @@ public class ClientBattleImpl implements Battle {
     public void trim(final int size) {
         if (actions.size() > size) {
             actions.subList(size, actions.size()).clear();
-            state = null;
-            state = new BattleStateImpl(this, createEnv(), sourceWorld, builder, participantEventBuilder);
-            tracer = BattleTracer.create();
+            initialize();
             for (final BattleAction action : actions) {
                 pushAction(action);
             }
@@ -138,9 +152,16 @@ public class ClientBattleImpl implements Battle {
     @Override
     public void pushAction(final BattleAction action) {
         actions.add(action);
-        try (final var open = state.transactionManager().open()) {
-            action.apply(state, open, tracer);
-            open.commit();
+        final Optional<BattleParticipantHandle> source = action.source();
+        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.ActionRoot(source), transaction)) {
+            action.apply(state, transaction, tracer);
+            source.ifPresent(participantHandle -> turnManager.onAction(participantHandle, state, transaction, span));
+            transaction.commit();
         }
+    }
+
+    @Override
+    public TurnManager turnManager() {
+        return turnManager;
     }
 }

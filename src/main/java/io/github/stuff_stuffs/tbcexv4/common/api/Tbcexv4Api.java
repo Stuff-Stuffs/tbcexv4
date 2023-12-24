@@ -10,7 +10,6 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
@@ -24,26 +23,11 @@ public final class Tbcexv4Api {
     public static void watch(final ServerPlayerEntity entity, @Nullable final Battle battle) {
         if (battle == null) {
             ((ServerPlayerExtensions) entity).tbcev4$setWatching(null);
-            ServerPlayNetworking.send(entity, new WatchRequestResponsePacket(null, null));
+            ServerPlayNetworking.send(entity, WatchRequestResponsePacket.createEmpty());
         } else {
             ((ServerPlayerExtensions) entity).tbcev4$setWatching(battle.handle());
             ((ServerPlayerExtensions) entity).tbcexv4$setWatchIndex(0);
-            ServerPlayNetworking.send(entity,
-                    new WatchRequestResponsePacket(
-                            battle.handle(),
-                            new WatchRequestResponsePacket.Info(
-                                    battle.xSize(),
-                                    battle.ySize(),
-                                    battle.zSize(),
-                                    new BlockPos(
-                                            battle.worldX(0),
-                                            battle.worldY(0),
-                                            battle.worldZ(0)
-                                    ),
-                                    battle.state().sourceWorld()
-                            )
-                    )
-            );
+            ServerPlayNetworking.send(entity, WatchRequestResponsePacket.create(battle));
         }
     }
 

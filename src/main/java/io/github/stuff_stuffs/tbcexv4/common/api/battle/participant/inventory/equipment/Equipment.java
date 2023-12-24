@@ -9,5 +9,5 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransa
 public interface Equipment extends EquipmentView {
     void init(BattleParticipant participant, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
 
-    void deinit(BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+    void deinit(BattleParticipant participant, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
 }

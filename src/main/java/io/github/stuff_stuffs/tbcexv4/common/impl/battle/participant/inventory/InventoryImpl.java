@@ -66,17 +66,19 @@ public class InventoryImpl extends DeltaSnapshotParticipant<InventoryImpl.Delta>
 
     @Override
     public Result<InventoryEntry, GiveError> give(final BattleItemStack stack, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
-        if (!participant.events().invoker(ParticipantInventoryEvents.PRE_GIVE_STACK_KEY).onPreGiveStack(participant, stack, transactionContext, tracer)) {
-            return new Result.Failure<>(GiveError.EVENT);
-        }
         final InventoryHandleImpl handle = new InventoryHandleImpl(participant.handle(), nextId++);
-        final InventoryEntryImpl entry = new InventoryEntryImpl(this, handle, stack);
-        entries.put(handle.id, entry);
-        delta(transactionContext, new GiveDelta(handle.id));
-        try (final var span = tracer.push(new CoreBattleTraceEvents.ParticipantSetStack(handle, Optional.empty(), Optional.of(stack)), transactionContext)) {
-            participant.events().invoker(ParticipantInventoryEvents.POST_GIVE_STACK_KEY).onPostGiveStack(participant, handle, transactionContext, span);
+        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreParticipantSetStack(handle, Optional.of(stack)), transactionContext)) {
+            if (!participant.events().invoker(ParticipantInventoryEvents.PRE_GIVE_STACK_KEY).onPreGiveStack(participant, stack, transactionContext, preSpan)) {
+                return new Result.Failure<>(GiveError.EVENT);
+            }
+            final InventoryEntryImpl entry = new InventoryEntryImpl(this, handle, stack);
+            entries.put(handle.id, entry);
+            delta(transactionContext, new GiveDelta(handle.id));
+            try (final var span = preSpan.push(new CoreBattleTraceEvents.ParticipantSetStack(handle, Optional.empty(), Optional.of(stack)), transactionContext)) {
+                participant.events().invoker(ParticipantInventoryEvents.POST_GIVE_STACK_KEY).onPostGiveStack(participant, handle, transactionContext, span);
+            }
+            return new Result.Success<>(entry);
         }
-        return new Result.Success<>(entry);
     }
 
     @Override
@@ -135,7 +137,7 @@ public class InventoryImpl extends DeltaSnapshotParticipant<InventoryImpl.Delta>
         }
         participant.events().invoker(ParticipantInventoryEvents.POST_UNEQUIP_KEY).onPostUnequip(participant, entry.equipment, entry.item, slot, handle, transactionContext, tracer);
         equipped.remove(slot);
-        entry.equipment.deinit(transactionContext, tracer);
+        entry.equipment.deinit(participant, transactionContext, tracer);
         delta(transactionContext, new UnequipDelta(slot, entry));
         return new Result.Success<>(handle);
     }
@@ -167,16 +169,18 @@ public class InventoryImpl extends DeltaSnapshotParticipant<InventoryImpl.Delta>
 
         @Override
         public Result<Unit, GiveError> set(final BattleItemStack stack, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
-            if (!inventory.participant.events().invoker(ParticipantInventoryEvents.PRE_SET_STACK_KEY).onPreSetStack(inventory.participant, handle, Optional.of(stack), transactionContext, tracer)) {
-                return new Result.Failure<>(GiveError.EVENT);
+            try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreParticipantSetStack(handle, Optional.of(stack)), transactionContext)) {
+                if (!inventory.participant.events().invoker(ParticipantInventoryEvents.PRE_SET_STACK_KEY).onPreSetStack(inventory.participant, handle, Optional.of(stack), transactionContext, preSpan)) {
+                    return new Result.Failure<>(GiveError.EVENT);
+                }
+                final Optional<BattleItemStack> old = Optional.ofNullable(this.stack);
+                inventory.delta(transactionContext, new SetStackDelta(((InventoryHandleImpl) handle).id, this.stack));
+                this.stack = stack;
+                try (final var span = preSpan.push(new CoreBattleTraceEvents.ParticipantSetStack(handle, old, Optional.of(stack)), transactionContext)) {
+                    inventory.participant.events().invoker(ParticipantInventoryEvents.POST_SET_STACK_KEY).onPostSetStack(inventory.participant, handle, old, transactionContext, span);
+                }
+                return new Result.Success<>(Unit.INSTANCE);
             }
-            final Optional<BattleItemStack> old = Optional.ofNullable(this.stack);
-            inventory.delta(transactionContext, new SetStackDelta(((InventoryHandleImpl) handle).id, this.stack));
-            this.stack = stack;
-            try (final var span = tracer.push(new CoreBattleTraceEvents.ParticipantSetStack(handle, old, Optional.of(stack)), transactionContext)) {
-                inventory.participant.events().invoker(ParticipantInventoryEvents.POST_SET_STACK_KEY).onPostSetStack(inventory.participant, handle, old, transactionContext, span);
-            }
-            return new Result.Success<>(Unit.INSTANCE);
         }
 
         @Override
@@ -185,16 +189,18 @@ public class InventoryImpl extends DeltaSnapshotParticipant<InventoryImpl.Delta>
                 return new Result.Failure<>(TakeError.EMPTY_STACK);
             }
             final Optional<BattleItemStack> next = stack.count() > amount ? Optional.of(new BattleItemStack(stack.item(), stack.count() - amount)) : Optional.empty();
-            if (!inventory.participant.events().invoker(ParticipantInventoryEvents.PRE_SET_STACK_KEY).onPreSetStack(inventory.participant, handle, next, transactionContext, tracer)) {
-                return new Result.Failure<>(TakeError.EVENT);
+            try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreParticipantSetStack(handle, next), transactionContext)) {
+                if (!inventory.participant.events().invoker(ParticipantInventoryEvents.PRE_SET_STACK_KEY).onPreSetStack(inventory.participant, handle, next, transactionContext, preSpan)) {
+                    return new Result.Failure<>(TakeError.EVENT);
+                }
+                final BattleItemStack old = stack;
+                inventory.delta(transactionContext, new SetStackDelta(((InventoryHandleImpl) handle).id, stack));
+                stack = next.orElse(null);
+                try (final var span = preSpan.push(new CoreBattleTraceEvents.ParticipantSetStack(handle, Optional.of(old), next), transactionContext)) {
+                    inventory.participant.events().invoker(ParticipantInventoryEvents.POST_SET_STACK_KEY).onPostSetStack(inventory.participant, handle, Optional.of(old), transactionContext, span);
+                }
+                return new Result.Success<>(old.count() - (stack == null ? 0 : stack.count()));
             }
-            final BattleItemStack old = stack;
-            inventory.delta(transactionContext, new SetStackDelta(((InventoryHandleImpl) handle).id, stack));
-            stack = next.orElse(null);
-            try (final var span = tracer.push(new CoreBattleTraceEvents.ParticipantSetStack(handle, Optional.of(old), next), transactionContext)) {
-                inventory.participant.events().invoker(ParticipantInventoryEvents.POST_SET_STACK_KEY).onPostSetStack(inventory.participant, handle, Optional.of(old), transactionContext, span);
-            }
-            return new Result.Success<>(old.count() - (stack == null ? 0 : stack.count()));
         }
 
         @Override
