@@ -7,8 +7,10 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.Equipment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.EquipmentSlot;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
+import net.minecraft.client.item.TooltipContext;
 import net.minecraft.text.Text;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface BattleItem {
@@ -21,6 +23,8 @@ public interface BattleItem {
     Optional<BattleItemStack> merge(BattleItemStack first, BattleItemStack second);
 
     BattleItemRarity rarity();
+
+    List<Text> description();
 
     default Optional<Equipment> equipmentForSlot(final EquipmentSlot slot, final BattleParticipantView view) {
         return Optional.empty();

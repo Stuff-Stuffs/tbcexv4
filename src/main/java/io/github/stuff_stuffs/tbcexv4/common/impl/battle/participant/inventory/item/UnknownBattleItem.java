@@ -15,6 +15,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,11 +31,20 @@ public class UnknownBattleItem implements BattleItem {
     private final Item item;
     private final Optional<NbtCompound> nbt;
     private final IntOpenHashSet sourceSlots;
+    private @Nullable ItemStack renderStack = null;
 
     public UnknownBattleItem(final Item item, final Optional<NbtCompound> nbt, final IntOpenHashSet sourceSlots) {
         this.item = item;
         this.nbt = nbt;
         this.sourceSlots = sourceSlots;
+    }
+
+    public ItemStack renderStack() {
+        if(renderStack==null) {
+            renderStack = new ItemStack(item);
+            nbt.ifPresent(nbt -> renderStack.setNbt(nbt));
+        }
+        return renderStack;
     }
 
     @Override
@@ -73,5 +83,10 @@ public class UnknownBattleItem implements BattleItem {
     @Override
     public BattleItemRarity rarity() {
         return BattleItemRarity.of(BattleItemRarity.RarityClass.JUNK, 0);
+    }
+
+    @Override
+    public List<Text> description() {
+        return List.of(Text.of("Unknown or unrecognized item!"));
     }
 }

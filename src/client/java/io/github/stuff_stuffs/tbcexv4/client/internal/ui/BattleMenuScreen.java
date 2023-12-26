@@ -58,5 +58,7 @@ public class BattleMenuScreen extends BaseOwoScreen<TopmostLayout> {
         super.render(context, mouseX, mouseY, delta);
     }
 
-    private static Component createInventory
+    private static Component createInventory() {
+
+    }
 }

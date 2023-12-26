@@ -93,7 +93,7 @@ public final class Tbcexv4Registries {
         public static final RegistryKey<Registry<BattleItemType<?>>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("item_types"));
         public static final Registry<BattleItemType<?>> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
         public static final Codec<BattleItemType<?>> CODEC = REGISTRY.getCodec();
-        public static final BattleItemType<?> UNKNOWN_BATTLE_ITEM_TYPE = new BattleItemType<>(UnknownBattleItem.CODEC_FACTORY);
+        public static final BattleItemType<UnknownBattleItem> UNKNOWN_BATTLE_ITEM_TYPE = new BattleItemType<>(UnknownBattleItem.CODEC_FACTORY);
 
         public static void init() {
             Registry.register(REGISTRY, Tbcexv4.id("unknown"), UNKNOWN_BATTLE_ITEM_TYPE);

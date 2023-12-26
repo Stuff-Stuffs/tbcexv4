@@ -1,16 +1,19 @@
 package io.github.stuff_stuffs.tbcexv4.client.internal;
 
-import io.github.stuff_stuffs.tbcexv4.client.api.DelayedResponse;
-import io.github.stuff_stuffs.tbcexv4.client.api.Tbcexv4ClientApi;
+import io.github.stuff_stuffs.tbcexv4.client.api.*;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.ClientBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.state.env.ClientBattleEnvironmentImpl;
+import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BattleMenuScreen;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BattleUiComponents;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.component.Tbcexv4UiComponents;
+import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemType;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
+import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.inventory.item.UnknownBattleItem;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4ClientDelegates;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.Tbcexv4CommonNetwork;
@@ -26,7 +29,14 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.AbstractInventoryScreen;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.item.ItemRenderer;
+import net.minecraft.client.render.model.json.ModelTransformationMode;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.util.math.MathHelper;
 import org.jetbrains.annotations.Nullable;
@@ -41,6 +51,12 @@ public class Tbcexv4Client implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        WatchedBattleChangeEvent.EVENT.register(handle -> {
+            Screen screen = MinecraftClient.getInstance().currentScreen;
+            if(screen instanceof BattleMenuScreen) {
+                MinecraftClient.getInstance().setScreen(null);
+            }
+        });
         ClientPlayConnectionEvents.INIT.register((handler, client) -> {
             WATCHING = null;
             WATCHED_BATTLE = null;
@@ -52,10 +68,12 @@ public class Tbcexv4Client implements ClientModInitializer {
             if (info == null || opt.isEmpty()) {
                 WATCHING = null;
                 WATCHED_BATTLE = null;
+                WatchedBattleChangeEvent.EVENT.invoker().onWatchedBattleChanged(Optional.empty());
             } else {
                 WATCHING = packet.handle();
                 final ServerBattleImpl.TurnManagerContainer<?> container = opt.get();
                 WATCHED_BATTLE = new ClientBattleImpl(player.clientWorld, packet.handle(), info.sourceWorld(), info.min(), info.xSize(), info.ySize(), info.zSize(), () -> container.create(codecContext));
+                WatchedBattleChangeEvent.EVENT.invoker().onWatchedBattleChanged(Optional.of(packet.handle()));
             }
         });
         ClientPlayNetworking.registerGlobalReceiver(Tbcexv4CommonNetwork.CONTROLLING_BATTLE_UPDATE_PACKET_TYPE, (packet, player, responseSender) -> {
@@ -89,6 +107,7 @@ public class Tbcexv4Client implements ClientModInitializer {
                     throw new RuntimeException();
                 }
                 WATCHED_BATTLE.pushAction(result.get());
+                BattleActionReceivedEvent.EVENT.invoker().onBattleActionReceived(WATCHED_BATTLE);
             }
         });
         ClientPlayNetworking.registerGlobalReceiver(Tbcexv4CommonNetwork.TRY_BATTLE_ACTION_RESPONSE_PACKET_TYPE, (packet, player, responseSender) -> {
@@ -107,6 +126,10 @@ public class Tbcexv4Client implements ClientModInitializer {
             }
         });
         Tbcexv4UiComponents.init();
+        BattleItemRendererRegistry.registry(Tbcexv4Registries.ItemTypes.UNKNOWN_BATTLE_ITEM_TYPE, (item, vertexConsumers, matrices) -> {
+            ItemRenderer renderer = MinecraftClient.getInstance().getItemRenderer();
+            renderer.renderItem(item.renderStack(), ModelTransformationMode.FIXED, LightmapTextureManager.pack(15,15), OverlayTexture.DEFAULT_UV, matrices, vertexConsumers, null, 42);
+        });
     }
 
     public static DelayedResponse<Tbcexv4ClientApi.RequestResult> sendRequest(final BattleActionRequest request) {
