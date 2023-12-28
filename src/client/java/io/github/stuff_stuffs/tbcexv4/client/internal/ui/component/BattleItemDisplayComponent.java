@@ -24,8 +24,8 @@ public class BattleItemDisplayComponent extends BaseComponent {
     }
 
     @Override
-    public boolean onMouseDown(double mouseX, double mouseY, int button) {
-        if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+    public boolean onMouseDown(final double mouseX, final double mouseY, final int button) {
+        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
             spinning = !spinning;
             return true;
         }
@@ -33,35 +33,35 @@ public class BattleItemDisplayComponent extends BaseComponent {
     }
 
     @Override
-    public boolean onMouseDrag(double mouseX, double mouseY, double deltaX, double deltaY, int button) {
-        if(button==GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            rotation.rotateLocalY((float)(deltaX*0.05));
-            rotation.rotateLocalY((float)(deltaY*0.05));
+    public boolean onMouseDrag(final double mouseX, final double mouseY, final double deltaX, final double deltaY, final int button) {
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            rotation.rotateLocalY((float) (deltaX * 0.05));
+            rotation.rotateLocalX((float) (deltaY * 0.05));
             return true;
         }
         return super.onMouseDrag(mouseX, mouseY, deltaX, deltaY, button);
     }
 
     @Override
-    public void draw(OwoUIDrawContext context, int mouseX, int mouseY, float partialTicks, float delta) {
-        BattleItem item = this.item;
-        if(item!=null) {
-            if(spinning) {
+    public void draw(final OwoUIDrawContext context, final int mouseX, final int mouseY, final float partialTicks, final float delta) {
+        final BattleItem item = this.item;
+        if (item != null) {
+            if (spinning) {
                 rotation.rotateAxis(delta * 0.05F, SPIN_AXIS);
             }
-            MatrixStack matrices = context.getMatrices();
+            final MatrixStack matrices = context.getMatrices();
             matrices.push();
-            Positioning pos = positioning().get();
+            final Positioning pos = positioning().get();
             matrices.translate(pos.x, pos.y, 0);
-            Size size = fullSize();
-            matrices.scale(1/(float)size.width(), 1/(float)size.height(), 1);
+            final Size size = fullSize();
+            matrices.scale(1 / (float) size.width(), 1 / (float) size.height(), 1);
             matrices.multiply(rotation);
             BattleItemRendererRegistry.render(item, context.getVertexConsumers(), matrices);
             matrices.pop();
         }
     }
 
-    public void item(BattleItem item) {
+    public void item(final @Nullable BattleItem item) {
         this.item = item;
     }
 }

@@ -2,6 +2,7 @@ package io.github.stuff_stuffs.tbcexv4.client.api;
 
 import io.github.stuff_stuffs.tbcexv4.client.internal.Tbcexv4Client;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
 import net.minecraft.text.Text;
 import org.jetbrains.annotations.Nullable;
@@ -12,6 +13,10 @@ import java.util.Set;
 public final class Tbcexv4ClientApi {
     public static Optional<BattleHandle> watching() {
         return Optional.ofNullable(Tbcexv4Client.watching());
+    }
+
+    public static Optional<BattleView> watched() {
+        return Optional.ofNullable(Tbcexv4Client.watched());
     }
 
     public static void requestWatch(@Nullable final BattleHandle handle) {
