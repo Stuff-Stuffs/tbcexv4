@@ -1,5 +1,6 @@
 package io.github.stuff_stuffs.tbcexv4.common.mixin;
 
+import io.github.stuff_stuffs.tbcexv4.common.internal.ServerExtensions;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.ServerBattleWorld;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.VoidChunkGenerator;
@@ -28,9 +29,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Mixin(MinecraftServer.class)
-public abstract class MixinMinecraftServer {
+public abstract class MixinMinecraftServer implements ServerExtensions {
     @Shadow
     @Final
     private Map<RegistryKey<World>, ServerWorld> worlds;
@@ -53,6 +56,8 @@ public abstract class MixinMinecraftServer {
     @Shadow
     public abstract CombinedDynamicRegistries<ServerDynamicRegistryType> getCombinedDynamicRegistries();
 
+    private final ExecutorService tbcexv4$backgroundExecutor = Executors.newCachedThreadPool();
+
     @Inject(method = "createWorlds", at = @At("RETURN"))
     private void createBattleWorlds(final WorldGenerationProgressListener worldGenerationProgressListener, final CallbackInfo ci) {
         final UnmodifiableLevelProperties unmodifiableLevelProperties = new UnmodifiableLevelProperties(saveProperties, saveProperties.getMainWorldProperties());
@@ -62,5 +67,15 @@ public abstract class MixinMinecraftServer {
             final RegistryKey<World> key = Tbcexv4.battleWorldKey(entry.getKey());
             worlds.put(key, new ServerBattleWorld((MinecraftServer) (Object) this, workerExecutor, session, unmodifiableLevelProperties, key, new DimensionOptions(entry.getValue().getDimensionEntry(), generator), worldGenerationProgressListener, false, 0, List.of(), false, overworld.getRandomSequences()));
         }
+    }
+
+    @Inject(at = @At("RETURN"), method = "shutdown")
+    private void shutdownHook(final CallbackInfo ci) {
+        tbcexv4$backgroundExecutor.shutdownNow();
+    }
+
+    @Override
+    public Executor tbcexv4$getBackgroundExecutor() {
+        return tbcexv4$backgroundExecutor;
     }
 }

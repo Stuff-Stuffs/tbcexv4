@@ -35,5 +35,5 @@ public interface BattleStateView {
 
     BattleParticipantView participant(BattleParticipantHandle handle);
 
-    <T extends BattleAttachment> Optional<T> attachment(BattleAttachmentType<? extends T> type);
+    <V, T extends BattleAttachment> Optional<V> attachmentView(BattleAttachmentType<V, T> type);
 }

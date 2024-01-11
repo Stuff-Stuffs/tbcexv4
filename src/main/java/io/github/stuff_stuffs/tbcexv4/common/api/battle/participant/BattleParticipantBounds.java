@@ -19,6 +19,6 @@ public record BattleParticipantBounds(double width, double height) {
     }
 
     private boolean check(final double width, final double height) {
-        return width > 0 && height > 0 && width <= 16 && height <= 16;
+        return width >= Double.MIN_NORMAL && height >= Double.MIN_NORMAL && width <= 16 && height <= 16;
     }
 }

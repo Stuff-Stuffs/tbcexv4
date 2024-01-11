@@ -11,6 +11,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantBounds;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantInitialState;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.DamageType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.InventoryHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.Equipment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.EquipmentSlot;
@@ -25,6 +26,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransa
 import net.fabricmc.fabric.api.datagen.v1.DataGeneratorEntrypoint;
 import net.fabricmc.fabric.api.datagen.v1.FabricDataGenerator;
 import net.minecraft.block.BlockState;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.world.biome.Biome;
 
 import java.util.Optional;
@@ -73,10 +75,10 @@ public class Tbcexv4DataGenerator implements DataGeneratorEntrypoint {
         public abstract void PostSetBlockStateEvent(BattleState state, int x, int y, int z, BlockState oldState, BattleTransactionContext transactionContext, BattleTracer.Span<?> span);
 
         @EventInfo(defaultValue = "true", combiner = "Boolean.logicalAnd")
-        public abstract boolean PreSetBiome(BattleState state, int x, int y, int z, Biome oldBiome, Biome newBiome, BattleTransactionContext transactionContext, BattleTracer.Span<?> span);
+        public abstract boolean PreSetBiome(BattleState state, int x, int y, int z, RegistryEntry<Biome> oldBiome, RegistryEntry<Biome> newBiome, BattleTransactionContext transactionContext, BattleTracer.Span<?> span);
 
         @EventInfo()
-        public abstract void PostSetBiome(BattleState state, int x, int y, int z, Biome oldBiome, Biome newBiome, BattleTransactionContext transactionContext, BattleTracer.Span<?> span);
+        public abstract void PostSetBiome(BattleState state, int x, int y, int z, RegistryEntry<Biome> oldBiome, RegistryEntry<Biome> newBiome, BattleTransactionContext transactionContext, BattleTracer.Span<?> span);
     }
 
     @EventKeyLocation(location = "io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.BasicParticipantEvents")
@@ -99,10 +101,10 @@ public class Tbcexv4DataGenerator implements DataGeneratorEntrypoint {
 
         @EventInfo(defaultValue = "damage", combiner = "io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util.selectSecond")
         @EventComparisonInfo(comparedType = DamagePhase.class, comparator = "io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries.DamagePhases.COMPARATOR")
-        public abstract double PreDamageEvent(BattleParticipant participant, double damage, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+        public abstract double PreDamageEvent(BattleParticipant participant, double damage, DamageType damageType, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
 
         @EventInfo()
-        public abstract void PostDamageEvent(BattleParticipant participant, double damage, double overflow, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+        public abstract void PostDamageEvent(BattleParticipant participant, double damage, DamageType damageType, double overflow, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
 
         @EventInfo(defaultValue = "heal", combiner = "io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util.selectSecond")
         public abstract double PreHealEvent(BattleParticipant participant, double heal, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);

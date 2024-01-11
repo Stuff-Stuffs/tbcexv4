@@ -1,4 +1,4 @@
-package io.github.stuff_stuffs.tbcexv4.client.internal.ui;
+package io.github.stuff_stuffs.tbcexv4.client.internal.ui.component;
 
 import io.wispforest.owo.ui.container.WrappingParentComponent;
 import io.wispforest.owo.ui.core.Component;

@@ -6,7 +6,9 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransa
 
 import java.util.UUID;
 
-public record BattleParticipantPlayerControllerAttachment(UUID controllerId) implements BattleParticipantAttachment {
+public record BattleParticipantPlayerControllerAttachment(
+        UUID controllerId
+) implements BattleParticipantAttachment, BattleParticipantPlayerControllerAttachmentView {
     @Override
     public void init(final BattleParticipant participant, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
 

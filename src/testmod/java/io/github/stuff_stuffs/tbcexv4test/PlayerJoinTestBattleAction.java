@@ -1,6 +1,7 @@
 package io.github.stuff_stuffs.tbcexv4test;
 
 import com.mojang.serialization.Codec;
+import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
@@ -9,6 +10,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantInitialState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachment;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
@@ -65,18 +67,21 @@ public class PlayerJoinTestBattleAction implements BattleAction {
 
                 @Override
                 public void addAttachments(final BattleParticipantAttachment.Builder builder) {
+                    builder.accept(new BattleParticipantPlayerControllerAttachment(playerId), Tbcexv4Registries.BattleParticipantAttachmentTypes.PLAYER_CONTROLLED);
                 }
             }, transaction, span);
-            if (result instanceof Result.Success<BattleParticipantHandle, BattleState.AddParticipantError> success) {
-                final BattleParticipant participant = state.participant(success.val());
-                BattleItemStack stack = new BattleItemStack(new UnknownBattleItem(Items.ANVIL, Optional.empty(), IntOpenHashSet.of(0)), 4);
-                participant.inventory().give(stack, transaction, span);
-                stack = new BattleItemStack(new UnknownBattleItem(Items.STONE, Optional.empty(), IntOpenHashSet.of(0)), 2);
-                participant.inventory().give(stack, transaction, span);
-                stack = new BattleItemStack(new UnknownBattleItem(Items.LADDER, Optional.empty(), IntOpenHashSet.of(0)), 15);
-                participant.inventory().give(stack, transaction, span);
-                stack = new BattleItemStack(new UnknownBattleItem(Items.BONE, Optional.empty(), IntOpenHashSet.of(0)), 33);
-                participant.inventory().give(stack, transaction, span);
+            if (result instanceof final Result.Success<BattleParticipantHandle, BattleState.AddParticipantError> success) {
+                for (int i = 0; i < 4; i++) {
+                    final BattleParticipant participant = state.participant(success.val());
+                    BattleItemStack stack = new BattleItemStack(new UnknownBattleItem(Items.ANVIL, Optional.empty(), IntOpenHashSet.of(0)), 4);
+                    participant.inventory().give(stack, transaction, span);
+                    stack = new BattleItemStack(new UnknownBattleItem(Items.STONE, Optional.empty(), IntOpenHashSet.of(0)), 2);
+                    participant.inventory().give(stack, transaction, span);
+                    stack = new BattleItemStack(new UnknownBattleItem(Items.LADDER, Optional.empty(), IntOpenHashSet.of(0)), 15);
+                    participant.inventory().give(stack, transaction, span);
+                    stack = new BattleItemStack(new UnknownBattleItem(Items.BONE, Optional.empty(), IntOpenHashSet.of(0)), 33);
+                    participant.inventory().give(stack, transaction, span);
+                }
                 transaction.commit();
             }
         }

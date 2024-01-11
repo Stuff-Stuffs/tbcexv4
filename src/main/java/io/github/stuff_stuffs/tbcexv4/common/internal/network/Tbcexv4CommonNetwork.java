@@ -2,13 +2,16 @@ package io.github.stuff_stuffs.tbcexv4.common.internal.network;
 
 import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Api;
+import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequestType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachmentView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
@@ -41,7 +44,7 @@ public final class Tbcexv4CommonNetwork {
             } else {
                 final RegistryKey<World> key = Tbcexv4.battleWorldKey(packet.handle().sourceWorld());
                 final ServerWorld serverWorld = player.server.getWorld(key);
-                if (!(serverWorld instanceof ServerBattleWorld world)) {
+                if (!(serverWorld instanceof final ServerBattleWorld world)) {
                     clearWatching(player, responseSender);
                     return;
                 }
@@ -56,24 +59,45 @@ public final class Tbcexv4CommonNetwork {
         ServerPlayNetworking.registerGlobalReceiver(TRY_BATTLE_ACTION_PACKET_TYPE, (packet, player, responseSender) -> {
             final BattleHandle handle = ((ServerPlayerExtensions) player).tbcexv4$watching();
             if (handle == null) {
+                responseSender.sendPacket(new TryBattleActionResponsePacket(packet.requestId(), false, Text.of("You are not in a battle!")));
                 return;
             }
             final ServerWorld world = player.server.getWorld(Tbcexv4.battleWorldKey(handle.sourceWorld()));
-            if (!(world instanceof ServerBattleWorld battleWorld)) {
+            if (!(world instanceof final ServerBattleWorld battleWorld)) {
                 throw new RuntimeException();
             }
             final Optional<? extends Battle> opt = battleWorld.battleManager().getOrLoadBattle(handle);
             if (opt.isEmpty()) {
+                responseSender.sendPacket(new TryBattleActionResponsePacket(packet.requestId(), false, Text.of("Unknown Battle!")));
                 return;
             }
             final Battle battle = opt.get();
             final TurnManager manager = battle.turnManager();
-            final BattleParticipantHandle participantHandle = new BattleParticipantHandle(player.getUuid());
+            final BattleParticipantHandle participantHandle = new BattleParticipantHandle(packet.handle());
+            final BattleParticipant participant = battle.state().participant(participantHandle);
+            if (participant == null) {
+                responseSender.sendPacket(new TryBattleActionResponsePacket(packet.requestId(), false, Text.of("Unknown participant!")));
+                return;
+            }
+            final Optional<BattleParticipantPlayerControllerAttachmentView> view = participant.attachmentView(Tbcexv4Registries.BattleParticipantAttachmentTypes.PLAYER_CONTROLLED);
+            if (view.isEmpty() || !player.getUuid().equals(view.get().controllerId())) {
+                responseSender.sendPacket(new TryBattleActionResponsePacket(packet.requestId(), false, Text.of("Cannot control participant!")));
+                return;
+            }
             if (manager.currentTurn().contains(participantHandle)) {
                 final Optional<? extends BattleActionRequest> decoded = packet.decode(BattleCodecContext.create(battleWorld.getRegistryManager()));
                 if (decoded.isPresent()) {
-                    tryApply(decoded.get(), decoded.get().type(), battle, player);
+                    final Result<Unit, Text> result = tryApply(decoded.get(), decoded.get().type(), battle, player);
+                    if (result instanceof final Result.Failure<Unit, Text> failure) {
+                        responseSender.sendPacket(new TryBattleActionResponsePacket(packet.requestId(), false, failure.error()));
+                    } else {
+                        responseSender.sendPacket(new TryBattleActionResponsePacket(packet.requestId(), true, null));
+                    }
+                } else {
+                    responseSender.sendPacket(new TryBattleActionResponsePacket(packet.requestId(), false, Text.of("Error during action decoding!")));
                 }
+            } else {
+                responseSender.sendPacket(new TryBattleActionResponsePacket(packet.requestId(), false, Text.of("Not your turn!")));
             }
         });
     }

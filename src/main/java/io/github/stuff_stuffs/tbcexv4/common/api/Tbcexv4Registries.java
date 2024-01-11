@@ -9,8 +9,18 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.StartBattleA
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequestType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.DebugBattleActionRequest;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.DebugBattleActionRequestType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachment;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachmentView;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.DamageType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.EquipmentSlot;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.ParticipantTarget;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Plan;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.PlanFactory;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.TargetType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatModificationPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.InOrderTurnManager;
@@ -19,6 +29,9 @@ import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.DamagePhase
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.inventory.item.UnknownBattleItem;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.stat.StatModificationPhaseImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.fabricmc.fabric.api.event.registry.FabricRegistryBuilder;
 import net.fabricmc.fabric.api.event.registry.RegistryEntryAddedCallback;
 import net.minecraft.registry.Registry;
@@ -26,7 +39,11 @@ import net.minecraft.registry.RegistryKey;
 import net.minecraft.text.Text;
 
 import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 public final class Tbcexv4Registries {
     public static final class BattleActions {
@@ -93,7 +110,21 @@ public final class Tbcexv4Registries {
         public static final RegistryKey<Registry<BattleItemType<?>>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("item_types"));
         public static final Registry<BattleItemType<?>> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
         public static final Codec<BattleItemType<?>> CODEC = REGISTRY.getCodec();
-        public static final BattleItemType<UnknownBattleItem> UNKNOWN_BATTLE_ITEM_TYPE = new BattleItemType<>(UnknownBattleItem.CODEC_FACTORY);
+        public static final BattleItemType<UnknownBattleItem> UNKNOWN_BATTLE_ITEM_TYPE = new BattleItemType<>(
+                UnknownBattleItem.CODEC_FACTORY,
+                (first, second) -> {
+                    if (first.item() instanceof final UnknownBattleItem firstItem && second.item() instanceof final UnknownBattleItem secondItem) {
+                        if (firstItem.item == secondItem.item && firstItem.nbt.equals(secondItem.nbt)) {
+                            final IntSet sourceSlots = new IntOpenHashSet();
+                            sourceSlots.addAll(firstItem.sourceSlots);
+                            sourceSlots.addAll(secondItem.sourceSlots);
+                            return Optional.of(new BattleItemStack(new UnknownBattleItem(firstItem.item, firstItem.nbt, sourceSlots), first.count() + second.count()));
+                        }
+                    }
+                    return Optional.empty();
+                },
+                (first, second) -> first.item == second.item && first.nbt.equals(second.nbt)
+        );
 
         public static void init() {
             Registry.register(REGISTRY, Tbcexv4.id("unknown"), UNKNOWN_BATTLE_ITEM_TYPE);
@@ -131,6 +162,59 @@ public final class Tbcexv4Registries {
         }
     }
 
+    public static final class DamageTypes {
+        public static final RegistryKey<Registry<DamageType>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("damage_types"));
+        public static final Registry<DamageType> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
+        public static final DamageType BASIC = new DamageType() {
+            @Override
+            public Text name() {
+                return Text.of("TODO");
+            }
+
+            @Override
+            public Text description() {
+                return Text.of("TODO");
+            }
+        };
+
+        public static void init() {
+            Registry.register(REGISTRY, Tbcexv4.id("basic"), BASIC);
+        }
+    }
+
+    public static final class BattleParticipantAttachmentTypes {
+        public static final BattleParticipantAttachmentType<BattleParticipantPlayerControllerAttachmentView, BattleParticipantPlayerControllerAttachment> PLAYER_CONTROLLED = new BattleParticipantAttachmentType<>((participantView, attachment) -> Text.of("Controlled by: " + attachment.controllerId()), (participantView, attachment) -> true, Function.identity());
+    }
+
+    public static final class TargetTypes {
+        public static final TargetType<ParticipantTarget> PARTICIPANT_TARGET = new TargetType<>() {
+            @Override
+            public Text name() {
+                return Text.of("Participant");
+            }
+
+            @Override
+            public Text description(final ParticipantTarget target) {
+                return Text.of("TODO");
+            }
+        };
+    }
+
+    public static final class DefaultPlans {
+        private static final List<PlanFactory> FACTORIES = new ObjectArrayList<>();
+
+        public static void forEach(final BattleParticipantView participant, final Consumer<Plan> consumer) {
+            for (int i = 0, size = FACTORIES.size(); i < size; i++) {
+                final PlanFactory factory = FACTORIES.get(i);
+                factory.create(participant, consumer);
+            }
+        }
+
+        public static void register(final PlanFactory factory) {
+            FACTORIES.add(factory);
+        }
+    }
+
     public static void init() {
         BattleActions.init();
         Stats.init();
@@ -139,6 +223,7 @@ public final class Tbcexv4Registries {
         ItemTypes.init();
         EquipmentSlots.init();
         TurnManagerTypes.init();
+        DamageTypes.init();
     }
 
     private Tbcexv4Registries() {

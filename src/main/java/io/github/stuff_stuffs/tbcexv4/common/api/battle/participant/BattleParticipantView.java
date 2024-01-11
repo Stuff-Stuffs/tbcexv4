@@ -32,5 +32,5 @@ public interface BattleParticipantView {
 
     double health();
 
-    <T extends BattleParticipantAttachment> Optional<T> attachment(BattleParticipantAttachmentType<? extends T> type);
+    <V, T extends BattleParticipantAttachment> Optional<V> attachmentView(BattleParticipantAttachmentType<V, T> type);
 }

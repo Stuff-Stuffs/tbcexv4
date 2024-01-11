@@ -27,10 +27,10 @@ public final class Tbcexv4Util {
         return second;
     }
 
-    public static <S, T extends S> Codec<S> implCodec(final Codec<T> codec, final Class<T> clazz) {
+    public static <Api, Impl extends Api> Codec<Api> implCodec(final Codec<Impl> codec, final Class<Impl> clazz) {
         return codec.flatComapMap(val -> val, val -> {
             if (clazz.isInstance(val)) {
-                return DataResult.success((T) val);
+                return DataResult.success((Impl) val);
             }
             return DataResult.error(() -> "Somebody implemented internal interface " + clazz + " with class " + val.getClass());
         });

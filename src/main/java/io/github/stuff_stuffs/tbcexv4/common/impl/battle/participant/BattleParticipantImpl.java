@@ -9,6 +9,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.DamageType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.Inventory;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatContainer;
@@ -38,7 +39,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
     private final EventMap events;
     private final BattleStateImpl battleState;
     private final StatContainer stats;
-    private final Map<BattleParticipantAttachmentType<?>, BattleParticipantAttachment> attachments;
+    private final Map<BattleParticipantAttachmentType<?, ?>, BattleParticipantAttachment> attachments;
     private final InventoryImpl inventory;
     private double health;
     private BattleParticipantBounds bounds;
@@ -57,7 +58,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
         inventory = new InventoryImpl(this);
         builder.accept(new BattleParticipantAttachment.Builder() {
             @Override
-            public <T extends BattleParticipantAttachment> void accept(final T value, final BattleParticipantAttachmentType<T> type) {
+            public <T extends BattleParticipantAttachment> void accept(final T value, final BattleParticipantAttachmentType<?, T> type) {
                 if (attachments.putIfAbsent(type, value) != null) {
                     throw new RuntimeException();
                 }
@@ -133,7 +134,12 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
     }
 
     @Override
-    public <T extends BattleParticipantAttachment> Optional<T> attachment(final BattleParticipantAttachmentType<? extends T> type) {
+    public <V, T extends BattleParticipantAttachment> Optional<V> attachmentView(final BattleParticipantAttachmentType<V, T> type) {
+        return attachment(type).map(type::view);
+    }
+
+    @Override
+    public <T extends BattleParticipantAttachment> Optional<T> attachment(final BattleParticipantAttachmentType<?, T> type) {
         //noinspection unchecked
         return Optional.ofNullable((T) attachments.getOrDefault(type, null));
     }
@@ -205,10 +211,10 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
     }
 
     @Override
-    public double damage(final double amount, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
+    public double damage(final double amount, final DamageType type, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         battleState.ensureBattleOngoing();
         try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreDamageParticipant(handle(), amount), transactionContext)) {
-            final double modified = events().invoker(BasicParticipantEvents.PRE_DAMAGE_EVENT_KEY).onPreDamageEvent(this, amount, transactionContext, preSpan);
+            final double modified = events().invoker(BasicParticipantEvents.PRE_DAMAGE_EVENT_KEY).onPreDamageEvent(this, amount, type, transactionContext, preSpan);
             if (modified <= 0.0 || !Double.isFinite(modified)) {
                 return 0.0;
             }
@@ -217,7 +223,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
             health = Math.max(oldHealth - modified, 0.0);
             final double min = Math.min(oldHealth, modified);
             try (final var span = preSpan.push(new CoreBattleTraceEvents.DamageParticipant(handle(), min), transactionContext)) {
-                events().invoker(BasicParticipantEvents.POST_DAMAGE_EVENT_KEY).onPostDamageEvent(this, min, modified - min, transactionContext, span);
+                events().invoker(BasicParticipantEvents.POST_DAMAGE_EVENT_KEY).onPostDamageEvent(this, min, type, modified - min, transactionContext, span);
             }
             if (health() <= 0) {
                 tryKill(transactionContext, preSpan);
@@ -268,7 +274,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
     }
 
     @Override
-    public <T extends BattleParticipantAttachment> void setAttachment(final @Nullable T value, final BattleParticipantAttachmentType<T> type, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
+    public <T extends BattleParticipantAttachment> void setAttachment(final @Nullable T value, final BattleParticipantAttachmentType<?, T> type, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         try (final var span = tracer.push(new CoreBattleTraceEvents.SetParticipantAttachment(type), transactionContext)) {
             //noinspection unchecked
             final T old = (T) attachments.put(type, value);
@@ -319,8 +325,10 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
         }
     }
 
-    private record SetAttachmentDelta<T extends BattleParticipantAttachment>(@Nullable T previous,
-                                                                             BattleParticipantAttachmentType<T> type) implements Delta {
+    private record SetAttachmentDelta<T extends BattleParticipantAttachment>(
+            @Nullable T previous,
+            BattleParticipantAttachmentType<?, T> type
+    ) implements Delta {
         @Override
         public void apply(final BattleParticipantImpl participant) {
             if (previous == null) {

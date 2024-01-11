@@ -3,11 +3,17 @@ package io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.BattleTraceEvent;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public interface BattleTracerView {
     <T extends BattleTraceEvent> Node<T> byHandle(Handle<T> handle);
+
+    Optional<Node<?>> mostRecent(Predicate<Node<?>> predicate);
+
+    <T extends BattleTraceEvent> Optional<Node<T>> mostRecent(Predicate<Node<T>> predicate, Class<T> clazz);
 
     boolean contains(Timestamp timestamp);
 

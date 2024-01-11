@@ -9,7 +9,14 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapsho
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.env.BasicEnvEvents;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.fluid.FluidState;
+import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.BlockView;
 import net.minecraft.world.biome.Biome;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.UnknownNullability;
 
 public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotParticipant<AbstractBattleEnvironmentImpl.Delta> implements BattleEnvironment {
     protected final Battle battle;
@@ -49,18 +56,18 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
     }
 
     @Override
-    public Biome biome(final int x, final int y, final int z) {
+    public RegistryEntry<Biome> biome(final int x, final int y, final int z) {
         return getBiome0(Math.max(Math.min(x, battle.xSize() - 1), 0), Math.max(Math.min(y, battle.ySize() - 1), 0), Math.max(Math.min(z, battle.zSize() - 1), 0));
     }
 
     @Override
-    public boolean setBiome(final int x, final int y, final int z, final Biome biome, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
+    public boolean setBiome(final int x, final int y, final int z, final RegistryEntry<Biome> biome, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreSetBiome(x, y, z, biome), transactionContext)) {
             if (x < 0 || y < 0 || z < 0 || x >= battle.xSize() || y >= battle.ySize() || z >= battle.zSize()) {
                 return false;
             }
-            final Biome current = getBiome0(x, y, z);
-            if (current == biome) {
+            final RegistryEntry<Biome> current = getBiome0(x, y, z);
+            if (current.equals(biome)) {
                 return true;
             }
             if (!battle.state().events().invoker(BasicEnvEvents.PRE_SET_BIOME_KEY).onPreSetBiome(battle.state(), x, y, z, current, biome, transactionContext, preSpan)) {
@@ -76,6 +83,47 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
     }
 
     @Override
+    public BlockView asBlockView() {
+        return new BlockView() {
+            @Nullable
+            @Override
+            public BlockEntity getBlockEntity(final BlockPos pos) {
+                return null;
+            }
+
+            @Override
+            public BlockState getBlockState(final BlockPos pos) {
+                return blockState(pos.getX(), pos.getY(), pos.getZ());
+            }
+
+            @Override
+            public FluidState getFluidState(final BlockPos pos) {
+                return getBlockState(pos).getFluidState();
+            }
+
+            @Override
+            public int getHeight() {
+                return battle.ySize();
+            }
+
+            @Override
+            public int getBottomY() {
+                return 0;
+            }
+
+            @Override
+            public boolean hasBiomes() {
+                return true;
+            }
+
+            @Override
+            public @UnknownNullability RegistryEntry<Biome> getBiomeFabric(final BlockPos pos) {
+                return biome(pos.getX(), pos.getY(), pos.getZ());
+            }
+        };
+    }
+
+    @Override
     protected void revertDelta(final Delta delta) {
         delta.apply(this);
     }
@@ -84,9 +132,9 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
 
     protected abstract BlockState getBlockState0(int x, int y, int z);
 
-    protected abstract void setBiome0(int x, int y, int z, Biome biome);
+    protected abstract void setBiome0(int x, int y, int z, RegistryEntry<Biome> biome);
 
-    protected abstract Biome getBiome0(int x, int y, int z);
+    protected abstract RegistryEntry<Biome> getBiome0(int x, int y, int z);
 
     public sealed interface Delta {
         void apply(AbstractBattleEnvironmentImpl environment);
@@ -99,7 +147,7 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
         }
     }
 
-    private record BiomeDelta(int x, int y, int z, Biome biome) implements Delta {
+    private record BiomeDelta(int x, int y, int z, RegistryEntry<Biome> biome) implements Delta {
         @Override
         public void apply(final AbstractBattleEnvironmentImpl environment) {
             environment.setBiome0(x, y, z, biome);

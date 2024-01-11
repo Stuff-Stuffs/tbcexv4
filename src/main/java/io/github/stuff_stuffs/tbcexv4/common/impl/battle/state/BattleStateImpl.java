@@ -47,7 +47,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
     private final BattleParticipantContainer participantContainer;
     private final EventMap.Builder participantEvents;
     private final BattleTransactionManager transactionManager;
-    private final Map<BattleAttachmentType<?>, BattleAttachment> attachments;
+    private final Map<BattleAttachmentType<?, ?>, BattleAttachment> attachments;
     private BattlePhase phase;
     private BattleBounds bounds;
 
@@ -89,9 +89,13 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
     }
 
     @Override
-    public <T extends BattleAttachment> Optional<T> attachment(final BattleAttachmentType<? extends T> type) {
-        //noinspection unchecked
-        return Optional.ofNullable((T) attachments.getOrDefault(type, null));
+    public <V, T extends BattleAttachment> Optional<V> attachmentView(final BattleAttachmentType<V, T> type) {
+        return attachment(type).map(type::view);
+    }
+
+    @Override
+    public <T extends BattleAttachment> Optional<T> attachment(final BattleAttachmentType<?, T> type) {
+        return Optional.ofNullable((T) attachments.get(type));
     }
 
     @Override
@@ -137,7 +141,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             if (participantContainer.participants.containsKey(handle)) {
                 return new Result.Failure<>(AddParticipantError.UNKNOWN);
             }
-            if (battle instanceof ServerBattleImpl serverBattle) {
+            if (battle instanceof final ServerBattleImpl serverBattle) {
                 final BattleManager manager = serverBattle.world().battleManager();
                 manager.addBattle(handle.id(), battle.handle());
             }
@@ -149,6 +153,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             battleParticipant.initialize(this, participant, transactionContext, preSpan);
             participant.start();
             try (final var span = preSpan.push(new CoreBattleTraceEvents.AddParticipant(participant.handle()), transactionContext)) {
+                span.push(new CoreBattleTraceEvents.ParticipantSetTeam(handle, Optional.empty(), participant.team()), transactionContext).close();
                 events().invoker(BasicEvents.POST_ADD_PARTICIPANT_EVENT_KEY).onPostAddParticipantEvent(this, participant, transactionContext, span);
             }
             return new Result.Success<>(participant.handle());
@@ -222,6 +227,9 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
     public Result<Unit, SetTeamRelationError> setRelation(final BattleParticipantTeam first, final BattleParticipantTeam second, final BattleParticipantTeamRelation relation, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         ensureBattleOngoing();
         try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreSetTeamRelation(first, second, relation), transactionContext)) {
+            if (first.equals(second)) {
+                return new Result.Failure<>(SetTeamRelationError.SAME_TEAM);
+            }
             final BattleParticipantTeamRelation oldRelation = participantContainer.relation(first, second);
             if (oldRelation == relation) {
                 return new Result.Success<>(Unit.INSTANCE);
@@ -239,7 +247,19 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
     }
 
     @Override
-    public <T extends BattleAttachment> void setAttachment(final @Nullable T value, final BattleAttachmentType<T> type, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
+    public Result<Unit, SetTeamError> setTeam(final BattleParticipantHandle handle, final BattleParticipantTeam newTeam, final BattleTransactionContext context, final BattleTracer.Span<?> tracer) {
+        final BattleParticipantTeam oldTeam = participantContainer.teams.get(handle);
+        if (oldTeam.equals(newTeam)) {
+            return new Result.Success<>(Unit.INSTANCE);
+        }
+        tracer.push(new CoreBattleTraceEvents.ParticipantSetTeam(handle, Optional.of(oldTeam), newTeam), context).close();
+        participantContainer.setTeam(handle, newTeam);
+        delta(context, new SetTeamAttachment(handle, oldTeam));
+        return new Result.Success<>(Unit.INSTANCE);
+    }
+
+    @Override
+    public <T extends BattleAttachment> void setAttachment(final @Nullable T value, final BattleAttachmentType<?, T> type, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         try (final var span = tracer.push(new CoreBattleTraceEvents.SetAttachment(type), transactionContext)) {
             //noinspection unchecked
             final T old = (T) attachments.put(type, value);
@@ -280,7 +300,20 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             relations = new Object2ObjectOpenHashMap<>();
         }
 
+        public void setTeam(final BattleParticipantHandle handle, final BattleParticipantTeam team) {
+            final BattleParticipantTeam oldTeam = teams.get(handle);
+            if (oldTeam == null) {
+                throw new NullPointerException();
+            }
+            teams.put(handle, team);
+            byTeam.computeIfAbsent(team, l -> new ObjectOpenHashSet<>()).add(handle);
+            byTeam.get(oldTeam).remove(handle);
+        }
+
         public BattleParticipantTeamRelation relation(final BattleParticipantTeam first, final BattleParticipantTeam second) {
+            if (first.equals(second)) {
+                return BattleParticipantTeamRelation.ALLY;
+            }
             return relations.getOrDefault(Pair.of(first, second), BattleParticipantTeamRelation.NEUTRAL);
         }
 
@@ -320,7 +353,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
         @Override
         public void apply(final BattleStateImpl state) {
             state.participantContainer.remove(handle);
-            if (state.battle instanceof ServerBattleImpl serverBattle) {
+            if (state.battle instanceof final ServerBattleImpl serverBattle) {
                 final BattleManager manager = serverBattle.world().battleManager();
                 manager.removeBattle(handle.id(), state.battle.handle());
             }
@@ -333,7 +366,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             state.participantContainer.participants.put(participant.handle(), participant);
             state.participantContainer.teams.put(participant.handle(), participant.team());
             state.participantContainer.byTeam.computeIfAbsent(participant.team(), k -> new ObjectOpenHashSet<>()).add(participant.handle());
-            if (state.battle instanceof ServerBattleImpl serverBattle) {
+            if (state.battle instanceof final ServerBattleImpl serverBattle) {
                 final BattleManager manager = serverBattle.world().battleManager();
                 manager.addBattle(participant.handle().id(), state.battle.handle());
             }
@@ -343,7 +376,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
     private record PhaseDelta(BattlePhase phase) implements Delta {
         @Override
         public void apply(final BattleStateImpl state) {
-            if (state.battle instanceof ServerBattleImpl serverBattle) {
+            if (state.battle instanceof final ServerBattleImpl serverBattle) {
                 if (state.phase == BattlePhase.FINISHED) {
                     for (final BattleParticipantHandle handle : state.participants()) {
                         serverBattle.world().battleManager().unresolveBattle(handle.id(), state.battle.handle());
@@ -358,8 +391,10 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
         }
     }
 
-    private record SetAttachmentDelta<T extends BattleAttachment>(@Nullable T previous,
-                                                                  BattleAttachmentType<T> type) implements Delta {
+    private record SetAttachmentDelta<T extends BattleAttachment>(
+            @Nullable T previous,
+            BattleAttachmentType<?, T> type
+    ) implements Delta {
         @Override
         public void apply(final BattleStateImpl state) {
             if (previous == null) {
@@ -367,6 +402,13 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             } else {
                 state.attachments.put(type, previous);
             }
+        }
+    }
+
+    private record SetTeamAttachment(BattleParticipantHandle handle, BattleParticipantTeam team) implements Delta {
+        @Override
+        public void apply(final BattleStateImpl state) {
+            state.participantContainer.setTeam(handle, team);
         }
     }
 }

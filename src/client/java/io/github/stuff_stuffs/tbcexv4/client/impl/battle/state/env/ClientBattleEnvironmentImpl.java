@@ -5,7 +5,6 @@ import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.env.AbstractBattl
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryEntry;
@@ -56,22 +55,21 @@ public class ClientBattleEnvironmentImpl extends AbstractBattleEnvironmentImpl {
     }
 
     @Override
-    protected void setBiome0(final int x, final int y, final int z, final Biome biome) {
+    protected void setBiome0(final int x, final int y, final int z, final RegistryEntry<Biome> biome) {
         final int sx = ChunkSectionPos.getSectionCoord(x);
         final int sy = ChunkSectionPos.getSectionCoord(y);
         final int sz = ChunkSectionPos.getSectionCoord(z);
         final Section section = sections[(sy * sectionZ + sz) * sectionX + sx];
-        final RegistryEntry<Biome> entry = MinecraftClient.getInstance().world.getRegistryManager().get(RegistryKeys.BIOME).getEntry(biome);
-        section.biomeContainer.set(BiomeCoords.fromBlock(x) & 3, BiomeCoords.fromBlock(y) & 3, BiomeCoords.fromBlock(z) & 3, entry);
+        section.biomeContainer.set(BiomeCoords.fromBlock(x) & 3, BiomeCoords.fromBlock(y) & 3, BiomeCoords.fromBlock(z) & 3, biome);
     }
 
     @Override
-    protected Biome getBiome0(final int x, final int y, final int z) {
+    protected RegistryEntry<Biome> getBiome0(final int x, final int y, final int z) {
         final int sx = ChunkSectionPos.getSectionCoord(x);
         final int sy = ChunkSectionPos.getSectionCoord(y);
         final int sz = ChunkSectionPos.getSectionCoord(z);
         final Section section = sections[(sy * sectionZ + sz) * sectionX + sx];
-        return section.biomeContainer.get(BiomeCoords.fromBlock(x) & 3, BiomeCoords.fromBlock(y) & 3, BiomeCoords.fromBlock(z) & 3).value();
+        return section.biomeContainer.get(BiomeCoords.fromBlock(x) & 3, BiomeCoords.fromBlock(y) & 3, BiomeCoords.fromBlock(z) & 3);
     }
 
     public Section get(final int x, final int y, final int z) {

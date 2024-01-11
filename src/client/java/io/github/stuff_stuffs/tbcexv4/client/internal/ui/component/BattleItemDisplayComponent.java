@@ -4,10 +4,9 @@ import io.github.stuff_stuffs.tbcexv4.client.api.BattleItemRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItem;
 import io.wispforest.owo.ui.base.BaseComponent;
 import io.wispforest.owo.ui.core.OwoUIDrawContext;
-import io.wispforest.owo.ui.core.Positioning;
-import io.wispforest.owo.ui.core.Size;
 import net.minecraft.client.util.math.MatrixStack;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
@@ -51,12 +50,14 @@ public class BattleItemDisplayComponent extends BaseComponent {
             }
             final MatrixStack matrices = context.getMatrices();
             matrices.push();
-            final Positioning pos = positioning().get();
-            matrices.translate(pos.x, pos.y, 0);
-            final Size size = fullSize();
-            matrices.scale(1 / (float) size.width(), 1 / (float) size.height(), 1);
+            matrices.translate(x() + width() * 0.5F, y() + height() * 0.5F, 0);
+            final int scale = Math.min(width(), height());
+            matrices.scale((float) scale, (float) scale, (float) scale);
             matrices.multiply(rotation);
+            final Quaternionf quaternionf = new Quaternionf().fromAxisAngleDeg(0, 1, 0, -45);
+            matrices.multiplyPositionMatrix(new Matrix4f().set(quaternionf));
             BattleItemRendererRegistry.render(item, context.getVertexConsumers(), matrices);
+            context.getVertexConsumers().drawCurrentLayer();
             matrices.pop();
         }
     }

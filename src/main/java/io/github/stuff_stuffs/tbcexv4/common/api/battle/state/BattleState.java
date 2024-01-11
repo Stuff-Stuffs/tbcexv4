@@ -18,6 +18,8 @@ import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Optional;
+
 @EventViewable(viewClass = BattleStateView.class)
 public interface BattleState extends BattleStateView {
     BattleTransactionManager transactionManager();
@@ -31,6 +33,8 @@ public interface BattleState extends BattleStateView {
     @Override
     BattleParticipant participant(BattleParticipantHandle handle);
 
+    <T extends BattleAttachment> Optional<T> attachment(BattleAttachmentType<?, T> type);
+
     Result<Unit, RemoveParticipantError> removeParticipant(BattleParticipantHandle handle, RemoveParticipantReason reason, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
     Result<BattleParticipantHandle, AddParticipantError> addParticipant(BattleParticipantInitialState battleParticipant, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
@@ -39,7 +43,9 @@ public interface BattleState extends BattleStateView {
 
     Result<Unit, SetTeamRelationError> setRelation(BattleParticipantTeam first, BattleParticipantTeam second, BattleParticipantTeamRelation relation, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
-    <T extends BattleAttachment> void setAttachment(@Nullable T value, BattleAttachmentType<T> type, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
+    Result<Unit, SetTeamError> setTeam(BattleParticipantHandle handle, BattleParticipantTeam newTeam, BattleTransactionContext context, BattleTracer.Span<?> tracer);
+
+    <T extends BattleAttachment> void setAttachment(@Nullable T value, BattleAttachmentType<?, T> type, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
     enum AddParticipantError {
         OUT_OF_BOUNDS,
@@ -55,6 +61,7 @@ public interface BattleState extends BattleStateView {
     }
 
     enum SetTeamRelationError {
+        SAME_TEAM,
         EVENT
     }
 
@@ -66,5 +73,9 @@ public interface BattleState extends BattleStateView {
     enum RemoveParticipantReason {
         DEAD,
         LEFT
+    }
+
+    enum SetTeamError {
+        EVENT
     }
 }

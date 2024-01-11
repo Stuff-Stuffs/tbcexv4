@@ -2,6 +2,7 @@ package io.github.stuff_stuffs.tbcexv4.client.internal.ui.component;
 
 import io.wispforest.owo.ui.component.DropdownComponent;
 import io.wispforest.owo.ui.container.FlowLayout;
+import io.wispforest.owo.ui.core.Component;
 import io.wispforest.owo.ui.core.Sizing;
 
 public class FixedDropdownComponent extends DropdownComponent {
@@ -11,9 +12,15 @@ public class FixedDropdownComponent extends DropdownComponent {
 
     @Override
     public FlowLayout clearChildren() {
-        final FlowLayout layout = super.clearChildren();
+        for (final Component child : children) {
+            if (child != entries) {
+                child.dismount(DismountReason.REMOVED);
+            }
+        }
         entries.clearChildren();
+        children.clear();
         child(entries);
-        return layout;
+        updateLayout();
+        return this;
     }
 }

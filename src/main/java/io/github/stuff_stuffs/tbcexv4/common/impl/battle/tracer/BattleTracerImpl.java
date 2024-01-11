@@ -11,10 +11,8 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.SortedMap;
+import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public class BattleTracerImpl extends DeltaSnapshotParticipant<BattleTracerImpl.Delta> implements BattleTracer {
@@ -47,6 +45,35 @@ public class BattleTracerImpl extends DeltaSnapshotParticipant<BattleTracerImpl.
         }
         //noinspection unchecked
         return (Node<T>) nodes.get(casted);
+    }
+
+    @Override
+    public Optional<Node<?>> mostRecent(final Predicate<Node<?>> predicate) {
+        final int size = flattened.size();
+        for (int i = size - 1; i >= 0; i--) {
+            final NodeImpl<?> node = flattened.get(i);
+            if (predicate.test(node)) {
+                return Optional.of(node);
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public <T extends BattleTraceEvent> Optional<Node<T>> mostRecent(final Predicate<Node<T>> predicate, final Class<T> clazz) {
+        final int size = flattened.size();
+        for (int i = size - 1; i >= 0; i--) {
+            final NodeImpl<?> node = flattened.get(i);
+            if (!clazz.isInstance(node.event)) {
+                continue;
+            }
+            //noinspection unchecked
+            final NodeImpl<T> casted = (NodeImpl<T>) node;
+            if (predicate.test(casted)) {
+                return Optional.of(casted);
+            }
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -235,7 +262,11 @@ public class BattleTracerImpl extends DeltaSnapshotParticipant<BattleTracerImpl.
 
     @Override
     protected void revertDelta(final Delta delta) {
-        nodes.remove(delta.handle);
+        final NodeImpl<?> removed = nodes.remove(delta.handle);
+        final NodeImpl<?> parent = removed.parent;
+        if (parent != null) {
+            parent.children.remove(delta.handle);
+        }
         flattened.clear();
     }
 
@@ -323,7 +354,7 @@ public class BattleTracerImpl extends DeltaSnapshotParticipant<BattleTracerImpl.
     private record TimestampImpl(BattleTracerImpl parent, long id) implements Timestamp {
         @Override
         public int compareTo(@NotNull final BattleTracerView.Timestamp o) {
-            if (!(o instanceof TimestampImpl timestamp)) {
+            if (!(o instanceof final TimestampImpl timestamp)) {
                 throw new RuntimeException();
             }
             if (parent != timestamp.parent) {

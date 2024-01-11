@@ -18,25 +18,37 @@ import java.util.UUID;
 public final class TryBattleActionPacket implements FabricPacket {
     private final BattleActionRequestType<?> type;
     private final UUID requestId;
+    private final UUID handle;
     private final NbtElement element;
 
-    public <T extends BattleActionRequest> TryBattleActionPacket(final T value, final UUID id, final BattleCodecContext context) {
+    public <T extends BattleActionRequest> TryBattleActionPacket(final T value, final UUID id, final UUID handle, final BattleCodecContext context) {
         type = value.type();
         requestId = id;
+        this.handle = handle;
         //noinspection unchecked
         element = ((BattleActionRequestType<T>) type).codec(context).encodeStart(NbtOps.INSTANCE, value).getOrThrow(false, Tbcexv4.LOGGER::error);
     }
 
-    private TryBattleActionPacket(final BattleActionRequestType<?> type, final UUID id, final NbtElement element) {
+    private TryBattleActionPacket(final BattleActionRequestType<?> type, final UUID id, final UUID handle, final NbtElement element) {
         this.type = type;
         requestId = id;
+        this.handle = handle;
         this.element = element;
+    }
+
+    public UUID requestId() {
+        return requestId;
+    }
+
+    public UUID handle() {
+        return handle;
     }
 
     @Override
     public void write(final PacketByteBuf buf) {
         buf.writeRegistryValue(Tbcexv4Registries.BattleActionRequestTypes.REGISTRY, type);
         buf.writeUuid(requestId);
+        buf.writeUuid(handle);
         buf.writeNbt(element);
     }
 
@@ -54,6 +66,6 @@ public final class TryBattleActionPacket implements FabricPacket {
         if (type == null) {
             throw new RuntimeException();
         }
-        return new TryBattleActionPacket(type, buf.readUuid(), buf.readNbt(NbtTagSizeTracker.ofUnlimitedBytes()));
+        return new TryBattleActionPacket(type, buf.readUuid(), buf.readUuid(), buf.readNbt(NbtTagSizeTracker.ofUnlimitedBytes()));
     }
 }

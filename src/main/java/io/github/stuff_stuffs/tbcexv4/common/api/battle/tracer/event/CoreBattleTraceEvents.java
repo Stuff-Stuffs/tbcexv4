@@ -13,6 +13,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleP
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.attachment.BattleAttachmentType;
 import net.minecraft.block.BlockState;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.world.biome.Biome;
 
 import java.util.Optional;
@@ -142,6 +143,13 @@ public final class CoreBattleTraceEvents {
     ) implements BattleTraceEvent {
     }
 
+    public record ParticipantSetTeam(
+            BattleParticipantHandle handle,
+            Optional<BattleParticipantTeam> oldTeam,
+            BattleParticipantTeam newTeam
+    ) implements BattleTraceEvent {
+    }
+
     public record ParticipantSetStack(
             InventoryHandle handle,
             Optional<BattleItemStack> oldStack,
@@ -161,19 +169,20 @@ public final class CoreBattleTraceEvents {
     ) implements BattleTraceEvent {
     }
 
-    public record PreSetBiome(int x, int y, int z, Biome attemptedBiome) implements BattleTraceEvent {
+    public record PreSetBiome(int x, int y, int z, RegistryEntry<Biome> attemptedBiome) implements BattleTraceEvent {
     }
 
-    public record SetBiome(int x, int y, int z, Biome oldBiome, Biome newBiome) implements BattleTraceEvent {
+    public record SetBiome(int x, int y, int z, RegistryEntry<Biome> oldBiome,
+                           RegistryEntry<Biome> newBiome) implements BattleTraceEvent {
     }
 
     public record ActionRoot(Optional<BattleParticipantHandle> source) implements BattleTraceEvent {
     }
 
-    public record SetAttachment(BattleAttachmentType<?> type) implements BattleTraceEvent {
+    public record SetAttachment(BattleAttachmentType<?, ?> type) implements BattleTraceEvent {
     }
 
-    public record SetParticipantAttachment(BattleParticipantAttachmentType<?> type) implements BattleTraceEvent {
+    public record SetParticipantAttachment(BattleParticipantAttachmentType<?, ?> type) implements BattleTraceEvent {
     }
 
     private CoreBattleTraceEvents() {
