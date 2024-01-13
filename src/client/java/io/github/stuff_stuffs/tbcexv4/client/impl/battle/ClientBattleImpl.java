@@ -15,6 +15,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleT
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.util.math.BlockPos;
@@ -62,6 +63,7 @@ public class ClientBattleImpl implements Battle {
         tracer = BattleTracer.create(new CoreBattleTraceEvents.Root());
         try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.TurnManagerSetup(), transaction)) {
             turnManager.setup(state, transaction, span);
+            transaction.commit();
         }
     }
 
@@ -158,6 +160,7 @@ public class ClientBattleImpl implements Battle {
             source.ifPresent(participantHandle -> turnManager.onAction(participantHandle, state, transaction, span));
             transaction.commit();
         }
+        MinecraftClient.getInstance().player.sendMessage(action.chatMessage(), false);
     }
 
     @Override

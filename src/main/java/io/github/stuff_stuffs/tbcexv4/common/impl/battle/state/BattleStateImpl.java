@@ -21,16 +21,15 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapsho
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.BasicEvents;
-import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.BattleParticipantImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.transaction.BattleTransactionManagerImpl;
-import io.github.stuff_stuffs.tbcexv4.common.internal.BattleManager;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.random.Random;
+import net.minecraft.util.math.random.Xoroshiro128PlusPlusRandom;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,6 +47,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
     private final EventMap.Builder participantEvents;
     private final BattleTransactionManager transactionManager;
     private final Map<BattleAttachmentType<?, ?>, BattleAttachment> attachments;
+    private final Random random;
     private BattlePhase phase;
     private BattleBounds bounds;
 
@@ -62,6 +62,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
         attachments = new Reference2ObjectOpenHashMap<>();
         phase = BattlePhase.INIT;
         bounds = new BattleBounds(0, 0, 0, battle.xSize(), battle.ySize(), battle.zSize());
+        random = new Xoroshiro128PlusPlusRandom(sourceWorld.getValue().hashCode(), battle.handle().id().hashCode());
     }
 
     public void ensureBattleOngoing() {
@@ -76,6 +77,18 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
         }
         phase = BattlePhase.BATTLE;
         delta(transactionContext, new PhaseDelta(BattlePhase.INIT));
+    }
+
+    public void finish(final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
+        if (phase != BattlePhase.BATTLE) {
+            throw new RuntimeException();
+        }
+        phase = BattlePhase.FINISHED;
+        delta(transactionContext, new PhaseDelta(BattlePhase.BATTLE));
+        for (final BattleParticipantImpl participant : participantContainer.participants.values()) {
+            participant.finish(transactionContext);
+        }
+        events.invoker(BasicEvents.END_BATTLE_KEY, transactionContext).onEndBattle(this, transactionContext, tracer);
     }
 
     @Override
@@ -105,19 +118,20 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             if (!participantContainer.participants.containsKey(handle)) {
                 return new Result.Failure<>(RemoveParticipantError.MISSING_PARTICIPANT);
             }
-            if (!events().invoker(BasicEvents.PRE_REMOVE_PARTICIPANT_EVENT_KEY).onPreRemoveParticipantEvent(participantContainer.participants.get(handle), reason, transactionContext, preSpan)) {
+            if (!events().invoker(BasicEvents.PRE_REMOVE_PARTICIPANT_EVENT_KEY, transactionContext).onPreRemoveParticipantEvent(participantContainer.participants.get(handle), reason, transactionContext, preSpan)) {
                 return new Result.Failure<>(RemoveParticipantError.EVENT);
             }
             final BattleParticipantImpl participant = participantContainer.participants.get(handle);
             if (participant != null) {
                 participant.finish(transactionContext);
-                delta(transactionContext, new RemoveParticipantDelta(participant));
+                delta(transactionContext, new RemoveParticipantDelta(participant, participant.team()));
+                participantContainer.remove(handle);
+                try (final var span = preSpan.push(new CoreBattleTraceEvents.RemoveParticipant(handle, reason), transactionContext)) {
+                    events().invoker(BasicEvents.POST_REMOVE_PARTICIPANT_EVENT_KEY, transactionContext).onPostRemoveParticipantEvent(this, handle, reason, transactionContext, span);
+                }
+                return new Result.Success<>(Unit.INSTANCE);
             }
-            participantContainer.remove(handle);
-            try (final var span = preSpan.push(new CoreBattleTraceEvents.RemoveParticipant(handle, reason), transactionContext)) {
-                events().invoker(BasicEvents.POST_REMOVE_PARTICIPANT_EVENT_KEY).onPostRemoveParticipantEvent(this, handle, reason, transactionContext, span);
-            }
-            return new Result.Success<>(Unit.INSTANCE);
+            return new Result.Failure<>(RemoveParticipantError.EVENT);
         }
     }
 
@@ -125,7 +139,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
     public Result<BattleParticipantHandle, AddParticipantError> addParticipant(final BattleParticipantInitialState battleParticipant, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         ensureBattleOngoing();
         final Optional<UUID> id = battleParticipant.id();
-        final BattleParticipantHandle handle = new BattleParticipantHandle(id.orElseGet(MathHelper::randomUuid));
+        final BattleParticipantHandle handle = new BattleParticipantHandle(id.orElseGet(() -> new UUID(random.nextLong(), random.nextLong())));
         try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreAddParticipant(handle), transactionContext)) {
             if (id.isPresent() && participantContainer.participants.containsKey(new BattleParticipantHandle(id.get()))) {
                 return new Result.Failure<>(AddParticipantError.ID_OVERLAP);
@@ -135,15 +149,11 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             if (!this.bounds.check(bounds, pos)) {
                 return new Result.Failure<>(AddParticipantError.OUT_OF_BOUNDS);
             }
-            if (!events().invoker(BasicEvents.PRE_ADD_PARTICIPANT_EVENT_KEY).onPreAddParticipantEvent(this, battleParticipant, handle, transactionContext, preSpan)) {
+            if (!events().invoker(BasicEvents.PRE_ADD_PARTICIPANT_EVENT_KEY, transactionContext).onPreAddParticipantEvent(this, battleParticipant, handle, transactionContext, preSpan)) {
                 return new Result.Failure<>(AddParticipantError.EVENT);
             }
             if (participantContainer.participants.containsKey(handle)) {
                 return new Result.Failure<>(AddParticipantError.UNKNOWN);
-            }
-            if (battle instanceof final ServerBattleImpl serverBattle) {
-                final BattleManager manager = serverBattle.world().battleManager();
-                manager.addBattle(handle.id(), battle.handle());
             }
             delta(transactionContext, new AddParticipantDelta(handle));
             final BattleParticipantImpl participant = new BattleParticipantImpl(handle.id(), participantEvents.build(), this, battleParticipant::addAttachments, bounds, pos, transactionContext);
@@ -154,7 +164,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             participant.start();
             try (final var span = preSpan.push(new CoreBattleTraceEvents.AddParticipant(participant.handle()), transactionContext)) {
                 span.push(new CoreBattleTraceEvents.ParticipantSetTeam(handle, Optional.empty(), participant.team()), transactionContext).close();
-                events().invoker(BasicEvents.POST_ADD_PARTICIPANT_EVENT_KEY).onPostAddParticipantEvent(this, participant, transactionContext, span);
+                events().invoker(BasicEvents.POST_ADD_PARTICIPANT_EVENT_KEY, transactionContext).onPostAddParticipantEvent(this, participant, transactionContext, span);
             }
             return new Result.Success<>(participant.handle());
         }
@@ -210,14 +220,14 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
                     return new Result.Failure<>(SetBoundsError.PARTICIPANT_OUTSIDE);
                 }
             }
-            if (!events().invoker(BasicEvents.PRE_SET_BOUNDS_EVENT_KEY).onPreSetBoundsEvent(this, bounds, transactionContext, preSpan)) {
+            if (!events().invoker(BasicEvents.PRE_SET_BOUNDS_EVENT_KEY, transactionContext).onPreSetBoundsEvent(this, bounds, transactionContext, preSpan)) {
                 return new Result.Failure<>(SetBoundsError.EVENT);
             }
             final BattleBounds oldBounds = this.bounds;
             this.bounds = bounds;
             delta(transactionContext, new BoundsDelta(oldBounds));
             try (final var span = preSpan.push(new CoreBattleTraceEvents.SetBounds(oldBounds, bounds), transactionContext)) {
-                events().invoker(BasicEvents.POST_SET_BOUNDS_EVENT_KEY).onPostSetBoundsEvent(this, oldBounds, transactionContext, span);
+                events().invoker(BasicEvents.POST_SET_BOUNDS_EVENT_KEY, transactionContext).onPostSetBoundsEvent(this, oldBounds, transactionContext, span);
             }
             return new Result.Success<>(Unit.INSTANCE);
         }
@@ -234,13 +244,13 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             if (oldRelation == relation) {
                 return new Result.Success<>(Unit.INSTANCE);
             }
-            if (!events().invoker(BasicEvents.PRE_SET_TEAM_RELATION_EVENT_KEY).onPreSetTeamRelationEvent(this, first, second, relation, transactionContext, preSpan)) {
+            if (!events().invoker(BasicEvents.PRE_SET_TEAM_RELATION_EVENT_KEY, transactionContext).onPreSetTeamRelationEvent(this, first, second, relation, transactionContext, preSpan)) {
                 return new Result.Failure<>(SetTeamRelationError.EVENT);
             }
             final BattleParticipantTeamRelation old = participantContainer.setRelation(first, second, relation);
             delta(transactionContext, new TeamRelationDelta(first, second, oldRelation));
             try (final var span = preSpan.push(new CoreBattleTraceEvents.SetTeamRelation(first, second, oldRelation, relation), transactionContext)) {
-                events().invoker(BasicEvents.POST_SET_TEAM_RELATION_EVENT_KEY).onPostSetTeamRelationEvent(this, first, second, old, transactionContext, span);
+                events().invoker(BasicEvents.POST_SET_TEAM_RELATION_EVENT_KEY, transactionContext).onPostSetTeamRelationEvent(this, first, second, old, transactionContext, span);
             }
             return new Result.Success<>(Unit.INSTANCE);
         }
@@ -353,40 +363,22 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
         @Override
         public void apply(final BattleStateImpl state) {
             state.participantContainer.remove(handle);
-            if (state.battle instanceof final ServerBattleImpl serverBattle) {
-                final BattleManager manager = serverBattle.world().battleManager();
-                manager.removeBattle(handle.id(), state.battle.handle());
-            }
         }
     }
 
-    private record RemoveParticipantDelta(BattleParticipantImpl participant) implements Delta {
+    private record RemoveParticipantDelta(BattleParticipantImpl participant,
+                                          BattleParticipantTeam team) implements Delta {
         @Override
         public void apply(final BattleStateImpl state) {
             state.participantContainer.participants.put(participant.handle(), participant);
-            state.participantContainer.teams.put(participant.handle(), participant.team());
-            state.participantContainer.byTeam.computeIfAbsent(participant.team(), k -> new ObjectOpenHashSet<>()).add(participant.handle());
-            if (state.battle instanceof final ServerBattleImpl serverBattle) {
-                final BattleManager manager = serverBattle.world().battleManager();
-                manager.addBattle(participant.handle().id(), state.battle.handle());
-            }
+            state.participantContainer.teams.put(participant.handle(), team);
+            state.participantContainer.byTeam.computeIfAbsent(team, k -> new ObjectOpenHashSet<>()).add(participant.handle());
         }
     }
 
     private record PhaseDelta(BattlePhase phase) implements Delta {
         @Override
         public void apply(final BattleStateImpl state) {
-            if (state.battle instanceof final ServerBattleImpl serverBattle) {
-                if (state.phase == BattlePhase.FINISHED) {
-                    for (final BattleParticipantHandle handle : state.participants()) {
-                        serverBattle.world().battleManager().unresolveBattle(handle.id(), state.battle.handle());
-                    }
-                } else if (phase == BattlePhase.FINISHED) {
-                    for (final BattleParticipantHandle handle : state.participants()) {
-                        serverBattle.world().battleManager().resolveBattle(handle.id(), state.battle.handle());
-                    }
-                }
-            }
             state.phase = phase;
         }
     }

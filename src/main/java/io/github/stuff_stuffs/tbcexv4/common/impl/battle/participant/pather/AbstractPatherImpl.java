@@ -1,6 +1,5 @@
 package io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.pather;
 
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantBounds;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.Pather;
@@ -30,34 +29,38 @@ public abstract class AbstractPatherImpl<M, N extends AbstractPatherImpl.Node<M>
         }
         final PriorityQueue<N> heap = new ObjectHeapPriorityQueue<>(Node.COMPARATOR);
         final Int2ObjectMap<N> byKey = new Int2ObjectLinkedOpenHashMap<>();
-        byKey.put(PathCacheImpl.pack(start.x, start.y, start.z), start);
+        byKey.put(PathCache.pack(start.x, start.y, start.z), start);
         final NeighbourData<M, N> neighbourData = new NeighbourData<>() {
             @Override
             public double cost(final int x, final int y, final int z) {
                 if (!checker.inBounds(x, y, z)) {
                     return Double.NaN;
                 }
-                final N node = byKey.get(PathCacheImpl.pack(x, y, z));
+                final N node = byKey.get(PathCache.pack(x, y, z));
                 return node == null ? Double.POSITIVE_INFINITY : node.cost;
             }
 
             @Override
             public void add(final N node) {
                 if (node.cost < cost(node.x, node.y, node.z)) {
-                    byKey.put(PathCacheImpl.pack(node.x, node.y, node.z), node);
+                    byKey.put(PathCache.pack(node.x, node.y, node.z), node);
                     heap.enqueue(node);
                 }
             }
         };
+        final int maxDepth = (int) options.getValue(PatherOptions.MAX_DEPTH_KEY, 32);
         while (!heap.isEmpty()) {
             final N current = heap.dequeue();
+            if (current.depth > maxDepth) {
+                continue;
+            }
             appendNeighbours(current, neighbourData, participant, checker, options);
         }
         final IntSet terminal = new IntOpenHashSet(byKey.keySet());
         final Int2ObjectMap<PathNodeImpl<M>> nodes = new Int2ObjectLinkedOpenHashMap<>(byKey.size(), Hash.DEFAULT_LOAD_FACTOR);
         for (final N value : byKey.values()) {
             final PathNodeImpl<M> node = create(value, participant, options);
-            final int key = PathCacheImpl.pack(value.x, value.y, value.z);
+            final int key = PathCache.pack(value.x, value.y, value.z);
             nodes.put(key, node);
             terminal.remove(key);
         }
@@ -76,9 +79,6 @@ public abstract class AbstractPatherImpl<M, N extends AbstractPatherImpl.Node<M>
     protected abstract void appendNeighbours(N current, NeighbourData<M, N> neighbourData, BattleParticipantView participant, CollisionChecker checker, PatherOptions options);
 
     protected static final class PathCacheImpl<M> implements PathCache<M> {
-        private static final int BITS = Integer.bitCount(BattlePos.MAX);
-        private static final int SHIFT = BITS;
-        private static final int MASK = (1 << BITS) - 1;
         private final Int2ObjectMap<PathNodeImpl<M>> nodes;
         private final List<PathNodeImpl<M>> terminal;
 
@@ -89,7 +89,7 @@ public abstract class AbstractPatherImpl<M, N extends AbstractPatherImpl.Node<M>
 
         @Override
         public @Nullable PathNode<M> get(final int x, final int y, final int z) {
-            final int key = pack(x, y, z);
+            final int key = PathCache.pack(x, y, z);
             return nodes.get(key);
         }
 
@@ -102,21 +102,19 @@ public abstract class AbstractPatherImpl<M, N extends AbstractPatherImpl.Node<M>
         public Stream<? extends PathNode<M>> all() {
             return nodes.values().stream();
         }
-
-        protected static int pack(final int x, final int y, final int z) {
-            return (x & MASK) << 2 * SHIFT | (y & MASK) << SHIFT | z & MASK;
-        }
     }
 
     protected static class PathNodeImpl<M> implements PathNode<M> {
         private final @Nullable PathNodeImpl<M> prev;
+        protected final double cost;
         private final M movement;
         private final int x;
         private final int y;
         private final int z;
 
-        private PathNodeImpl(@Nullable final PathNodeImpl<M> prev, final M movement, final int x, final int y, final int z) {
+        protected PathNodeImpl(@Nullable final PathNodeImpl<M> prev, final double cost, final M movement, final int x, final int y, final int z) {
             this.prev = prev;
+            this.cost = cost;
             this.movement = movement;
             this.x = x;
             this.y = y;
@@ -126,6 +124,11 @@ public abstract class AbstractPatherImpl<M, N extends AbstractPatherImpl.Node<M>
         @Override
         public @Nullable PathNode<M> previous() {
             return prev;
+        }
+
+        @Override
+        public double cost() {
+            return cost;
         }
 
         @Override
@@ -162,8 +165,9 @@ public abstract class AbstractPatherImpl<M, N extends AbstractPatherImpl.Node<M>
         public final double cost;
         public final M movement;
         public final Node<M> prev;
+        public final int depth;
 
-        protected Node(final int x, final int y, final int z, final double floorHeight, final double cost, final M movement, final Node<M> prev) {
+        protected Node(final int x, final int y, final int z, final double floorHeight, final double cost, final M movement, final Node<M> prev, final int depth) {
             this.x = x;
             this.y = y;
             this.z = z;
@@ -171,6 +175,7 @@ public abstract class AbstractPatherImpl<M, N extends AbstractPatherImpl.Node<M>
             this.cost = cost;
             this.movement = movement;
             this.prev = prev;
+            this.depth = depth;
         }
     }
 }

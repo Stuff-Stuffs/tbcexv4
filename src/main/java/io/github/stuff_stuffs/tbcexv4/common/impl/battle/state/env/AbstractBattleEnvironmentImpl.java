@@ -35,13 +35,13 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
             if (oldState == state) {
                 return true;
             }
-            if (!battle.state().events().invoker(BasicEnvEvents.PRE_SET_BLOCK_STATE_EVENT_KEY).onPreSetBlockStateEvent(battle.state(), x, y, z, state, transactionContext, preSpan)) {
+            if (!battle.state().events().invoker(BasicEnvEvents.PRE_SET_BLOCK_STATE_EVENT_KEY, transactionContext).onPreSetBlockStateEvent(battle.state(), x, y, z, state, transactionContext, preSpan)) {
                 return false;
             }
             setBlockState0(x, y, z, state);
             delta(transactionContext, new BlockDelta(x, y, z, oldState));
             try (final var span = preSpan.push(new CoreBattleTraceEvents.SetBlockState(x, y, z, oldState, state), transactionContext)) {
-                battle.state().events().invoker(BasicEnvEvents.POST_SET_BLOCK_STATE_EVENT_KEY).onPostSetBlockStateEvent(battle.state(), x, y, z, oldState, transactionContext, span);
+                battle.state().events().invoker(BasicEnvEvents.POST_SET_BLOCK_STATE_EVENT_KEY, transactionContext).onPostSetBlockStateEvent(battle.state(), x, y, z, oldState, transactionContext, span);
             }
             return true;
         }
@@ -70,13 +70,13 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
             if (current.equals(biome)) {
                 return true;
             }
-            if (!battle.state().events().invoker(BasicEnvEvents.PRE_SET_BIOME_KEY).onPreSetBiome(battle.state(), x, y, z, current, biome, transactionContext, preSpan)) {
+            if (!battle.state().events().invoker(BasicEnvEvents.PRE_SET_BIOME_KEY, transactionContext).onPreSetBiome(battle.state(), x, y, z, current, biome, transactionContext, preSpan)) {
                 return false;
             }
             setBiome0(x, y, z, biome);
             delta(transactionContext, new BiomeDelta(x, y, z, current));
             try (final var span = preSpan.push(new CoreBattleTraceEvents.SetBiome(x, y, z, current, biome), transactionContext)) {
-                battle.state().events().invoker(BasicEnvEvents.POST_SET_BIOME_KEY).onPostSetBiome(battle.state(), x, y, z, current, biome, transactionContext, span);
+                battle.state().events().invoker(BasicEnvEvents.POST_SET_BIOME_KEY, transactionContext).onPostSetBiome(battle.state(), x, y, z, current, biome, transactionContext, span);
             }
             return true;
         }

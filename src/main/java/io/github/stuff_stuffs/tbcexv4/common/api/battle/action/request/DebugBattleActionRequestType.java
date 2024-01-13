@@ -10,11 +10,12 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransa
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import org.jetbrains.annotations.Nullable;
 
 public class DebugBattleActionRequestType implements BattleActionRequestType<DebugBattleActionRequest> {
     @Override
-    public Result<Unit, Text> check(final DebugBattleActionRequest request, final ServerPlayerEntity source, final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
-        return source.hasPermissionLevel(2) ? new Result.Success<>(Unit.INSTANCE): new Result.Failure<>(Text.of("Must be operator to use debug battle action requests!"));
+    public Result<Unit, Text> check(final DebugBattleActionRequest request, final @Nullable ServerPlayerEntity source, final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
+        return source == null || source.hasPermissionLevel(2) ? new Result.Success<>(Unit.INSTANCE) : new Result.Failure<>(Text.of("Must be operator to use debug battle action requests!"));
     }
 
     @Override

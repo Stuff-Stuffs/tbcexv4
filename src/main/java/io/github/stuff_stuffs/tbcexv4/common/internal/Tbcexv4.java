@@ -6,12 +6,15 @@ import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Api;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantEventInitEvent;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.DamageType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.DamageTypeGraph;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateEventInitEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.BasicEvents;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.env.BasicEnvEvents;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.BasicParticipantEvents;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.ParticipantInventoryEvents;
+import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.damage.DamageTypeGraphImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.ControllingBattleUpdatePacket;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.Tbcexv4CommonNetwork;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattlePersistentState;
@@ -24,10 +27,9 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.packet.s2c.play.ChunkDataS2CPacket;
+import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
-import net.minecraft.resource.LifecycledResourceManager;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
@@ -50,7 +52,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Tbcexv4 implements ModInitializer {
     public static final String MOD_ID = "tbcexv4";
@@ -58,6 +60,7 @@ public class Tbcexv4 implements ModInitializer {
     public static final Logger LOGGER = LoggerFactory.getLogger("tbcexv4");
     public static final ChunkTicketType<Unit> BATTLE_LOAD_CHUNK_TICKET_TYPE = ChunkTicketType.create(MOD_ID + ":battle_load", (a, b) -> 0, 1);
     private static final Map<RegistryKey<World>, Map<ChunkPos, Chunk>> UPDATED_BIOMES = new Object2ReferenceOpenHashMap<>();
+    private static final AtomicReference<DamageTypeGraph> CACHED_DAMAGE_GRAPH = new AtomicReference<>(null);
 
     @Override
     public void onInitialize() {
@@ -97,7 +100,7 @@ public class Tbcexv4 implements ModInitializer {
             world.getChunkManager().threadedAnvilChunkStorage.sendChunkBiomePackets(List.copyOf(updated.values()));
         });
         ServerEntityWorldChangeEvents.AFTER_ENTITY_CHANGE_WORLD.register((originalEntity, newEntity, origin, destination) -> {
-            if (newEntity instanceof ServerPlayerEntity player) {
+            if (newEntity instanceof final ServerPlayerEntity player) {
                 ServerPlayNetworking.send(player, new ControllingBattleUpdatePacket(List.copyOf(Tbcexv4Api.controlling(player))));
             }
         });
@@ -110,14 +113,24 @@ public class Tbcexv4 implements ModInitializer {
         });
         ServerLifecycleEvents.END_DATA_PACK_RELOAD.register((server, resourceManager, success) -> {
             if (success) {
+                CACHED_DAMAGE_GRAPH.setRelease(null);
                 final List<ServerPlayerEntity> list = server.getPlayerManager().getPlayerList();
                 for (final ServerWorld world : server.getWorlds()) {
-                    if (world instanceof ServerBattleWorld battleWorld) {
+                    if (world instanceof final ServerBattleWorld battleWorld) {
                         battleWorld.battleManager().reload(list);
                     }
                 }
             }
         });
+    }
+
+    public static DamageTypeGraph getCachedDamageGraph(final Registry<DamageType> registry) {
+        DamageTypeGraph graph = CACHED_DAMAGE_GRAPH.getAcquire();
+        if (graph == null) {
+            graph = new DamageTypeGraphImpl(registry);
+            CACHED_DAMAGE_GRAPH.setRelease(graph);
+        }
+        return graph;
     }
 
     public static void updateBiomes(final RegistryKey<World> key, final Chunk chunk) {

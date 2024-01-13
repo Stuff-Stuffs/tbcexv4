@@ -40,6 +40,9 @@ public class Tbcexv4DataGenerator implements DataGeneratorEntrypoint {
     @EventKeyLocation(location = "io.github.stuff_stuffs.tbcexv4.common.generated_events.BasicEvents")
     @EventPackageLocation("io.github.stuff_stuffs.tbcexv4.common.generated_events")
     public static abstract class Events {
+        @EventInfo()
+        public abstract void EndBattle(BattleState state, BattleTransactionContext transactionContext, BattleTracer.Span<?> span);
+
         @EventInfo(defaultValue = "true", combiner = "Boolean.logicalAnd")
         public abstract boolean PreSetBoundsEvent(BattleState state, BattleBounds newBounds, BattleTransactionContext transactionContext, BattleTracer.Span<?> span);
 

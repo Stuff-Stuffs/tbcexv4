@@ -8,11 +8,9 @@ import net.minecraft.util.math.random.Random;
 import java.util.Iterator;
 
 public abstract class AbstractTargetChooser<I, T extends Target> implements TargetChooser<T> {
-    protected final Plan parent;
     protected final BattleStateView state;
 
-    protected AbstractTargetChooser(final Plan parent, final BattleStateView state) {
-        this.parent = parent;
+    protected AbstractTargetChooser(final BattleStateView state) {
         this.state = state;
     }
 
@@ -35,7 +33,7 @@ public abstract class AbstractTargetChooser<I, T extends Target> implements Targ
         final Iterator<? extends I> iterator = iterator();
         while (iterator.hasNext()) {
             final I next = iterator.next();
-            final double weight = Math.exp(-1 / (weight0(next, temperature, random, context) + 0.1) / temperature) + 0.000001;
+            final double weight = Math.exp(weight0(next, temperature, random, context) / temperature) + 0.000001;
             if (chosen == null) {
                 chosen = next;
                 wSum = weight;
@@ -51,11 +49,6 @@ public abstract class AbstractTargetChooser<I, T extends Target> implements Targ
             throw new IllegalStateException();
         }
         return chosen;
-    }
-
-    @Override
-    public Plan parent() {
-        return parent;
     }
 
     @Override

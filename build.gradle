@@ -113,8 +113,8 @@ sourceSets {
 }
 
 dependencies {
-	annotationProcessor "io.github.stuff_stuffs:EventGen:1.40-SNAPSHOT"
-	implementation "io.github.stuff_stuffs:EventGen:1.40-SNAPSHOT"
+	annotationProcessor "io.github.stuff_stuffs:EventGen:1.46-SNAPSHOT"
+	implementation "io.github.stuff_stuffs:EventGen:1.46-SNAPSHOT"
 	modImplementation "io.wispforest:owo-lib:${project.owo_version}"
 	annotationProcessor "io.wispforest:owo-lib:${project.owo_version}"
 	include "io.wispforest:owo-sentinel:${project.owo_version}"

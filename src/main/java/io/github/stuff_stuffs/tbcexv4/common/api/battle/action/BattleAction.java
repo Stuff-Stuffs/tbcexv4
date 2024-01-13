@@ -7,6 +7,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
+import net.minecraft.text.Text;
 
 import java.util.Optional;
 
@@ -18,6 +19,8 @@ public interface BattleAction {
     default Optional<BattleParticipantHandle> source() {
         return Optional.empty();
     }
+
+    Text chatMessage();
 
     static Codec<BattleAction> codec(final BattleCodecContext codecContext) {
         return Tbcexv4Registries.BattleActions.CODEC.dispatchStable(BattleAction::type, type -> type.codec(codecContext));

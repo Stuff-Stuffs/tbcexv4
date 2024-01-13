@@ -9,15 +9,20 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.EndBattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequestType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantEventInitEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateEventInitEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransaction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManagerType;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
@@ -27,6 +32,7 @@ import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.env.ServerBattleE
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattlePersistentState;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.ServerBattleWorld;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
@@ -42,6 +48,8 @@ import net.minecraft.world.World;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.BiConsumer;
 
 public class ServerBattleImpl implements Battle {
     private static final long VERSION = 0;
@@ -55,11 +63,14 @@ public class ServerBattleImpl implements Battle {
     private final BattleState state;
     private final BattleTracer tracer;
     private final TurnManager turnManager;
+    private final AiController aiController;
+    private boolean loading = false;
 
-    public ServerBattleImpl(final ServerBattleWorld world, final BattleHandle handle, final RegistryKey<World> sourceWorld, final BlockPos min, final int xSize, final int ySize, final int zSize, final TurnManagerContainer<?> container) {
+    public ServerBattleImpl(final ServerBattleWorld world, final BattleHandle handle, final RegistryKey<World> sourceWorld, final BlockPos min, final int xSize, final int ySize, final int zSize, final TurnManagerContainer<?> container, final AiController aiController) {
         this.handle = handle;
         this.sourceWorld = sourceWorld;
         turnManagerContainer = container;
+        this.aiController = aiController;
         actions = new ArrayList<>();
         this.world = world;
         this.min = min;
@@ -75,6 +86,14 @@ public class ServerBattleImpl implements Battle {
         turnManager = turnManagerContainer.create(BattleCodecContext.create(world.getRegistryManager()));
         try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.TurnManagerSetup(), transaction)) {
             turnManager.setup(state, transaction, span);
+            transaction.commit();
+        }
+    }
+
+    public void setLoading(final boolean loading) {
+        this.loading = loading;
+        if (!loading) {
+            checks();
         }
     }
 
@@ -115,6 +134,10 @@ public class ServerBattleImpl implements Battle {
 
     @Override
     public void pushAction(final BattleAction action) {
+        if (phase() == BattlePhase.FINISHED) {
+            throw new RuntimeException();
+        }
+        aiController.cancel();
         actions.add(action);
         final Optional<BattleParticipantHandle> source = action.source();
         try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.ActionRoot(source), transaction)) {
@@ -122,6 +145,55 @@ public class ServerBattleImpl implements Battle {
             source.ifPresent(participantHandle -> turnManager.onAction(participantHandle, state, transaction, span));
             transaction.commit();
         }
+        if (phase() == BattlePhase.FINISHED) {
+            return;
+        }
+        if (!loading) {
+            checks();
+        }
+    }
+
+    private void checks() {
+        if (checkFinished()) {
+            if (phase() == BattlePhase.BATTLE) {
+                pushAction(new EndBattleAction());
+            }
+        } else {
+            final Set<BattleParticipantHandle> handles = turnManager.currentTurn();
+            boolean playerFound = false;
+            final List<BattleParticipantHandle> ais = new ArrayList<>();
+            for (final BattleParticipantHandle participantHandle : handles) {
+                final BattleParticipant participant = state.participant(participantHandle);
+                if (participant.attachmentView(Tbcexv4Registries.BattleParticipantAttachmentTypes.PLAYER_CONTROLLED).isPresent()) {
+                    playerFound = true;
+                    break;
+                } else if (participant.attachmentView(Tbcexv4Registries.BattleParticipantAttachmentTypes.AI_CONTROLLER).isPresent()) {
+                    ais.add(participantHandle);
+                }
+            }
+            if (!playerFound && !ais.isEmpty()) {
+                final BattleParticipantHandle chosen = ais.get(actions.size() % ais.size());
+                aiController.compute(chosen, state.transactionManager().open(), tracer);
+            }
+        }
+    }
+
+    private boolean checkFinished() {
+        final Set<BattleParticipantTeam> teams = new ObjectOpenHashSet<>();
+        for (final BattleParticipantHandle participant : state.participants()) {
+            teams.add(state.participant(participant).team());
+        }
+        if (teams.size() < 2) {
+            return true;
+        }
+        for (final BattleParticipantTeam team : teams) {
+            for (final BattleParticipantTeam other : teams) {
+                if (state.relation(team, other) == BattleParticipantTeamRelation.HOSTILE) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     @Override
@@ -183,6 +255,12 @@ public class ServerBattleImpl implements Battle {
         return zSize;
     }
 
+    public interface AiController {
+        void compute(BattleParticipantHandle handle, BattleTransaction context, BattleTracer tracer);
+
+        void cancel();
+    }
+
     public NbtCompound serialize() {
         final NbtList actionList = new NbtList();
         final BattleCodecContext codecContext = BattleCodecContext.create(world.getRegistryManager());
@@ -207,7 +285,8 @@ public class ServerBattleImpl implements Battle {
         return nbt;
     }
 
-    public static Optional<Pair<BattlePersistentState.Token, ServerBattleImpl>> deserialize(final NbtCompound nbt, final BattleHandle handle, final ServerBattleWorld world) {
+    public static Optional<Pair<BattlePersistentState.Token, ServerBattleImpl>> deserialize(final NbtCompound nbt,
+                                                                                            final BattleHandle handle, final ServerBattleWorld world, final AiController aiController, BiConsumer<BattleHandle, BattleState> listenerSetup) {
         if (nbt.getLong("version") != VERSION) {
             return Optional.empty();
         }
@@ -224,7 +303,9 @@ public class ServerBattleImpl implements Battle {
         if (turnManager.isEmpty()) {
             return Optional.empty();
         }
-        final ServerBattleImpl battle = new ServerBattleImpl(world, handle, sourceWorld.get(), min.get().getSecond(), nbt.getInt("x"), nbt.getInt("y"), nbt.getInt("z"), turnManager.get());
+        final ServerBattleImpl battle = new ServerBattleImpl(world, handle, sourceWorld.get(), min.get().getSecond(), nbt.getInt("x"), nbt.getInt("y"), nbt.getInt("z"), turnManager.get(), aiController);
+        battle.setLoading(true);
+        listenerSetup.accept(handle, battle.state);
         final NbtList actions = nbt.getList("actions", NbtElement.COMPOUND_TYPE);
         final Codec<BattleAction> codec = BattleAction.codec(codecContext);
         for (final NbtElement action : actions) {

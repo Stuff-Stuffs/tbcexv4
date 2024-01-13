@@ -4,12 +4,15 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.DamagePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.EndBattleAction;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.NoopBattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.SetupEnvironmentBattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.StartBattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequestType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.DebugBattleActionRequest;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.DebugBattleActionRequestType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAIControllerAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachmentView;
@@ -17,11 +20,8 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.Damag
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.EquipmentSlot;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemType;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.ParticipantTarget;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Plan;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.PlanFactory;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.TargetType;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.*;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.RegisteredStat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatModificationPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.InOrderTurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManagerType;
@@ -52,18 +52,22 @@ public final class Tbcexv4Registries {
         public static final Codec<BattleActionType<?>> CODEC = REGISTRY.getCodec();
         public static final BattleActionType<SetupEnvironmentBattleAction> SETUP_ENVIRONMENT_TYPE = new BattleActionType<>(SetupEnvironmentBattleAction.CODEC_FACTORY);
         public static final BattleActionType<StartBattleAction> START_BATTLE_TYPE = new BattleActionType<>(StartBattleAction.CODEC_FACTORY);
+        public static final BattleActionType<NoopBattleAction> NOOP_TYPE = new BattleActionType<>(context -> NoopBattleAction.CODEC);
+        public static final BattleActionType<EndBattleAction> END_TYPE = new BattleActionType<>(context -> EndBattleAction.CODEC);
 
         public static void init() {
             Registry.register(BattleActions.REGISTRY, Tbcexv4.id("setup_env"), SETUP_ENVIRONMENT_TYPE);
             Registry.register(BattleActions.REGISTRY, Tbcexv4.id("start"), START_BATTLE_TYPE);
+            Registry.register(BattleActions.REGISTRY, Tbcexv4.id("noop"), NOOP_TYPE);
+            Registry.register(BattleActions.REGISTRY, Tbcexv4.id("end"), END_TYPE);
         }
     }
 
     public static final class Stats {
-        public static final RegistryKey<Registry<Stat<?>>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("stats"));
-        public static final Registry<Stat<?>> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
-        public static final Codec<Stat<?>> CODEC = REGISTRY.getCodec();
-        public static final Stat<Double> MAX_HEALTH = new Stat<>() {
+        public static final RegistryKey<Registry<RegisteredStat<?>>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("stats"));
+        public static final Registry<RegisteredStat<?>> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
+        public static final Codec<RegisteredStat<?>> CODEC = REGISTRY.getCodec();
+        public static final RegisteredStat<Double> MAX_HEALTH = new RegisteredStat<>() {
             @Override
             public Text displayName() {
                 return Text.of("Max Health");
@@ -165,25 +169,16 @@ public final class Tbcexv4Registries {
     public static final class DamageTypes {
         public static final RegistryKey<Registry<DamageType>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("damage_types"));
         public static final Registry<DamageType> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
-        public static final DamageType BASIC = new DamageType() {
-            @Override
-            public Text name() {
-                return Text.of("TODO");
-            }
-
-            @Override
-            public Text description() {
-                return Text.of("TODO");
-            }
-        };
+        public static final DamageType ROOT = new DamageType(Text.of("root"), Text.of("Pure damage"), Set.of(), Set.of());
 
         public static void init() {
-            Registry.register(REGISTRY, Tbcexv4.id("basic"), BASIC);
+            Registry.register(REGISTRY, Tbcexv4.id("basic"), ROOT);
         }
     }
 
     public static final class BattleParticipantAttachmentTypes {
         public static final BattleParticipantAttachmentType<BattleParticipantPlayerControllerAttachmentView, BattleParticipantPlayerControllerAttachment> PLAYER_CONTROLLED = new BattleParticipantAttachmentType<>((participantView, attachment) -> Text.of("Controlled by: " + attachment.controllerId()), (participantView, attachment) -> true, Function.identity());
+        public static final BattleParticipantAttachmentType<Unit, BattleParticipantAIControllerAttachment> AI_CONTROLLER = new BattleParticipantAttachmentType<>((participantView, attachment) -> Text.of("Controlled by AI"), (participantView, attachment) -> true, mut -> Unit.INSTANCE);
     }
 
     public static final class TargetTypes {
@@ -195,6 +190,18 @@ public final class Tbcexv4Registries {
 
             @Override
             public Text description(final ParticipantTarget target) {
+                return Text.of("TODO");
+            }
+        };
+
+        public static final TargetType<PosTarget> POS_TARGET = new TargetType<>() {
+            @Override
+            public Text name() {
+                return Text.of("Participant");
+            }
+
+            @Override
+            public Text description(final PosTarget target) {
                 return Text.of("TODO");
             }
         };
@@ -224,6 +231,7 @@ public final class Tbcexv4Registries {
         EquipmentSlots.init();
         TurnManagerTypes.init();
         DamageTypes.init();
+        BattleActionRequestTypes.init();
     }
 
     private Tbcexv4Registries() {

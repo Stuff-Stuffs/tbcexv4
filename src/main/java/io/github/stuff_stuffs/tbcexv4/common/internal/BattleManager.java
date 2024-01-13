@@ -1,20 +1,33 @@
 package io.github.stuff_stuffs.tbcexv4.common.internal;
 
 import com.mojang.datafixers.util.Pair;
+import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import io.github.stuff_stuffs.tbcexv4.common.api.ai.ActionSearchStrategy;
+import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorer;
+import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorers;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequestType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransaction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManagerType;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util;
+import io.github.stuff_stuffs.tbcexv4.common.generated_events.BasicEvents;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.BattleUpdatePacket;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.WatchRequestResponsePacket;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattlePersistentState;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.ServerBattleWorld;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.nbt.*;
@@ -42,6 +55,7 @@ public class BattleManager implements AutoCloseable {
     private final ServerWorld sourceWorld;
     private final Path battleDirectory;
     private final Path dataDirectory;
+    private final Map<BattleHandle, AiTask> ongoingAi;
     private long ticks;
 
     public BattleManager(final ServerBattleWorld world, final Path battleDirectory, final Path dataDirectory) {
@@ -51,6 +65,7 @@ public class BattleManager implements AutoCloseable {
         loadedBattles = new Object2ReferenceLinkedOpenHashMap<>();
         loadedPlayerData = new Object2ReferenceLinkedOpenHashMap<>();
         sourceWorld = world.getServer().getWorld(world.sourceKey());
+        ongoingAi = new Object2ReferenceOpenHashMap<>();
     }
 
     public <P> Optional<Battle> createBattle(final int width, final int height, final int depth, final TurnManagerType<P> type, final P parameter) {
@@ -63,10 +78,21 @@ public class BattleManager implements AutoCloseable {
         do {
             handle = new BattleHandle(world.sourceKey(), new UUID(random.nextLong(), random.nextLong()));
         } while (getOrLoadBattle(handle).isPresent());
-        final ServerBattleImpl battle = new ServerBattleImpl(world, handle, world.sourceKey(), allocation.get().getSecond(), width, height, depth, new ServerBattleImpl.TurnManagerContainer<>(type, parameter));
+        final ServerBattleImpl battle = new ServerBattleImpl(world, handle, world.sourceKey(), allocation.get().getSecond(), width, height, depth, new ServerBattleImpl.TurnManagerContainer<>(type, parameter), createAiController(handle));
+        setupListeners(handle, battle.state());
         final LoadedBattle loadedBattle = new LoadedBattle(battle, allocation.get().getFirst(), ticks);
         loadedBattles.put(handle, loadedBattle);
         return Optional.of(battle);
+    }
+
+    private void setupListeners(final BattleHandle handle, final BattleState state) {
+        state.events().registerTerminalView(BasicEvents.POST_ADD_PARTICIPANT_EVENT_KEY, (battleState, participant, transactionContext, span) -> addBattle(participant.handle().id(), handle));
+        state.events().registerTerminalView(BasicEvents.POST_REMOVE_PARTICIPANT_EVENT_KEY, (battleState, participantHandle, reason, transactionContext, span) -> resolveBattle(participantHandle.id(), handle));
+        state.events().registerTerminalView(BasicEvents.END_BATTLE_KEY, (battleState, transactionContext, span) -> {
+            for (final BattleParticipantHandle participant : battleState.participants()) {
+                resolveBattle(participant.id(), handle);
+            }
+        });
     }
 
     public Optional<? extends Battle> getOrLoadBattle(final BattleHandle handle) {
@@ -80,10 +106,12 @@ public class BattleManager implements AutoCloseable {
         }
         try {
             final NbtCompound compound = NbtIo.readCompressed(handle.toPath(battleDirectory), NbtTagSizeTracker.ofUnlimitedBytes());
-            final Optional<Pair<BattlePersistentState.Token, ServerBattleImpl>> deserialized = ServerBattleImpl.deserialize(compound, handle, world);
+            final Optional<Pair<BattlePersistentState.Token, ServerBattleImpl>> deserialized = ServerBattleImpl.deserialize(compound, handle, world, createAiController(handle), this::setupListeners);
             if (deserialized.isPresent()) {
-                loadedBattles.put(handle, new LoadedBattle(deserialized.get().getSecond(), deserialized.get().getFirst(), ticks));
-                return Optional.of(deserialized.get().getSecond());
+                final Pair<BattlePersistentState.Token, ServerBattleImpl> pair = deserialized.get();
+                loadedBattles.put(handle, new LoadedBattle(pair.getSecond(), pair.getFirst(), ticks));
+                pair.getSecond().setLoading(false);
+                return Optional.of(pair.getSecond());
             }
         } catch (final IOException e) {
             if (!(e instanceof NoSuchFileException)) {
@@ -91,6 +119,60 @@ public class BattleManager implements AutoCloseable {
             }
         }
         return Optional.empty();
+    }
+
+    private ServerBattleImpl.AiController createAiController(final BattleHandle handle) {
+        final ActionSearchStrategy strategy = ActionSearchStrategy.basic(1);
+        return new ServerBattleImpl.AiController() {
+
+            @Override
+            public void compute(final BattleParticipantHandle pHandle, final BattleTransaction context, final BattleTracer tracer) {
+                final AiTask removed = ongoingAi.remove(handle);
+                if (removed != null) {
+                    BattleManager.cancel(removed);
+                }
+                final Runnable cleanup = () -> {
+                    context.abort();
+                    context.close();
+                };
+                final ServerBattleImpl battle = loadedBattles.get(handle).battle;
+                final BattleParticipant participant = battle.state().participant(pHandle);
+                final CompletableFuture<CompletableFuture<Unit>> cancellation = new CompletableFuture<>();
+                final CompletableFuture<Optional<BattleAction>> future = CompletableFuture.supplyAsync(() -> {
+                    final Scorer scorer = Scorer.sum(Scorers.health(pHandle), Scorers.teamHealth(pHandle), Scorers.enemyTeamHealth(pHandle));
+                    final Optional<BattleActionRequest> search = strategy.search(participant, scorer, tracer, context, tracer.latest().hashCode(), cancellation);
+                    return search.map(req -> extract(req.type(), req));
+                }, ((ServerExtensions) world.getServer()).tbcexv4$getBackgroundExecutor());
+                ongoingAi.put(handle, new AiTask(future, cancellation, cleanup));
+            }
+
+            @Override
+            public void cancel() {
+                final AiTask removed = ongoingAi.remove(handle);
+                if (removed != null) {
+                    BattleManager.cancel(removed);
+                }
+            }
+        };
+    }
+
+    private static void cancel(final AiTask task) {
+        if (task.actionFuture.isDone()) {
+            task.cleanup.run();
+        } else {
+            final CompletableFuture<Unit> wait = new CompletableFuture<>();
+            task.cancellationFuture.complete(wait);
+            try {
+                wait.join();
+            } catch (final Exception e) {
+                Tbcexv4.LOGGER.error("Error while awaiting ai task!", e);
+            }
+            task.cleanup.run();
+        }
+    }
+
+    private static <T extends BattleActionRequest> BattleAction extract(final BattleActionRequestType<T> type, final BattleActionRequest request) {
+        return type.extract((T) request);
     }
 
     public Set<BattleHandle> resolvedBattles(final UUID id) {
@@ -107,18 +189,9 @@ public class BattleManager implements AutoCloseable {
         getOrCreateData(id).unresolvedBattles.add(handle);
     }
 
-    public void removeBattle(final UUID id, final BattleHandle handle) {
-        getOrCreateData(id).unresolvedBattles.remove(handle);
-    }
-
     public void resolveBattle(final UUID id, final BattleHandle handle) {
         getOrCreateData(id).unresolvedBattles.remove(handle);
         getOrCreateData(id).battles.add(handle);
-    }
-
-    public void unresolveBattle(final UUID id, final BattleHandle handle) {
-        getOrCreateData(id).battles.remove(handle);
-        getOrCreateData(id).unresolvedBattles.add(handle);
     }
 
     private LoadedPlayerData getOrCreateData(final UUID id) {
@@ -151,6 +224,30 @@ public class BattleManager implements AutoCloseable {
     }
 
     public void tick() {
+        for (final Iterator<Map.Entry<BattleHandle, AiTask>> iterator = ongoingAi.entrySet().iterator(); iterator.hasNext(); ) {
+            final Map.Entry<BattleHandle, AiTask> entry = iterator.next();
+            final AiTask task = entry.getValue();
+            if (task.actionFuture.isDone()) {
+                try {
+                    final BattleHandle key = entry.getKey();
+                    final Optional<BattleAction> action = task.actionFuture.get();
+                    task.cleanup.run();
+                    iterator.remove();
+                    if (action.isPresent()) {
+                        final LoadedBattle battle = loadedBattles.get(key);
+                        if (battle != null) {
+                            battle.battle.pushAction(action.get());
+                        } else {
+                            Tbcexv4.LOGGER.error("Ai action for not loaded battle!");
+                        }
+                    } else {
+                        Tbcexv4.LOGGER.error("Not ai actions available!");
+                    }
+                } catch (final Exception e) {
+                    Tbcexv4.LOGGER.error("Error while getting ai action!", e);
+                }
+            }
+        }
         ticks++;
         final BattleCodecContext codecContext = BattleCodecContext.create(world.getRegistryManager());
         final Codec<BattleAction> codec = BattleAction.codec(codecContext);
@@ -220,6 +317,10 @@ public class BattleManager implements AutoCloseable {
         final LoadedBattle battle = loadedBattles.remove(handle);
         if (battle == null) {
             return CompletableFuture.completedFuture(new BattleSaveResult(handle, null, null));
+        }
+        final AiTask task = ongoingAi.get(handle);
+        if (task != null) {
+            cancel(task);
         }
         return writeBattle(handle, battle.battle).thenApply(result -> {
             if (result.error == null) {
@@ -319,6 +420,10 @@ public class BattleManager implements AutoCloseable {
 
     @Override
     public void close() {
+        for (final AiTask value : ongoingAi.values()) {
+            cancel(value);
+        }
+        ongoingAi.clear();
         saveBattles(Set.copyOf(loadedBattles.keySet()));
         saveData(Set.copyOf(loadedPlayerData.keySet()));
         sourceWorld.getPersistentStateManager().save();
@@ -365,6 +470,14 @@ public class BattleManager implements AutoCloseable {
     ) {
     }
 
+
     private record DataSaveResult(UUID id, @Nullable Throwable error) {
+    }
+
+    private record AiTask(
+            CompletableFuture<Optional<BattleAction>> actionFuture,
+            CompletableFuture<CompletableFuture<Unit>> cancellationFuture,
+            Runnable cleanup
+    ) {
     }
 }

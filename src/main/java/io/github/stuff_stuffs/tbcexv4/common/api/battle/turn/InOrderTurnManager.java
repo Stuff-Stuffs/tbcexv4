@@ -25,6 +25,9 @@ public class InOrderTurnManager extends DeltaSnapshotParticipant<InOrderTurnMana
 
     @Override
     public Set<BattleParticipantHandle> currentTurn() {
+        if (ordered.isEmpty()) {
+            return Set.of();
+        }
         return Set.of(ordered.get(index));
     }
 
@@ -48,7 +51,8 @@ public class InOrderTurnManager extends DeltaSnapshotParticipant<InOrderTurnMana
         if (handleIndex == -1) {
             throw new RuntimeException();
         }
-        if (handleIndex < index) {
+        ordered.remove(handleIndex);
+        if (handleIndex <= index) {
             index--;
         }
         index = Math.min(Math.max(index, 0), ordered.size());
@@ -57,7 +61,11 @@ public class InOrderTurnManager extends DeltaSnapshotParticipant<InOrderTurnMana
     @Override
     public void onAction(final BattleParticipantHandle source, final BattleState state, final BattleTransactionContext context, final BattleTracer.Span<?> trace) {
         delta(context, new State(new ObjectArrayList<>(ordered), new ObjectOpenHashSet<>(containing), index));
-        index = (index + 1) % ordered.size();
+        if (ordered.isEmpty()) {
+            index = 0;
+        } else {
+            index = (index + 1) % ordered.size();
+        }
     }
 
     @Override

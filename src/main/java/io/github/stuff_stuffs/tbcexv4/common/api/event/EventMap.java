@@ -7,7 +7,7 @@ import io.github.stuff_stuffs.tbcexv4.common.impl.event.EventMapBuilderImpl;
 public interface EventMap extends EventMapView {
     <Mut> Token registerMut(EventKey<Mut, ?> key, Mut event, BattleTransactionContext transactionContext);
 
-    <Mut> Mut invoker(EventKey<Mut, ?> key);
+    <Mut> Mut invoker(EventKey<Mut, ?> key, BattleTransactionContext context);
 
     static Builder builder() {
         return new EventMapBuilderImpl();

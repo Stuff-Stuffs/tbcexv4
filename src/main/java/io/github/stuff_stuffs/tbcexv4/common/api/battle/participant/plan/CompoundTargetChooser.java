@@ -18,18 +18,13 @@ public class CompoundTargetChooser<T extends Target> implements TargetChooser<T>
         }
         final TargetChooser<T> chooser = choosers.get(0);
         for (final TargetChooser<T> targetChooser : choosers) {
-            if (targetChooser.type() != chooser.type() || targetChooser.parent() != chooser.parent()) {
+            if (targetChooser.type() != chooser.type()) {
                 throw new IllegalStateException();
             }
         }
         this.choosers = choosers;
         this.wrapper = wrapper;
         this.weight = weight;
-    }
-
-    @Override
-    public Plan parent() {
-        return choosers.get(0).parent();
     }
 
     @Override
@@ -53,7 +48,7 @@ public class CompoundTargetChooser<T extends Target> implements TargetChooser<T>
         T chosen = null;
         for (final TargetChooser<T> chooser : choosers) {
             final T sub = chooser.choose(temperature, random, context);
-            final double weight = Math.exp(-1 / chooser.weight(sub, temperature, random, context) / temperature) + 0.000001;
+            final double weight = Math.exp(chooser.weight(sub, temperature, random, context) / temperature) + 0.000001;
             if (chosen == null) {
                 chosen = wrapper.wrap(sub, this, chooser);
                 wSum = weight;

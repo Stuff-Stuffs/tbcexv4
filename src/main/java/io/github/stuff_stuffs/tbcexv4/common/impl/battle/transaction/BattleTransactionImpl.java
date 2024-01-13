@@ -13,6 +13,7 @@ public class BattleTransactionImpl implements BattleTransaction {
     private final BattleTransactionManagerImpl manager;
     private final int depth;
     private final List<CloseCallback> callbacks = new ArrayList<>();
+    private final List<CommitCallback> commitCallbacks = new ArrayList<>();
     private @Nullable TransactionContext.Result result = null;
     private boolean closed = false;
 
@@ -64,6 +65,11 @@ public class BattleTransactionImpl implements BattleTransaction {
     }
 
     @Override
+    public void addCommitCallback(final CommitCallback callback) {
+        commitCallbacks.add(callback);
+    }
+
+    @Override
     public boolean closed() {
         return closed;
     }
@@ -82,6 +88,16 @@ public class BattleTransactionImpl implements BattleTransaction {
         final int s = callbacks.size();
         for (int i = s - 1; i >= 0; i--) {
             callbacks.get(i).onClose(this, result);
+        }
+        if (result == TransactionContext.Result.COMMITTED) {
+            if (depth == 0) {
+                for (final CommitCallback callback : commitCallbacks) {
+                    callback.onCommit();
+                }
+            } else {
+                final BattleTransactionImpl outer = manager.atDepth(depth - 1);
+                outer.commitCallbacks.addAll(commitCallbacks);
+            }
         }
     }
 }

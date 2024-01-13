@@ -10,11 +10,12 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransa
 import net.minecraft.util.math.random.Random;
 
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 public final class TargetChoosers {
-    public static TargetChooser<ParticipantTarget> helpParticipant(final BattleParticipantView current, final BattleStateView state, final Plan plan, final Predicate<BattleParticipantHandle> predicate, final double weight) {
-        return new AbstractParticipantTargetChooser(plan, state, predicate, weight) {
+    public static Optional<TargetChooser<ParticipantTarget>> helpParticipant(final BattleParticipantView current, final Predicate<BattleParticipantHandle> predicate, final double weight) {
+        final AbstractParticipantTargetChooser chooser = new AbstractParticipantTargetChooser(current.battleState(), predicate, weight) {
             @Override
             protected double weight0(final BattleParticipantHandle obj, final double temperature, final Random random, final BattleTransactionContext context) {
                 final BattleParticipantTeam team = current.team();
@@ -28,10 +29,15 @@ public final class TargetChoosers {
                 return 100;
             }
         };
+        if (chooser.iterator().hasNext()) {
+            return Optional.of(chooser);
+        } else {
+            return Optional.empty();
+        }
     }
 
-    public static TargetChooser<ParticipantTarget> hurtParticipant(final BattleParticipantView current, final BattleStateView state, final Plan plan, final Predicate<BattleParticipantHandle> predicate, final double weight) {
-        return new AbstractParticipantTargetChooser(plan, state, predicate, weight) {
+    public static Optional<TargetChooser<ParticipantTarget>> hurtParticipant(final BattleParticipantView current, final Predicate<BattleParticipantHandle> predicate, final double weight) {
+        final AbstractParticipantTargetChooser chooser = new AbstractParticipantTargetChooser(current.battleState(), predicate, weight) {
             @Override
             protected double weight0(final BattleParticipantHandle obj, final double temperature, final Random random, final BattleTransactionContext context) {
                 final BattleParticipantTeam team = current.team();
@@ -42,14 +48,19 @@ public final class TargetChoosers {
                 return 0;
             }
         };
+        if (chooser.iterator().hasNext()) {
+            return Optional.of(chooser);
+        } else {
+            return Optional.empty();
+        }
     }
 
     public static abstract class AbstractParticipantTargetChooser extends AbstractTargetChooser<BattleParticipantHandle, ParticipantTarget> {
         private final Predicate<BattleParticipantHandle> predicate;
         private final double weight;
 
-        protected AbstractParticipantTargetChooser(final Plan parent, final BattleStateView state, final Predicate<BattleParticipantHandle> predicate, final double weight) {
-            super(parent, state);
+        protected AbstractParticipantTargetChooser(final BattleStateView state, final Predicate<BattleParticipantHandle> predicate, final double weight) {
+            super(state);
             this.predicate = predicate;
             this.weight = weight;
         }
@@ -66,7 +77,7 @@ public final class TargetChoosers {
 
         @Override
         protected BattleParticipantHandle extract(final ParticipantTarget target) {
-            return target.target();
+            return target.participant();
         }
 
         @Override
@@ -76,7 +87,7 @@ public final class TargetChoosers {
 
         @Override
         protected ParticipantTarget create(final BattleParticipantHandle obj) {
-            return new ParticipantTarget(obj, this);
+            return new ParticipantTarget(obj);
         }
     }
 

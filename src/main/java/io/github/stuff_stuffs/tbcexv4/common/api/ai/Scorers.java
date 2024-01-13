@@ -4,6 +4,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracerView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
 
@@ -34,7 +35,34 @@ public final class Scorers {
                 final double revPercent = 1 - participant.health() / participant.stats().get(Tbcexv4Registries.Stats.MAX_HEALTH);
                 sum = sum + 1 - (revPercent * revPercent);
             }
-            return sum / participants.size();
+            return sum;
+        };
+    }
+
+    public static Scorer enemyTeamHealth(final BattleParticipantHandle handle) {
+        return (state, tracer) -> {
+            final BattleParticipantView exemplar = state.participant(handle);
+            final BattleParticipantTeam team;
+            if (exemplar == null) {
+                final Optional<BattleTracerView.Node<CoreBattleTraceEvents.ParticipantSetTeam>> teamNode = tracer.mostRecent(node -> node.event().handle().equals(handle), CoreBattleTraceEvents.ParticipantSetTeam.class);
+                if (teamNode.isEmpty()) {
+                    return 0;
+                }
+                team = teamNode.get().event().newTeam();
+            } else {
+                team = exemplar.team();
+            }
+            double sum = 0;
+            int count = 0;
+            for (final BattleParticipantHandle pHandle : state.participants()) {
+                final BattleParticipantView participant = state.participant(pHandle);
+                if (state.relation(participant.team(), team) == BattleParticipantTeamRelation.HOSTILE) {
+                    final double percent = participant.health() / participant.stats().get(Tbcexv4Registries.Stats.MAX_HEALTH);
+                    sum = sum + 1 - (percent * percent);
+                    count++;
+                }
+            }
+            return sum / (2 * count);
         };
     }
 
@@ -58,7 +86,7 @@ public final class Scorers {
                 final double revPercent = 1 - participant.health() / participant.stats().get(Tbcexv4Registries.Stats.MAX_HEALTH);
                 sum = sum + 1 - (revPercent * revPercent);
             }
-            return sum / participants.size();
+            return sum;
         };
     }
 

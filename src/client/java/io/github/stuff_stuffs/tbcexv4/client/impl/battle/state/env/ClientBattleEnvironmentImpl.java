@@ -27,10 +27,11 @@ public class ClientBattleEnvironmentImpl extends AbstractBattleEnvironmentImpl {
         this.sectionY = sectionY;
         this.sectionZ = sectionZ;
         sections = new Section[sectionX * sectionY * sectionZ];
+        final Registry<Biome> registry = world.getRegistryManager().get(RegistryKeys.BIOME);
         for (int i = 0; i < sectionX; i++) {
             for (int j = 0; j < sectionY; j++) {
                 for (int k = 0; k < sectionZ; k++) {
-                    sections[(j * sectionZ + k) * sectionX + i] = new Section(world.getRegistryManager().get(RegistryKeys.BIOME));
+                    sections[(j * sectionZ + k) * sectionX + i] = new Section(registry);
                 }
             }
         }

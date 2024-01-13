@@ -3,9 +3,9 @@ package io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.stat;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantPhase;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatContainer;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatModificationPhase;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.DamageType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.DamageTypeGraph;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.*;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
@@ -41,7 +41,7 @@ public class StatContainerImpl extends DeltaSnapshotParticipant<StatContainerImp
             final T newVal = get(stat);
             delta(transactionContext, new Delta(handle));
             try (final var span = preSpan.push(new CoreBattleTraceEvents.AddParticipantStateModifier(participant.handle(), stat), transactionContext)) {
-                participant.events().invoker(BasicParticipantEvents.POST_ADD_MODIFIER_EVENT_KEY).onPostAddModifierEvent(participant, stat, oldVal, newVal, transactionContext, span);
+                participant.events().invoker(BasicParticipantEvents.POST_ADD_MODIFIER_EVENT_KEY, transactionContext).onPostAddModifierEvent(participant, stat, oldVal, newVal, transactionContext, span);
             }
             return handle;
         }
@@ -49,9 +49,36 @@ public class StatContainerImpl extends DeltaSnapshotParticipant<StatContainerImp
 
     @Override
     public <T> T get(final Stat<T> stat) {
-        //noinspection unchecked
-        return ((SingleContainer<T>) containers.computeIfAbsent(stat, SingleContainer::new)).compute(new ModificationContext() {
-        });
+        if (stat instanceof RegisteredStat<T>) {
+            //noinspection unchecked
+            return ((SingleContainer<T>) containers.computeIfAbsent(stat, SingleContainer::new)).compute(new ModificationContext() {
+            });
+        } else if (stat instanceof final DamageResistanceStat damageResistanceStat) {
+            //noinspection unchecked
+            return (T) (Double) resistanceGet(damageResistanceStat, new ModificationContext() {
+            });
+        }
+        throw new UnsupportedOperationException();
+    }
+
+    private double resistanceGet(final DamageResistanceStat stat, final ModificationContext context) {
+        double res = 0;
+        final SingleContainer<?> container = containers.get(stat);
+        if (container != null) {
+            res = (Double) container.compute(context);
+        }
+        final DamageType type = stat.damageType();
+        final DamageTypeGraph graph = DamageTypeGraph.get(Tbcexv4Registries.DamageTypes.REGISTRY);
+        final DamageTypeGraph.Node node = graph.get(type);
+        for (final DamageTypeGraph.Node parent : node.parents()) {
+            final double resistanceGet = resistanceGet(DamageResistanceStat.of(parent.delegate()), context);
+            if (res != 0) {
+                res = res * (1 + resistanceGet);
+            } else {
+                res = resistanceGet;
+            }
+        }
+        return res;
     }
 
     @Override

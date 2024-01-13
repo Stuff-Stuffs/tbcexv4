@@ -11,9 +11,15 @@ public interface BattleTransactionContext {
 
     BattleTransactionContext outerTransaction();
 
+    void addCommitCallback(CommitCallback callback);
+
     boolean closed();
 
     interface CloseCallback {
         void onClose(BattleTransactionContext context, TransactionContext.Result result);
+    }
+
+    interface CommitCallback {
+        void onCommit();
     }
 }
