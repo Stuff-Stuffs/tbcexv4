@@ -11,6 +11,8 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleAct
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.InventoryView;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.Equipment;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.EquipmentSlot;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Plan;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Target;
@@ -111,7 +113,7 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
                     double weightSum = 0;
                     final Set<TargetType<?>> types = localPlan.targetTypes();
                     if (types.isEmpty()) {
-                        return;
+                        break;
                     }
                     for (final TargetType<?> type : types) {
                         weightSum = weightSum + localPlan.ofType(type).weight();
@@ -194,6 +196,12 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
             final Optional<BattleItemStack> stack = entry.stack();
             if (stack.isPresent()) {
                 stack.get().item().actions(participant, entry.handle(), consumer);
+            }
+        }
+        for (final EquipmentSlot slot : Tbcexv4Registries.EquipmentSlots.REGISTRY) {
+            final Optional<? extends Equipment> equipment = participant.inventory().equipment(slot);
+            if (equipment.isPresent()) {
+                equipment.get().actions(participant, slot, consumer);
             }
         }
     }
