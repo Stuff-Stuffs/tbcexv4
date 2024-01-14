@@ -8,9 +8,6 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.EndBattleAct
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.NoopBattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.SetupEnvironmentBattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.StartBattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequestType;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.DebugBattleActionRequest;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.DebugBattleActionRequestType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAIControllerAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
@@ -155,17 +152,6 @@ public final class Tbcexv4Registries {
         }
     }
 
-    public static final class BattleActionRequestTypes {
-        public static final RegistryKey<Registry<BattleActionRequestType<?>>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("battle_action_request_type"));
-        public static final Registry<BattleActionRequestType<?>> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
-        public static final Codec<BattleActionRequestType<?>> CODEC = REGISTRY.getCodec();
-        public static final BattleActionRequestType<DebugBattleActionRequest> DEBUG_TYPE = new DebugBattleActionRequestType();
-
-        public static void init() {
-            Registry.register(REGISTRY, Tbcexv4.id("debug"), DEBUG_TYPE);
-        }
-    }
-
     public static final class DamageTypes {
         public static final RegistryKey<Registry<DamageType>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("damage_types"));
         public static final Registry<DamageType> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
@@ -231,7 +217,6 @@ public final class Tbcexv4Registries {
         EquipmentSlots.init();
         TurnManagerTypes.init();
         DamageTypes.init();
-        BattleActionRequestTypes.init();
     }
 
     private Tbcexv4Registries() {

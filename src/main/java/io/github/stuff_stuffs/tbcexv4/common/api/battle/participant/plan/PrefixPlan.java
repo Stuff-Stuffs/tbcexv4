@@ -1,6 +1,6 @@
 package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan;
 
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 
 import java.util.Set;
 import java.util.function.Function;
@@ -38,7 +38,7 @@ public class PrefixPlan<T extends Target> implements Plan {
     }
 
     @Override
-    public BattleActionRequest build() {
+    public BattleAction build() {
         throw new UnsupportedOperationException();
     }
 }

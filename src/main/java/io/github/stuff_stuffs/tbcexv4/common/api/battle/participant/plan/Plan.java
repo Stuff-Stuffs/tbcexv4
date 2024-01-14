@@ -1,6 +1,6 @@
 package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan;
 
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 
 import java.util.Set;
 
@@ -13,5 +13,5 @@ public interface Plan {
 
     boolean canBuild();
 
-    BattleActionRequest build();
+    BattleAction build();
 }

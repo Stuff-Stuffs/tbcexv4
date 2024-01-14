@@ -6,8 +6,6 @@ import io.github.stuff_stuffs.tbcexv4.common.api.ai.ActionSearchStrategy;
 import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequestType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.InventoryView;
@@ -39,19 +37,23 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
     }
 
     @Override
-    public Optional<BattleActionRequest> search(final BattleParticipant participant, final Scorer scorer, final BattleTracer tracer, final BattleTransactionContext context, final long seed, final CompletableFuture<CompletableFuture<Unit>> cancellation) {
+    public Optional<BattleAction> search(final BattleParticipant participant, final Scorer scorer, final BattleTracer tracer, final BattleTransactionContext context, final long seed, final CompletableFuture<CompletableFuture<Unit>> cancellation) {
+        CompletableFuture<Unit> cancellationFuture = cancellation.getNow(null);
+        if (cancellationFuture != null) {
+            cancellationFuture.complete(Unit.INSTANCE);
+            return Optional.empty();
+        }
         final BattleState state = participant.battleState();
         final double base = scorer.score(participant.battleState(), tracer);
         final Random random = new Xoroshiro128PlusPlusRandom(seed, HashCommon.murmurHash3(seed + HashCommon.murmurHash3(seed + 1)));
-        final BattleActionRequest[] requests = iter0(participant, scorer, random, state, context, tracer, base);
-        BattleActionRequest chosen = null;
+        final BattleAction[] actions = iter0(participant, scorer, random, state, context, tracer, base);
+        BattleAction chosen = null;
         double wSum = 0;
-        for (final BattleActionRequest request : requests) {
+        for (final BattleAction action : actions) {
             try (final BattleTransaction transaction = context.openNested()) {
-                final BattleAction extracted = extract(request.type(), request);
-                extracted.apply(state, transaction, tracer);
+                action.apply(state, transaction, tracer);
                 final double score = iter(participant, scorer, random, state, transaction, tracer, base, 1, cancellation);
-                final CompletableFuture<Unit> cancellationFuture = cancellation.getNow(null);
+                cancellationFuture = cancellation.getNow(null);
                 if (cancellationFuture != null) {
                     cancellationFuture.complete(Unit.INSTANCE);
                     return Optional.empty();
@@ -59,13 +61,13 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
                 transaction.abort();
                 final double weight = Math.exp(score / temperature) + EPS;
                 if (chosen == null) {
-                    chosen = request;
+                    chosen = action;
                     wSum = weight;
                 } else {
                     wSum = wSum + weight;
                     final double fraction = weight / wSum;
                     if (random.nextDouble() <= fraction) {
-                        chosen = request;
+                        chosen = action;
                     }
                 }
             }
@@ -81,12 +83,11 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
         if (cancellation.isDone()) {
             return 0;
         }
-        final BattleActionRequest[] requests = iter0(participant, scorer, random, state, context, tracer, baseScore);
+        final BattleAction[] requests = iter0(participant, scorer, random, state, context, tracer, baseScore);
         double best = 0;
-        for (final BattleActionRequest request : requests) {
+        for (final BattleAction action : requests) {
             try (final BattleTransaction transaction = context.openNested()) {
-                final BattleAction extracted = extract(request.type(), request);
-                extracted.apply(state, transaction, tracer);
+                action.apply(state, transaction, tracer);
                 final double score = scorer.score(state, tracer);
                 best = Math.max(best, iter(participant, scorer, random, state, transaction, tracer, score, depth + 1, cancellation));
                 transaction.abort();
@@ -95,11 +96,11 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
         return best;
     }
 
-    private BattleActionRequest[] iter0(final BattleParticipant participant, final Scorer scorer, final Random random, final BattleState state, final BattleTransactionContext context, final BattleTracer tracer, final double baseScore) {
+    private BattleAction[] iter0(final BattleParticipant participant, final Scorer scorer, final Random random, final BattleState state, final BattleTransactionContext context, final BattleTracer tracer, final double baseScore) {
         if (participant.phase() == BattleParticipantPhase.FINISHED || participant.battleState().phase() == BattlePhase.FINISHED) {
-            return new BattleActionRequest[0];
+            return new BattleAction[0];
         }
-        final List<BattleActionRequest> requests = new ArrayList<>();
+        final List<BattleAction> requests = new ArrayList<>();
         gather(participant, plan -> {
             final Node root = new Node(null);
             final List<Target> stack = new ArrayList<>(8);
@@ -150,17 +151,16 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
             }
         });
         if (requests.isEmpty()) {
-            return new BattleActionRequest[0];
+            return new BattleAction[0];
         }
         final int size = requests.size();
         final int chosenCount = Math.min(size, 3);
-        final BattleActionRequest[] chosenActions = new BattleActionRequest[chosenCount];
+        final BattleAction[] chosenActions = new BattleAction[chosenCount];
         double wSum = 0;
         int idx = 0;
         for (int i = 0; i < size; i++) {
-            final BattleActionRequest request = requests.get(i);
             try (final BattleTransaction transaction = context.openNested()) {
-                final BattleAction extracted = extract(request.type(), request);
+                final BattleAction extracted = requests.get(i);
                 extracted.apply(state, transaction, tracer);
                 final double score = scorer.score(state, tracer);
                 transaction.abort();
@@ -184,10 +184,6 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
             return Arrays.copyOf(chosenActions, idx);
         }
         return chosenActions;
-    }
-
-    private static <T extends BattleActionRequest> BattleAction extract(final BattleActionRequestType<T> type, final BattleActionRequest request) {
-        return type.extract((T) request);
     }
 
     private void gather(final BattleParticipant participant, final Consumer<Plan> consumer) {

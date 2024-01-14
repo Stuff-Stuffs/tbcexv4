@@ -1,6 +1,5 @@
 package io.github.stuff_stuffs.tbcexv4test;
 
-import com.mojang.datafixers.FunctionType;
 import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Api;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
@@ -10,8 +9,6 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.NoopBattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.SetupEnvironmentBattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.StartBattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.DebugBattleActionRequest;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.ParticipantTarget;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.SingleTargetPlan;
@@ -49,7 +46,7 @@ public class Tbcexv4Test implements ModInitializer {
                 return state.relation(participant.team(), state.participant(handle).team()) == BattleParticipantTeamRelation.HOSTILE;
             }, 1);
             if (chooser.isPresent()) {
-                consumer.accept(new SingleTargetPlan<>(chooser.get(), (FunctionType<ParticipantTarget, BattleActionRequest>) participantTarget -> new DebugBattleActionRequest(new AttackBattleAction(participant.handle(), participantTarget.participant()))));
+                consumer.accept(new SingleTargetPlan<>(chooser.get(), participantTarget -> new AttackBattleAction(participant.handle(), participantTarget.participant())));
             }
 
             final Optional<TargetChooser<ParticipantTarget>> helpChooser = TargetChoosers.helpParticipant(participant, handle -> {
@@ -57,7 +54,7 @@ public class Tbcexv4Test implements ModInitializer {
                 return state.relation(participant.team(), state.participant(handle).team()) == BattleParticipantTeamRelation.ALLY;
             }, 1);
             if (helpChooser.isPresent()) {
-                consumer.accept(new SingleTargetPlan<>(helpChooser.get(), (FunctionType<ParticipantTarget, BattleActionRequest>) participantTarget -> new DebugBattleActionRequest(new HealBattleAction(participant.handle(), participantTarget.participant()))));
+                consumer.accept(new SingleTargetPlan<>(helpChooser.get(), participantTarget -> new HealBattleAction(participant.handle(), participantTarget.participant())));
             }
         });
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {

@@ -7,8 +7,6 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequestType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachmentView;
@@ -85,9 +83,9 @@ public final class Tbcexv4CommonNetwork {
                 return;
             }
             if (manager.currentTurn().contains(participantHandle)) {
-                final Optional<? extends BattleActionRequest> decoded = packet.decode(BattleCodecContext.create(battleWorld.getRegistryManager()));
+                final Optional<? extends BattleAction> decoded = packet.decode(BattleCodecContext.create(battleWorld.getRegistryManager()));
                 if (decoded.isPresent()) {
-                    final Result<Unit, Text> result = tryApply(decoded.get(), decoded.get().type(), battle, player);
+                    final Result<Unit, Text> result = tryApply(decoded.get(), battle, player);
                     if (result instanceof final Result.Failure<Unit, Text> failure) {
                         responseSender.sendPacket(new TryBattleActionResponsePacket(packet.requestId(), false, failure.error()));
                     } else {
@@ -102,13 +100,10 @@ public final class Tbcexv4CommonNetwork {
         });
     }
 
-    private static <T extends BattleActionRequest> Result<Unit, Text> tryApply(final BattleActionRequest request, final BattleActionRequestType<T> type, final Battle battle, final ServerPlayerEntity source) {
-        //noinspection unchecked
-        final T casted = (T) request;
-        final Result<Unit, Text> check = ((ServerBattleImpl) battle).check(casted, type, source);
+    private static Result<Unit, Text> tryApply(final BattleAction action, final Battle battle, final ServerPlayerEntity source) {
+        final Result<Unit, Text> check = ((ServerBattleImpl) battle).check(Optional.of(source.getUuid()), action);
         if (check instanceof Result.Success<Unit, Text>) {
-            final BattleAction extract = type.extract(casted);
-            battle.pushAction(extract);
+            battle.pushAction(action);
         }
         return check;
     }

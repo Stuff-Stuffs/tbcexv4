@@ -1,6 +1,6 @@
 package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan;
 
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
@@ -9,15 +9,15 @@ import java.util.function.Function;
 public class SingleTargetPlan<T extends Target> implements Plan {
     private final @Nullable TargetChooser<T> chooser;
     private final @Nullable T target;
-    private final Function<T, BattleActionRequest> factory;
+    private final Function<T, BattleAction> factory;
 
-    public SingleTargetPlan(final TargetChooser<T> chooser, final Function<T, BattleActionRequest> factory) {
+    public SingleTargetPlan(final TargetChooser<T> chooser, final Function<T, BattleAction> factory) {
         this.chooser = chooser;
         this.factory = factory;
         target = null;
     }
 
-    private SingleTargetPlan(final T target, final Function<T, BattleActionRequest> factory) {
+    private SingleTargetPlan(final T target, final Function<T, BattleAction> factory) {
         this.factory = factory;
         chooser = null;
         this.target = target;
@@ -53,7 +53,7 @@ public class SingleTargetPlan<T extends Target> implements Plan {
     }
 
     @Override
-    public BattleActionRequest build() {
+    public BattleAction build() {
         if (!canBuild()) {
             throw new IllegalStateException();
         }

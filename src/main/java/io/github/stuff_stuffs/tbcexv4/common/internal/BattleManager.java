@@ -11,8 +11,6 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequestType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
@@ -140,8 +138,7 @@ public class BattleManager implements AutoCloseable {
                 final CompletableFuture<CompletableFuture<Unit>> cancellation = new CompletableFuture<>();
                 final CompletableFuture<Optional<BattleAction>> future = CompletableFuture.supplyAsync(() -> {
                     final Scorer scorer = Scorer.sum(Scorers.health(pHandle), Scorers.teamHealth(pHandle), Scorers.enemyTeamHealth(pHandle));
-                    final Optional<BattleActionRequest> search = strategy.search(participant, scorer, tracer, context, tracer.latest().hashCode(), cancellation);
-                    return search.map(req -> extract(req.type(), req));
+                    return strategy.search(participant, scorer, tracer, context, tracer.latest().hashCode(), cancellation);
                 }, ((ServerExtensions) world.getServer()).tbcexv4$getBackgroundExecutor());
                 ongoingAi.put(handle, new AiTask(future, cancellation, cleanup));
             }
@@ -169,10 +166,6 @@ public class BattleManager implements AutoCloseable {
             }
             task.cleanup.run();
         }
-    }
-
-    private static <T extends BattleActionRequest> BattleAction extract(final BattleActionRequestType<T> type, final BattleActionRequest request) {
-        return type.extract((T) request);
     }
 
     public Set<BattleHandle> resolvedBattles(final UUID id) {

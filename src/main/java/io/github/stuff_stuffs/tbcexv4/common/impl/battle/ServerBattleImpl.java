@@ -10,11 +10,10 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.EndBattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequestType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantEventInitEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachmentView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
@@ -39,16 +38,12 @@ import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
-import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiConsumer;
 
 public class ServerBattleImpl implements Battle {
@@ -97,12 +92,21 @@ public class ServerBattleImpl implements Battle {
         }
     }
 
-    public <T extends BattleActionRequest> Result<Unit, Text> check(final T value, final BattleActionRequestType<T> type, final ServerPlayerEntity source) {
-        try (final var transaction = state.transactionManager().open(); final BattleTracer.Span<?> span = tracer.push(new CoreBattleTraceEvents.Invalid(), transaction)) {
-            final var check = type.check(value, source, state, transaction, span);
-            transaction.abort();
-            return check;
+    public Result<Unit, Text> check(final Optional<UUID> sourceId, final BattleAction action) {
+        aiController.cancel();
+        Result<Unit, Text> result = turnManager.check(action);
+        if (result instanceof Result.Success<Unit, Text> && sourceId.isPresent() && action.source().isPresent()) {
+            final Optional<BattleParticipantPlayerControllerAttachmentView> attachmentView = state.participant(action.source().get()).attachmentView(Tbcexv4Registries.BattleParticipantAttachmentTypes.PLAYER_CONTROLLED);
+            if (attachmentView.isPresent()) {
+                if (!attachmentView.get().controllerId().equals(sourceId.get())) {
+                    result = new Result.Failure<>(Text.of("You do not have control!"));
+                }
+            } else {
+                result = new Result.Failure<>(Text.of("You do not have control!"));
+            }
         }
+        checks();
+        return result;
     }
 
     private BattleEnvironment createEnv() {
@@ -286,7 +290,7 @@ public class ServerBattleImpl implements Battle {
     }
 
     public static Optional<Pair<BattlePersistentState.Token, ServerBattleImpl>> deserialize(final NbtCompound nbt,
-                                                                                            final BattleHandle handle, final ServerBattleWorld world, final AiController aiController, BiConsumer<BattleHandle, BattleState> listenerSetup) {
+                                                                                            final BattleHandle handle, final ServerBattleWorld world, final AiController aiController, final BiConsumer<BattleHandle, BattleState> listenerSetup) {
         if (nbt.getLong("version") != VERSION) {
             return Optional.empty();
         }

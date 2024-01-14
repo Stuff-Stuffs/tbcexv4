@@ -3,7 +3,7 @@ package io.github.stuff_stuffs.tbcexv4.client.api;
 import io.github.stuff_stuffs.tbcexv4.client.internal.Tbcexv4Client;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleView;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import net.minecraft.text.Text;
 import org.jetbrains.annotations.Nullable;
@@ -40,7 +40,7 @@ public final class Tbcexv4ClientApi {
         return Tbcexv4Client.possibleWatching();
     }
 
-    public static DelayedResponse<RequestResult> sendRequest(final BattleActionRequest request) {
+    public static DelayedResponse<RequestResult> sendRequest(final BattleAction request) {
         return Tbcexv4Client.sendRequest(request);
     }
 

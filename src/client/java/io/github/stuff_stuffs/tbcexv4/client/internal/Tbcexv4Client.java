@@ -11,7 +11,6 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.request.BattleActionRequest;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
@@ -153,7 +152,7 @@ public class Tbcexv4Client implements ClientModInitializer {
         });
     }
 
-    public static DelayedResponse<Tbcexv4ClientApi.RequestResult> sendRequest(final BattleActionRequest request) {
+    public static DelayedResponse<Tbcexv4ClientApi.RequestResult> sendRequest(final BattleAction request) {
         if (CONTROLLING == null || WATCHED_BATTLE == null) {
             final DelayedResponse<Tbcexv4ClientApi.RequestResult> response = DelayedResponse.create();
             DelayedResponse.tryComplete(response, new Tbcexv4ClientApi.FailedRequestResult(Text.of("Error during sending packet!")));
