@@ -1,12 +1,16 @@
 package io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.env;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapshotParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.env.BasicEnvEvents;
+import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.BattleParticipantImpl;
+import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.pather.CollisionChecker;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BlockEntity;
@@ -35,13 +39,21 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
             if (oldState == state) {
                 return true;
             }
-            if (!battle.state().events().invoker(BasicEnvEvents.PRE_SET_BLOCK_STATE_EVENT_KEY, transactionContext).onPreSetBlockStateEvent(battle.state(), x, y, z, state, transactionContext, preSpan)) {
+            final BattleState battleState = battle.state();
+            if (!battleState.events().invoker(BasicEnvEvents.PRE_SET_BLOCK_STATE_EVENT_KEY, transactionContext).onPreSetBlockStateEvent(battleState, x, y, z, state, transactionContext, preSpan)) {
                 return false;
             }
             setBlockState0(x, y, z, state);
+            for (final BattleParticipantHandle handle : battleState.participants()) {
+                final CollisionChecker checker = ((BattleParticipantImpl) battleState.participant(handle)).collisionChecker();
+                if (!checker.check(x, y, z, Double.NaN)) {
+                    setBlockState0(x, y, z, oldState);
+                    return false;
+                }
+            }
             delta(transactionContext, new BlockDelta(x, y, z, oldState));
             try (final var span = preSpan.push(new CoreBattleTraceEvents.SetBlockState(x, y, z, oldState, state), transactionContext)) {
-                battle.state().events().invoker(BasicEnvEvents.POST_SET_BLOCK_STATE_EVENT_KEY, transactionContext).onPostSetBlockStateEvent(battle.state(), x, y, z, oldState, transactionContext, span);
+                battleState.events().invoker(BasicEnvEvents.POST_SET_BLOCK_STATE_EVENT_KEY, transactionContext).onPostSetBlockStateEvent(battleState, x, y, z, oldState, transactionContext, span);
             }
             return true;
         }
@@ -108,7 +120,7 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
 
             @Override
             public int getBottomY() {
-                return 0;
+                return battle.worldY(0);
             }
 
             @Override
@@ -117,7 +129,7 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
             }
 
             @Override
-            public @UnknownNullability RegistryEntry<Biome> getBiomeFabric(final BlockPos pos) {
+            public RegistryEntry<Biome> getBiomeFabric(final BlockPos pos) {
                 return biome(pos.getX(), pos.getY(), pos.getZ());
             }
         };

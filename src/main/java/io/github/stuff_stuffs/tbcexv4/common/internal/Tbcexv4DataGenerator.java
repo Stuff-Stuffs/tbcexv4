@@ -18,6 +18,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.eq
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItem;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatModificationPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
@@ -100,7 +101,7 @@ public class Tbcexv4DataGenerator implements DataGeneratorEntrypoint {
         public abstract void PostSetPosEvent(BattleParticipant participant, BattlePos oldPos, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
 
         @EventInfo()
-        public abstract <T> void PostAddModifierEvent(BattleParticipant participant, Stat<T> stat, T oldValue, T newValue, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+        public abstract <T> void PostAddModifierEvent(BattleParticipant participant, Stat<T> stat, StatModificationPhase phase, T oldValue, T newValue, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
 
         @EventInfo(defaultValue = "damage", combiner = "io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util.selectSecond")
         @EventComparisonInfo(comparedType = DamagePhase.class, comparator = "io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries.DamagePhases.COMPARATOR")

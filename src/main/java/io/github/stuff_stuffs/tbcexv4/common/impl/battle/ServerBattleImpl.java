@@ -4,15 +4,20 @@ import com.mojang.datafixers.util.Pair;
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
+import io.github.stuff_stuffs.tbcexv4.common.api.ai.ActionSearchStrategy;
+import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.ActionSource;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.EndBattleAction;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantEventInitEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAIControllerAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachmentView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
@@ -96,7 +101,7 @@ public class ServerBattleImpl implements Battle {
         aiController.cancel();
         Result<Unit, Text> result = turnManager.check(action);
         if (result instanceof Result.Success<Unit, Text> && sourceId.isPresent() && action.source().isPresent()) {
-            final Optional<BattleParticipantPlayerControllerAttachmentView> attachmentView = state.participant(action.source().get()).attachmentView(Tbcexv4Registries.BattleParticipantAttachmentTypes.PLAYER_CONTROLLED);
+            final Optional<BattleParticipantPlayerControllerAttachmentView> attachmentView = state.participant(action.source().get().actor()).attachmentView(Tbcexv4Registries.BattleParticipantAttachmentTypes.PLAYER_CONTROLLED);
             if (attachmentView.isPresent()) {
                 if (!attachmentView.get().controllerId().equals(sourceId.get())) {
                     result = new Result.Failure<>(Text.of("You do not have control!"));
@@ -143,10 +148,10 @@ public class ServerBattleImpl implements Battle {
         }
         aiController.cancel();
         actions.add(action);
-        final Optional<BattleParticipantHandle> source = action.source();
-        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.ActionRoot(source), transaction)) {
-            action.apply(state, transaction, tracer);
-            source.ifPresent(participantHandle -> turnManager.onAction(participantHandle, state, transaction, span));
+        final Optional<ActionSource> actionSource = action.source();
+        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.ActionRoot(actionSource.map(ActionSource::actor)), transaction)) {
+            action.apply(state, transaction, tracer, BattleLogContext.DISABLED);
+            actionSource.ifPresent(source -> turnManager.onAction(source.energy(), source.actor(), state, transaction, span));
             transaction.commit();
         }
         if (phase() == BattlePhase.FINISHED) {
@@ -177,7 +182,13 @@ public class ServerBattleImpl implements Battle {
             }
             if (!playerFound && !ais.isEmpty()) {
                 final BattleParticipantHandle chosen = ais.get(actions.size() % ais.size());
-                aiController.compute(chosen, state.transactionManager().open(), tracer);
+                final BattleParticipant participant = state.participant(chosen);
+                final Optional<BattleParticipantAIControllerAttachment> opt = participant.attachment(Tbcexv4Registries.BattleParticipantAttachmentTypes.AI_CONTROLLER);
+                if (opt.isEmpty()) {
+                    throw new RuntimeException();
+                }
+                final BattleParticipantAIControllerAttachment attachment = opt.get();
+                aiController.compute(chosen, attachment.scorer(), attachment.strategy(), state.transactionManager().open(), tracer);
             }
         }
     }
@@ -260,7 +271,7 @@ public class ServerBattleImpl implements Battle {
     }
 
     public interface AiController {
-        void compute(BattleParticipantHandle handle, BattleTransaction context, BattleTracer tracer);
+        void compute(BattleParticipantHandle handle, Scorer scorer, ActionSearchStrategy strategy, BattleTransaction context, BattleTracer tracer);
 
         void cancel();
     }

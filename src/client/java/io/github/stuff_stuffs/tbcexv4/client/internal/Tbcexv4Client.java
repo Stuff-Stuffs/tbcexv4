@@ -27,12 +27,16 @@ import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattleEnvironmentIni
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
 import net.minecraft.nbt.NbtOps;
@@ -150,6 +154,45 @@ public class Tbcexv4Client implements ClientModInitializer {
                 }
             }
         });
+        BattleDebugRendererRegistry.init();
+        WorldRenderEvents.AFTER_ENTITIES.register(context -> {
+            if (WATCHED_BATTLE != null) {
+                for (final String s : BattleDebugRendererRegistry.enabled()) {
+                    final BattleDebugRenderer renderer = BattleDebugRendererRegistry.get(s);
+                    renderer.render(context, WATCHED_BATTLE);
+                }
+            }
+        });
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
+                ClientCommandManager.literal("tbcexv4ClientDebug")
+                        .then(
+                                ClientCommandManager.literal("enable")
+                                        .then(
+                                                ClientCommandManager.argument(
+                                                                "renderer",
+                                                                new BattleDebugRendererRegistry.DebugRendererArgumentType()
+                                                        )
+                                                        .executes(context -> {
+                                                            final String id = context.getArgument("renderer", String.class);
+                                                            BattleDebugRendererRegistry.enable(id);
+                                                            return 0;
+                                                        })
+                                        )
+                        ).then(
+                                ClientCommandManager.literal("disable")
+                                        .then(
+                                                ClientCommandManager.argument(
+                                                                "renderer",
+                                                                new BattleDebugRendererRegistry.DebugRendererArgumentType()
+                                                        )
+                                                        .executes(context -> {
+                                                            final String id = context.getArgument("renderer", String.class);
+                                                            BattleDebugRendererRegistry.disable(id);
+                                                            return 0;
+                                                        })
+                                        )
+                        )
+        ));
     }
 
     public static DelayedResponse<Tbcexv4ClientApi.RequestResult> sendRequest(final BattleAction request) {

@@ -4,10 +4,7 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.DamagePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.EndBattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.NoopBattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.SetupEnvironmentBattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.StartBattleAction;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.*;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAIControllerAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
@@ -20,7 +17,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.it
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.*;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.RegisteredStat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatModificationPhase;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.InOrderTurnManager;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.EnergyTurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManagerType;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.DamagePhaseImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.inventory.item.UnknownBattleItem;
@@ -43,7 +40,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public final class Tbcexv4Registries {
-    public static final class BattleActions {
+    public static final class BattleActionTypes {
         public static final RegistryKey<Registry<BattleActionType<?>>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("battle_actions"));
         public static final Registry<BattleActionType<?>> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
         public static final Codec<BattleActionType<?>> CODEC = REGISTRY.getCodec();
@@ -51,12 +48,16 @@ public final class Tbcexv4Registries {
         public static final BattleActionType<StartBattleAction> START_BATTLE_TYPE = new BattleActionType<>(StartBattleAction.CODEC_FACTORY);
         public static final BattleActionType<NoopBattleAction> NOOP_TYPE = new BattleActionType<>(context -> NoopBattleAction.CODEC);
         public static final BattleActionType<EndBattleAction> END_TYPE = new BattleActionType<>(context -> EndBattleAction.CODEC);
+        public static final BattleActionType<EquipBattleAction> EQUIP_TYPE = new BattleActionType<>(context -> EquipBattleAction.CODEC);
+        public static final BattleActionType<UnequipBattleAction> UNEQUIP_TYPE = new BattleActionType<>(context -> UnequipBattleAction.CODEC);
 
         public static void init() {
-            Registry.register(BattleActions.REGISTRY, Tbcexv4.id("setup_env"), SETUP_ENVIRONMENT_TYPE);
-            Registry.register(BattleActions.REGISTRY, Tbcexv4.id("start"), START_BATTLE_TYPE);
-            Registry.register(BattleActions.REGISTRY, Tbcexv4.id("noop"), NOOP_TYPE);
-            Registry.register(BattleActions.REGISTRY, Tbcexv4.id("end"), END_TYPE);
+            Registry.register(REGISTRY, Tbcexv4.id("setup_env"), SETUP_ENVIRONMENT_TYPE);
+            Registry.register(REGISTRY, Tbcexv4.id("start"), START_BATTLE_TYPE);
+            Registry.register(REGISTRY, Tbcexv4.id("noop"), NOOP_TYPE);
+            Registry.register(REGISTRY, Tbcexv4.id("end"), END_TYPE);
+            Registry.register(REGISTRY, Tbcexv4.id("equip"), EQUIP_TYPE);
+            Registry.register(REGISTRY, Tbcexv4.id("unequip"), UNEQUIP_TYPE);
         }
     }
 
@@ -75,9 +76,21 @@ public final class Tbcexv4Registries {
                 return 0.0;
             }
         };
+        public static final RegisteredStat<Integer> MAX_ENERGY = new RegisteredStat<>() {
+            @Override
+            public Text displayName() {
+                return Text.of("Energy");
+            }
+
+            @Override
+            public Integer defaultValue() {
+                return 1;
+            }
+        };
 
         public static void init() {
             Registry.register(REGISTRY, Tbcexv4.id("max_health"), MAX_HEALTH);
+            Registry.register(REGISTRY, Tbcexv4.id("max_energy"), MAX_ENERGY);
         }
     }
 
@@ -145,10 +158,10 @@ public final class Tbcexv4Registries {
         public static final RegistryKey<Registry<TurnManagerType<?>>> KEY = RegistryKey.ofRegistry(Tbcexv4.id("turn_manager_types"));
         public static final Registry<TurnManagerType<?>> REGISTRY = FabricRegistryBuilder.createSimple(KEY).buildAndRegister();
         public static final Codec<TurnManagerType<?>> CODEC = REGISTRY.getCodec();
-        public static final TurnManagerType<Unit> IN_ORDER_TURN_MANAGER_TYPE = new TurnManagerType<>((context, unit) -> new InOrderTurnManager(), context -> Codec.unit(Unit.INSTANCE));
+        public static final TurnManagerType<Unit> ENERGY_IN_ORDER_TURN_MANAGER_TYPE = new TurnManagerType<>((context, unit) -> new EnergyTurnManager(), context -> Codec.unit(Unit.INSTANCE));
 
         public static void init() {
-            Registry.register(REGISTRY, Tbcexv4.id("in_order"), IN_ORDER_TURN_MANAGER_TYPE);
+            Registry.register(REGISTRY, Tbcexv4.id("energy_in_order"), ENERGY_IN_ORDER_TURN_MANAGER_TYPE);
         }
     }
 
@@ -209,7 +222,7 @@ public final class Tbcexv4Registries {
     }
 
     public static void init() {
-        BattleActions.init();
+        BattleActionTypes.init();
         Stats.init();
         StatModificationPhases.init();
         DamagePhases.init();

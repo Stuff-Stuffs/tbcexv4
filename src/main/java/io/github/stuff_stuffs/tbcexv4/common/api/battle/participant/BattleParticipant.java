@@ -52,6 +52,7 @@ public interface BattleParticipant extends BattleParticipantView {
 
     enum SetPosError {
         EVENT,
-        OUTSIDE_BATTLE
+        OUTSIDE_BATTLE,
+        ENV_COLLISION
     }
 }

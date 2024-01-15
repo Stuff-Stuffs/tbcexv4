@@ -6,6 +6,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
@@ -19,22 +20,24 @@ public class StartBattleAction implements BattleAction {
 
     @Override
     public BattleActionType<?> type() {
-        return Tbcexv4Registries.BattleActions.START_BATTLE_TYPE;
+        return Tbcexv4Registries.BattleActionTypes.START_BATTLE_TYPE;
     }
 
     @Override
-    public void apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer) {
+    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer, final BattleLogContext logContext) {
         if (state.phase() != BattlePhase.INIT) {
-            throw new RuntimeException();
+            if (logContext.enabled()) {
+                logContext.accept(Text.of("Failed to start battle, already started?"));
+            }
+            return false;
         }
         try (final var transaction = transactionContext.openNested()) {
             ((BattleStateImpl) state).start(transaction);
             transaction.commit();
         }
-    }
-
-    @Override
-    public Text chatMessage() {
-        return Text.of("Battle started!");
+        if (logContext.enabled()) {
+            logContext.accept(Text.of("Started battle!"));
+        }
+        return true;
     }
 }

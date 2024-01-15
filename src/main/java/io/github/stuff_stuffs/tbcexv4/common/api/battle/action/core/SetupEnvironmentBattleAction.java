@@ -5,6 +5,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
@@ -27,11 +28,11 @@ public class SetupEnvironmentBattleAction implements BattleAction {
 
     @Override
     public BattleActionType<?> type() {
-        return Tbcexv4Registries.BattleActions.SETUP_ENVIRONMENT_TYPE;
+        return Tbcexv4Registries.BattleActionTypes.SETUP_ENVIRONMENT_TYPE;
     }
 
     @Override
-    public void apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer) {
+    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer, BattleLogContext logContext) {
         //INTERNALS AHEAD
         if (state.environment() instanceof final ServerBattleEnvironmentImpl environment && environment.battle() instanceof final ServerBattleImpl server) {
             server.world().runAction(world -> {
@@ -45,10 +46,9 @@ public class SetupEnvironmentBattleAction implements BattleAction {
                 throw new RuntimeException("Tried to revert a setup action, this should be impossible!");
             }
         });
-    }
-
-    @Override
-    public Text chatMessage() {
-        return Text.of("Setting up battle environment!");
+        if(logContext.enabled()) {
+            logContext.accept(Text.of("Set up arena!"));
+        }
+        return true;
     }
 }

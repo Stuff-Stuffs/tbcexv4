@@ -51,6 +51,7 @@ public interface BattleState extends BattleStateView {
         OUT_OF_BOUNDS,
         ID_OVERLAP,
         EVENT,
+        ENV_COLLISION,
         UNKNOWN
     }
 

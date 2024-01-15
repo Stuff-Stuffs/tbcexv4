@@ -4,9 +4,9 @@ import io.github.stuff_stuffs.tbcexv4.client.impl.battle.state.env.ClientBattleE
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.ActionSource;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantEventInitEvent;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateEventInitEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
@@ -14,10 +14,13 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
+import io.github.stuff_stuffs.tbcexv4.common.impl.battle.log.BattleLogContextImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.registry.RegistryKey;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -154,13 +157,17 @@ public class ClientBattleImpl implements Battle {
     @Override
     public void pushAction(final BattleAction action) {
         actions.add(action);
-        final Optional<BattleParticipantHandle> source = action.source();
-        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.ActionRoot(source), transaction)) {
-            action.apply(state, transaction, tracer);
-            source.ifPresent(participantHandle -> turnManager.onAction(participantHandle, state, transaction, span));
+        final Optional<ActionSource> actionSource = action.source();
+        final BattleLogContextImpl logContext = new BattleLogContextImpl();
+        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.ActionRoot(actionSource.map(ActionSource::actor)), transaction)) {
+            action.apply(state, transaction, tracer, logContext);
+            actionSource.ifPresent(source -> turnManager.onAction(source.energy(), source.actor(), state, transaction, span));
             transaction.commit();
         }
-        MinecraftClient.getInstance().player.sendMessage(action.chatMessage(), false);
+        final ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        for (final Text text : logContext.collect()) {
+            player.sendMessage(text, false);
+        }
     }
 
     @Override

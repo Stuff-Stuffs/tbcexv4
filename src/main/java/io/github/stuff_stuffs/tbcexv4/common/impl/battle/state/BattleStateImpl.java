@@ -155,14 +155,17 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             if (participantContainer.participants.containsKey(handle)) {
                 return new Result.Failure<>(AddParticipantError.UNKNOWN);
             }
-            delta(transactionContext, new AddParticipantDelta(handle));
             final BattleParticipantImpl participant = new BattleParticipantImpl(handle.id(), participantEvents.build(), this, battleParticipant::addAttachments, bounds, pos, transactionContext);
+            if (!participant.collisionChecker().check(pos.x(), pos.y(), pos.z(), Double.NaN)) {
+                return new Result.Failure<>(AddParticipantError.ENV_COLLISION);
+            }
+            delta(transactionContext, new AddParticipantDelta(handle));
             participantContainer.participants.put(participant.handle(), participant);
             participantContainer.teams.put(participant.handle(), battleParticipant.team());
             participantContainer.byTeam.computeIfAbsent(battleParticipant.team(), k -> new ObjectOpenHashSet<>()).add(participant.handle());
-            battleParticipant.initialize(this, participant, transactionContext, preSpan);
-            participant.start();
             try (final var span = preSpan.push(new CoreBattleTraceEvents.AddParticipant(participant.handle()), transactionContext)) {
+                participant.start(transactionContext, span);
+                battleParticipant.initialize(this, participant, transactionContext, preSpan);
                 span.push(new CoreBattleTraceEvents.ParticipantSetTeam(handle, Optional.empty(), participant.team()), transactionContext).close();
                 events().invoker(BasicEvents.POST_ADD_PARTICIPANT_EVENT_KEY, transactionContext).onPostAddParticipantEvent(this, participant, transactionContext, span);
             }

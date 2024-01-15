@@ -12,22 +12,23 @@ import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 
 public class CollisionChecker {
-    private final double width;
     private final double lowerWidth;
     private final double upperWidth;
     private final double height;
     private final BattleBounds bounds;
     private final BlockView environment;
     private final BlockPos.Mutable mut;
+    private final VoxelShape boxShape;
 
     public CollisionChecker(final double width, final double height, final BattleBounds bounds, final BlockView environment) {
-        this.width = width;
         lowerWidth = 0.5 - width * 0.5;
         upperWidth = 0.5 + width * 0.5;
         this.height = height;
         this.bounds = bounds;
         this.environment = environment;
         mut = new BlockPos.Mutable();
+        final Box box = new Box(lowerWidth, 0, lowerWidth, upperWidth, height, upperWidth);
+        boxShape = VoxelShapes.cuboid(box);
     }
 
     public boolean inBounds(final int x, final int y, final int z) {
@@ -69,7 +70,6 @@ public class CollisionChecker {
         final int lowestZ = MathHelper.floor(z + lowerWidth);
         final int highestZ = MathHelper.ceil(z + upperWidth);
         final Box box = new Box(x + lowerWidth, y + floorHeight, z + lowerWidth, x + upperWidth, y + floorHeight + height, z + upperWidth);
-        final VoxelShape boxShape = VoxelShapes.cuboid(box);
         for (int i = lowestX; i <= highestX; i++) {
             for (int j = lowestZ; j <= highestZ; j++) {
                 for (int k = lowestY; k <= highestY; k++) {
@@ -80,7 +80,7 @@ public class CollisionChecker {
                             return false;
                         }
                     } else if (!(shape == VoxelShapes.empty() || shape.isEmpty())) {
-                        if (VoxelShapes.matchesAnywhere(boxShape, shape, BooleanBiFunction.AND)) {
+                        if (VoxelShapes.matchesAnywhere(boxShape, shape.offset(-i, -j, -k), BooleanBiFunction.AND)) {
                             return false;
                         }
                     }
