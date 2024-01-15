@@ -14,6 +14,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.In
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.DamageResistanceStat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatContainer;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatModificationPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
@@ -25,6 +26,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.BasicParticipantEvents;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.PostAddModifierEvent;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.inventory.InventoryImpl;
+import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.pather.CollisionChecker;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.stat.StatContainerImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
@@ -46,6 +48,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
     private BattleParticipantBounds bounds;
     private BattlePos pos;
     private BattleParticipantPhase phase;
+    private CollisionChecker cachedCollisionChecker = null;
 
     public BattleParticipantImpl(final UUID id, final EventMap events, final BattleStateImpl battleState, final Consumer<BattleParticipantAttachment.Builder> builder, final BattleParticipantBounds bounds, final BattlePos pos, final BattleTransactionContext transactionContext) {
         this.id = id;
@@ -67,7 +70,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
         });
         events().registerMut(BasicParticipantEvents.POST_ADD_MODIFIER_EVENT_KEY, new PostAddModifierEvent() {
             @Override
-            public <T> void onPostAddModifierEvent(final BattleParticipant participant, final Stat<T> stat, final T oldValue, final T newValue, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> trace) {
+            public <T> void onPostAddModifierEvent(final BattleParticipant participant, final Stat<T> stat, StatModificationPhase phase, final T oldValue, final T newValue, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> trace) {
                 if (participant.phase() == BattleParticipantPhase.BATTLE && stat == Tbcexv4Registries.Stats.MAX_HEALTH) {
                     if (((Double) newValue) <= 0.0001) {
                         tryKill(transactionContext, trace);
@@ -97,11 +100,14 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
         }
     }
 
-    public void start() {
+    public void start(final BattleTransactionContext context, final BattleTracer.Span<?> tracer) {
         if (phase != BattleParticipantPhase.INIT) {
             throw new RuntimeException();
         }
         phase = BattleParticipantPhase.BATTLE;
+        for (final BattleParticipantAttachment attachment : attachments.values()) {
+            attachment.init(this, context, tracer);
+        }
     }
 
     @Override
@@ -180,6 +186,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
             }
             final BattleParticipantBounds old = this.bounds;
             delta(transactionContext, new BoundsDelta(old));
+            cachedCollisionChecker = null;
             this.bounds = bounds;
             try (final var span = preSpan.push(new CoreBattleTraceEvents.SetParticipantBounds(old, bounds), transactionContext)) {
                 events().invoker(BasicParticipantEvents.POST_SET_BOUNDS_EVENT_KEY, transactionContext).onPostSetBoundsEvent(this, old, transactionContext, span);
@@ -197,6 +204,9 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
             }
             if (!battleState.bounds().check(bounds, pos)) {
                 return new Result.Failure<>(SetPosError.OUTSIDE_BATTLE);
+            }
+            if (!collisionChecker().check(pos.x(), pos.y(), pos.z(), Double.NaN)) {
+                return new Result.Failure<>(SetPosError.ENV_COLLISION);
             }
             if (!events().invoker(BasicParticipantEvents.PRE_SET_POS_EVENT_KEY, transactionContext).onPreSetPosEvent(this, pos, transactionContext, preSpan)) {
                 return new Result.Failure<>(SetPosError.EVENT);
@@ -291,6 +301,13 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
         }
     }
 
+    public CollisionChecker collisionChecker() {
+        if (cachedCollisionChecker == null) {
+            cachedCollisionChecker = new CollisionChecker(bounds.width(), bounds.height(), battleState.bounds(), battleState.environment().asBlockView());
+        }
+        return cachedCollisionChecker;
+    }
+
     @Override
     protected void revertDelta(final Delta delta) {
         delta.apply(this);
@@ -325,6 +342,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
         @Override
         public void apply(final BattleParticipantImpl participant) {
             participant.bounds = bounds;
+            participant.cachedCollisionChecker = null;
         }
     }
 

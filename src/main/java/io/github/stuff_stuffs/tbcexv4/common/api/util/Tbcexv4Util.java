@@ -5,6 +5,9 @@ import com.mojang.serialization.DataResult;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.registry.RegistryKey;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.PlainTextContent;
+import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.dynamic.Codecs;
 
@@ -25,6 +28,14 @@ public final class Tbcexv4Util {
 
     public static <T> T selectSecond(final T first, final T second) {
         return second;
+    }
+
+    public static Text concat(final Text... texts) {
+        final MutableText text = MutableText.of(PlainTextContent.EMPTY);
+        for (final Text t : texts) {
+            text.append(t);
+        }
+        return text;
     }
 
     public static <Api, Impl extends Api> Codec<Api> implCodec(final Codec<Impl> codec, final Class<Impl> clazz) {

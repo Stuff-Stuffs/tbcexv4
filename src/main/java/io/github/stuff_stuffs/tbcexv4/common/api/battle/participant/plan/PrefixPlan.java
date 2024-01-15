@@ -2,16 +2,19 @@ package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 
+import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
 public class PrefixPlan<T extends Target> implements Plan {
     private final TargetChooser<T> chooser;
     private final Function<T, Plan> factory;
+    private final PlanType type;
 
-    public PrefixPlan(final TargetChooser<T> chooser, final Function<T, Plan> factory) {
+    public PrefixPlan(final TargetChooser<T> chooser, final Function<T, Plan> factory, PlanType type) {
         this.chooser = chooser;
         this.factory = factory;
+        this.type = type;
     }
 
     @Override
@@ -38,7 +41,12 @@ public class PrefixPlan<T extends Target> implements Plan {
     }
 
     @Override
-    public BattleAction build() {
+    public List<BattleAction> build() {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PlanType type() {
+        return type;
     }
 }

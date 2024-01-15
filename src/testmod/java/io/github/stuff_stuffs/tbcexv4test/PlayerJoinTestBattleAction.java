@@ -1,10 +1,13 @@
 package io.github.stuff_stuffs.tbcexv4test;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
+import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorers;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantBounds;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
@@ -19,19 +22,34 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.BattleTraceEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
-import net.minecraft.text.Text;
+import io.github.stuff_stuffs.tbcexv4.common.impl.ai.NoopActionSearchStrategy;
 import net.minecraft.util.Uuids;
 import net.minecraft.util.math.MathHelper;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public class PlayerJoinTestBattleAction implements BattleAction {
-    public static final Codec<PlayerJoinTestBattleAction> CODEC = Uuids.STRING_CODEC.xmap(PlayerJoinTestBattleAction::new, action -> action.playerId);
+    public static final Codec<PlayerJoinTestBattleAction> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Uuids.CODEC.fieldOf("playerId").forGetter(action -> action.playerId),
+            Codec.intRange(0, BattlePos.MAX).fieldOf("x").forGetter(action -> action.x),
+            Codec.intRange(0, BattlePos.MAX).fieldOf("y").forGetter(action -> action.y),
+            Codec.intRange(0, BattlePos.MAX).fieldOf("z").forGetter(action -> action.z),
+            Entry.CODEC.listOf().fieldOf("entries").forGetter(o -> o.entries)
+    ).apply(instance, PlayerJoinTestBattleAction::new));
     private final UUID playerId;
+    private final int x;
+    private final int y;
+    private final int z;
+    private final List<Entry> entries;
 
-    public PlayerJoinTestBattleAction(final UUID id) {
+    public PlayerJoinTestBattleAction(final UUID id, final int x, final int y, final int z, final List<Entry> entries) {
         playerId = id;
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        this.entries = entries;
     }
 
     @Override
@@ -40,7 +58,7 @@ public class PlayerJoinTestBattleAction implements BattleAction {
     }
 
     @Override
-    public void apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer) {
+    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer, final BattleLogContext logContext) {
         try (final var transaction = transactionContext.openNested()) {
             final BattleTracer.Span<BattleTraceEvent> span = tracer.push(new BattleTraceEvent() {
             }, transaction);
@@ -59,7 +77,7 @@ public class PlayerJoinTestBattleAction implements BattleAction {
 
                 @Override
                 public BattlePos pos() {
-                    return new BattlePos(4, 4, 4);
+                    return new BattlePos(x, y, z);
                 }
 
                 @Override
@@ -74,30 +92,26 @@ public class PlayerJoinTestBattleAction implements BattleAction {
             }, transaction, span);
             if (result instanceof Result.Failure<BattleParticipantHandle, BattleState.AddParticipantError>) {
                 transaction.abort();
-                return;
+                return false;
             } else {
                 final BattleParticipant participant = state.participant(((Result.Success<BattleParticipantHandle, BattleState.AddParticipantError>) result).val());
                 participant.stats().addStatModifier(Tbcexv4Registries.Stats.MAX_HEALTH, (currentValue, context) -> currentValue + 10, Tbcexv4Registries.StatModificationPhases.BASE_STATS, transaction, span);
                 participant.heal(1000, transactionContext, span);
             }
-            for (int i = 0; i < 8; i++) {
-                if (!join(state, (i & 1) == 0 ? playerTeam : enemyTeam, transaction, span)) {
+            for (final Entry entry : entries) {
+                if (!join(state, entry.enemy ? enemyTeam : playerTeam, entry.pos, transaction, span)) {
                     transaction.abort();
-                    return;
+                    return false;
                 }
             }
             state.setRelation(playerTeam, enemyTeam, BattleParticipantTeamRelation.HOSTILE, transaction, span);
             span.close();
             transaction.commit();
+            return true;
         }
     }
 
-    @Override
-    public Text chatMessage() {
-        return Text.of("Player " + playerId + " joining!");
-    }
-
-    private boolean join(final BattleState state, final BattleParticipantTeam team, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
+    private boolean join(final BattleState state, final BattleParticipantTeam team, final BattlePos pos, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         final Result<BattleParticipantHandle, BattleState.AddParticipantError> result = state.addParticipant(new BattleParticipantInitialState() {
             @Override
             public BattleParticipantBounds bounds() {
@@ -106,7 +120,7 @@ public class PlayerJoinTestBattleAction implements BattleAction {
 
             @Override
             public BattlePos pos() {
-                return new BattlePos(4, 4, 4);
+                return pos;
             }
 
             @Override
@@ -116,7 +130,7 @@ public class PlayerJoinTestBattleAction implements BattleAction {
 
             @Override
             public void addAttachments(final BattleParticipantAttachment.Builder builder) {
-                builder.accept(new BattleParticipantAIControllerAttachment(), Tbcexv4Registries.BattleParticipantAttachmentTypes.AI_CONTROLLER);
+                builder.accept(new BattleParticipantAIControllerAttachment(f -> Scorers.health(f.handle()), f -> new NoopActionSearchStrategy()), Tbcexv4Registries.BattleParticipantAttachmentTypes.AI_CONTROLLER);
             }
         }, transactionContext, tracer);
         if (result instanceof final Result.Success<BattleParticipantHandle, BattleState.AddParticipantError> success) {
@@ -126,5 +140,12 @@ public class PlayerJoinTestBattleAction implements BattleAction {
             return true;
         }
         return false;
+    }
+
+    public record Entry(BattlePos pos, boolean enemy) {
+        public static final Codec<Entry> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                BattlePos.CODEC.fieldOf("pos").forGetter(o -> o.pos),
+                Codec.BOOL.fieldOf("enemy").forGetter(o -> o.enemy)
+        ).apply(instance, Entry::new));
     }
 }

@@ -41,7 +41,7 @@ public class StatContainerImpl extends DeltaSnapshotParticipant<StatContainerImp
             final T newVal = get(stat);
             delta(transactionContext, new Delta(handle));
             try (final var span = preSpan.push(new CoreBattleTraceEvents.AddParticipantStateModifier(participant.handle(), stat), transactionContext)) {
-                participant.events().invoker(BasicParticipantEvents.POST_ADD_MODIFIER_EVENT_KEY, transactionContext).onPostAddModifierEvent(participant, stat, oldVal, newVal, transactionContext, span);
+                participant.events().invoker(BasicParticipantEvents.POST_ADD_MODIFIER_EVENT_KEY, transactionContext).onPostAddModifierEvent(participant, stat, phase, oldVal, newVal, transactionContext, span);
             }
             return handle;
         }

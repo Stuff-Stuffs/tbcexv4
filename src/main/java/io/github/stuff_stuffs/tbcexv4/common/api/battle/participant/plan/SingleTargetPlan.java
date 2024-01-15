@@ -3,22 +3,30 @@ package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
 public class SingleTargetPlan<T extends Target> implements Plan {
     private final @Nullable TargetChooser<T> chooser;
     private final @Nullable T target;
-    private final Function<T, BattleAction> factory;
+    private final Function<T, List<BattleAction>> factory;
+    private final PlanType type;
 
-    public SingleTargetPlan(final TargetChooser<T> chooser, final Function<T, BattleAction> factory) {
+    public static <T extends Target> SingleTargetPlan<T> ofSingle(final TargetChooser<T> chooser, final Function<T, BattleAction> factory, final PlanType type) {
+        return new SingleTargetPlan<>(chooser, factory.andThen(List::of), type);
+    }
+
+    public SingleTargetPlan(final TargetChooser<T> chooser, final Function<T, List<BattleAction>> factory, final PlanType type) {
         this.chooser = chooser;
         this.factory = factory;
+        this.type = type;
         target = null;
     }
 
-    private SingleTargetPlan(final T target, final Function<T, BattleAction> factory) {
+    private SingleTargetPlan(final T target, final Function<T, List<BattleAction>> factory, final PlanType type) {
         this.factory = factory;
+        this.type = type;
         chooser = null;
         this.target = target;
     }
@@ -44,7 +52,7 @@ public class SingleTargetPlan<T extends Target> implements Plan {
         if (canBuild()) {
             throw new IllegalStateException();
         }
-        return new SingleTargetPlan<>((T) target, factory);
+        return new SingleTargetPlan<>((T) target, factory, type);
     }
 
     @Override
@@ -53,10 +61,15 @@ public class SingleTargetPlan<T extends Target> implements Plan {
     }
 
     @Override
-    public BattleAction build() {
+    public List<BattleAction> build() {
         if (!canBuild()) {
             throw new IllegalStateException();
         }
         return factory.apply(target);
+    }
+
+    @Override
+    public PlanType type() {
+        return type;
     }
 }

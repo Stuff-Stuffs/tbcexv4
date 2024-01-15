@@ -4,6 +4,7 @@ import com.mojang.serialization.Codec;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
@@ -18,18 +19,15 @@ public class EndBattleAction implements BattleAction {
 
     @Override
     public BattleActionType<?> type() {
-        return Tbcexv4Registries.BattleActions.END_TYPE;
+        return Tbcexv4Registries.BattleActionTypes.END_TYPE;
     }
 
     @Override
-    public void apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer) {
+    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer, final BattleLogContext logContext) {
         try (final var span = tracer.push(new CoreBattleTraceEvents.ActionRoot(Optional.empty()), transactionContext)) {
             ((BattleStateImpl) state).finish(transactionContext, span);
         }
-    }
-
-    @Override
-    public Text chatMessage() {
-        return Text.of("Finished the battle!");
+        logContext.accept(Text.of("Battle Ended!"));
+        return true;
     }
 }

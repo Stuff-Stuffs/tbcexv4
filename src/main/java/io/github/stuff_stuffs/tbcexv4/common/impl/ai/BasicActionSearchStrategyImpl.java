@@ -6,6 +6,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.ai.ActionSearchStrategy;
 import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.InventoryView;
@@ -19,6 +20,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransaction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
 import it.unimi.dsi.fastutil.HashCommon;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.util.math.random.Xoroshiro128PlusPlusRandom;
@@ -37,7 +39,7 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
     }
 
     @Override
-    public Optional<BattleAction> search(final BattleParticipant participant, final Scorer scorer, final BattleTracer tracer, final BattleTransactionContext context, final long seed, final CompletableFuture<CompletableFuture<Unit>> cancellation) {
+    public Optional<List<BattleAction>> search(final TurnManager turnManager, final BattleParticipant participant, final Scorer scorer, final BattleTracer tracer, final BattleTransactionContext context, final long seed, final CompletableFuture<CompletableFuture<Unit>> cancellation) {
         CompletableFuture<Unit> cancellationFuture = cancellation.getNow(null);
         if (cancellationFuture != null) {
             cancellationFuture.complete(Unit.INSTANCE);
@@ -46,12 +48,24 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
         final BattleState state = participant.battleState();
         final double base = scorer.score(participant.battleState(), tracer);
         final Random random = new Xoroshiro128PlusPlusRandom(seed, HashCommon.murmurHash3(seed + HashCommon.murmurHash3(seed + 1)));
-        final BattleAction[] actions = iter0(participant, scorer, random, state, context, tracer, base);
-        BattleAction chosen = null;
+        final List<BattleAction>[] actions = iter0(participant, scorer, random, state, context, tracer, base);
+        List<BattleAction> chosen = null;
         double wSum = 0;
-        for (final BattleAction action : actions) {
+        for (final List<BattleAction> list : actions) {
+            if (!turnManager.checkAi(list)) {
+                continue;
+            }
             try (final BattleTransaction transaction = context.openNested()) {
-                action.apply(state, transaction, tracer);
+                boolean failed = false;
+                for (final BattleAction action : list) {
+                    if (!action.apply(state, transaction, tracer, BattleLogContext.DISABLED)) {
+                        failed = true;
+                        break;
+                    }
+                }
+                if(failed) {
+                    continue;
+                }
                 final double score = iter(participant, scorer, random, state, transaction, tracer, base, 1, cancellation);
                 cancellationFuture = cancellation.getNow(null);
                 if (cancellationFuture != null) {
@@ -61,13 +75,13 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
                 transaction.abort();
                 final double weight = Math.exp(score / temperature) + EPS;
                 if (chosen == null) {
-                    chosen = action;
+                    chosen = list;
                     wSum = weight;
                 } else {
                     wSum = wSum + weight;
                     final double fraction = weight / wSum;
                     if (random.nextDouble() <= fraction) {
-                        chosen = action;
+                        chosen = list;
                     }
                 }
             }
@@ -83,11 +97,20 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
         if (cancellation.isDone()) {
             return 0;
         }
-        final BattleAction[] requests = iter0(participant, scorer, random, state, context, tracer, baseScore);
+        final List<BattleAction>[] requests = iter0(participant, scorer, random, state, context, tracer, baseScore);
         double best = 0;
-        for (final BattleAction action : requests) {
+        for (final List<BattleAction> list : requests) {
             try (final BattleTransaction transaction = context.openNested()) {
-                action.apply(state, transaction, tracer);
+                boolean failed = false;
+                for (final BattleAction action : list) {
+                    if (!action.apply(state, transaction, tracer, BattleLogContext.DISABLED)) {
+                        failed = true;
+                        break;
+                    }
+                }
+                if(failed) {
+                    continue;
+                }
                 final double score = scorer.score(state, tracer);
                 best = Math.max(best, iter(participant, scorer, random, state, transaction, tracer, score, depth + 1, cancellation));
                 transaction.abort();
@@ -96,11 +119,11 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
         return best;
     }
 
-    private BattleAction[] iter0(final BattleParticipant participant, final Scorer scorer, final Random random, final BattleState state, final BattleTransactionContext context, final BattleTracer tracer, final double baseScore) {
+    private List<BattleAction>[] iter0(final BattleParticipant participant, final Scorer scorer, final Random random, final BattleState state, final BattleTransactionContext context, final BattleTracer tracer, final double baseScore) {
         if (participant.phase() == BattleParticipantPhase.FINISHED || participant.battleState().phase() == BattlePhase.FINISHED) {
-            return new BattleAction[0];
+            return new List[0];
         }
-        final List<BattleAction> requests = new ArrayList<>();
+        final List<List<BattleAction>> requests = new ArrayList<>();
         gather(participant, plan -> {
             final Node root = new Node(null);
             final List<Target> stack = new ArrayList<>(8);
@@ -151,17 +174,26 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
             }
         });
         if (requests.isEmpty()) {
-            return new BattleAction[0];
+            return new List[0];
         }
         final int size = requests.size();
         final int chosenCount = Math.min(size, 3);
-        final BattleAction[] chosenActions = new BattleAction[chosenCount];
+        final List<BattleAction>[] chosenActions = new List[chosenCount];
         double wSum = 0;
         int idx = 0;
         for (int i = 0; i < size; i++) {
             try (final BattleTransaction transaction = context.openNested()) {
-                final BattleAction extracted = requests.get(i);
-                extracted.apply(state, transaction, tracer);
+                final List<BattleAction> actions = requests.get(i);
+                boolean failed = false;
+                for (final BattleAction extracted : actions) {
+                    if (!extracted.apply(state, transaction, tracer, BattleLogContext.DISABLED)) {
+                        failed = true;
+                        break;
+                    }
+                }
+                if(failed) {
+                    continue;
+                }
                 final double score = scorer.score(state, tracer);
                 transaction.abort();
                 final double weight = Math.exp((score - baseScore) / temperature) + EPS - 1;

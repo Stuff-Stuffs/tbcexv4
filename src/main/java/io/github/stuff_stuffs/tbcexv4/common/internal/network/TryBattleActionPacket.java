@@ -48,7 +48,7 @@ public final class TryBattleActionPacket implements FabricPacket {
 
     @Override
     public void write(final PacketByteBuf buf) {
-        buf.writeRegistryValue(Tbcexv4Registries.BattleActions.REGISTRY, type);
+        buf.writeRegistryValue(Tbcexv4Registries.BattleActionTypes.REGISTRY, type);
         buf.writeNbt(action);
         buf.writeUuid(requestId);
         buf.writeUuid(handle);
@@ -64,7 +64,7 @@ public final class TryBattleActionPacket implements FabricPacket {
     }
 
     public static TryBattleActionPacket netDecode(final PacketByteBuf buf) {
-        final BattleActionType<?> type = buf.readRegistryValue(Tbcexv4Registries.BattleActions.REGISTRY);
+        final BattleActionType<?> type = buf.readRegistryValue(Tbcexv4Registries.BattleActionTypes.REGISTRY);
         if (type == null) {
             throw new RuntimeException();
         }

@@ -2,6 +2,7 @@ package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 
+import java.util.List;
 import java.util.Set;
 
 public interface Plan {
@@ -13,5 +14,7 @@ public interface Plan {
 
     boolean canBuild();
 
-    BattleAction build();
+    List<BattleAction> build();
+
+    PlanType type();
 }

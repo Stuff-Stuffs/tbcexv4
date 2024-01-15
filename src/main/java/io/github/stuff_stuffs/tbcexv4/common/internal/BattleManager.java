@@ -6,7 +6,6 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.tbcexv4.common.api.ai.ActionSearchStrategy;
 import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorer;
-import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorers;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
@@ -120,11 +119,10 @@ public class BattleManager implements AutoCloseable {
     }
 
     private ServerBattleImpl.AiController createAiController(final BattleHandle handle) {
-        final ActionSearchStrategy strategy = ActionSearchStrategy.basic(1);
         return new ServerBattleImpl.AiController() {
 
             @Override
-            public void compute(final BattleParticipantHandle pHandle, final BattleTransaction context, final BattleTracer tracer) {
+            public void compute(final BattleParticipantHandle pHandle, final Scorer scorer, final ActionSearchStrategy strategy, final BattleTransaction context, final BattleTracer tracer) {
                 final AiTask removed = ongoingAi.remove(handle);
                 if (removed != null) {
                     BattleManager.cancel(removed);
@@ -136,11 +134,8 @@ public class BattleManager implements AutoCloseable {
                 final ServerBattleImpl battle = loadedBattles.get(handle).battle;
                 final BattleParticipant participant = battle.state().participant(pHandle);
                 final CompletableFuture<CompletableFuture<Unit>> cancellation = new CompletableFuture<>();
-                final CompletableFuture<Optional<BattleAction>> future = CompletableFuture.supplyAsync(() -> {
-                    final Scorer scorer = Scorer.sum(Scorers.health(pHandle), Scorers.teamHealth(pHandle), Scorers.enemyTeamHealth(pHandle));
-                    return strategy.search(participant, scorer, tracer, context, tracer.latest().hashCode(), cancellation);
-                }, ((ServerExtensions) world.getServer()).tbcexv4$getBackgroundExecutor());
-                ongoingAi.put(handle, new AiTask(future, cancellation, cleanup));
+                final CompletableFuture<Optional<List<BattleAction>>> future = CompletableFuture.supplyAsync(() -> strategy.search(battle.turnManager(), participant, scorer, tracer, context, tracer.latest().hashCode(), cancellation), ((ServerExtensions) world.getServer()).tbcexv4$getBackgroundExecutor());
+                ongoingAi.put(handle, new AiTask(future, cancellation, cleanup, pHandle));
             }
 
             @Override
@@ -223,18 +218,22 @@ public class BattleManager implements AutoCloseable {
             if (task.actionFuture.isDone()) {
                 try {
                     final BattleHandle key = entry.getKey();
-                    final Optional<BattleAction> action = task.actionFuture.get();
+                    final Optional<List<BattleAction>> action = task.actionFuture.get();
                     task.cleanup.run();
                     iterator.remove();
-                    if (action.isPresent()) {
-                        final LoadedBattle battle = loadedBattles.get(key);
-                        if (battle != null) {
-                            battle.battle.pushAction(action.get());
+                    final LoadedBattle battle = loadedBattles.get(key);
+                    if (battle != null) {
+                        if (action.isPresent()) {
+                            for (final BattleAction battleAction : action.get()) {
+                                battle.battle.pushAction(battleAction);
+                            }
                         } else {
-                            Tbcexv4.LOGGER.error("Ai action for not loaded battle!");
+                            Tbcexv4.LOGGER.error("Not ai actions available, no-oping!");
+                            final BattleAction skipTurn = battle.battle.turnManager().skipTurn(task.participant);
+                            battle.battle.pushAction(skipTurn);
                         }
                     } else {
-                        Tbcexv4.LOGGER.error("Not ai actions available!");
+                        Tbcexv4.LOGGER.error("Ai action for not loaded battle!");
                     }
                 } catch (final Exception e) {
                     Tbcexv4.LOGGER.error("Error while getting ai action!", e);
@@ -468,9 +467,10 @@ public class BattleManager implements AutoCloseable {
     }
 
     private record AiTask(
-            CompletableFuture<Optional<BattleAction>> actionFuture,
+            CompletableFuture<Optional<List<BattleAction>>> actionFuture,
             CompletableFuture<CompletableFuture<Unit>> cancellationFuture,
-            Runnable cleanup
+            Runnable cleanup,
+            BattleParticipantHandle participant
     ) {
     }
 }
