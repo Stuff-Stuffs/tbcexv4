@@ -18,7 +18,6 @@ public record TryBattleActionResponsePacket(
         buf.writeUuid(requestId);
         buf.writeBoolean(success);
         if (desc != null) {
-            buf.writeBoolean(true);
             buf.writeText(desc);
         } else {
             buf.writeBoolean(false);
@@ -33,10 +32,10 @@ public record TryBattleActionResponsePacket(
     public static TryBattleActionResponsePacket netDecode(final PacketByteBuf buf) {
         final UUID id = buf.readUuid();
         final boolean success = buf.readBoolean();
-        if (buf.readBoolean()) {
-            return new TryBattleActionResponsePacket(id, success, buf.readText());
+        if (success) {
+            return new TryBattleActionResponsePacket(id, true, buf.readText());
         } else {
-            return new TryBattleActionResponsePacket(id, success, null);
+            return new TryBattleActionResponsePacket(id, false, null);
         }
     }
 }

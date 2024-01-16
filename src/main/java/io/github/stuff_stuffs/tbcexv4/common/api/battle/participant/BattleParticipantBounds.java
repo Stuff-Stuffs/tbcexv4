@@ -42,18 +42,18 @@ public record BattleParticipantBounds(double width, double height) {
     public static double distance2(final BattleParticipantBounds firstBounds, final BattlePos firstPos, final BattleParticipantBounds secondBounds, final BattlePos secondPos) {
         final double dx;
         if (firstPos.x() < secondPos.x()) {
-            dx = Math.max((secondPos.x() + 0.5 * secondBounds.width()) - (firstPos.x() + 0.5 * firstBounds.width()), 0);
+            dx = Math.max((secondPos.x() + 0.5 - 0.5 * secondBounds.width()) - (firstPos.x() + 0.5 + 0.5 * firstBounds.width()), 0);
         } else if (firstPos.x() > secondPos.x()) {
-            dx = Math.max((firstPos.x() + 0.5 * firstBounds.width()) - (secondPos.x() + 0.5 * secondBounds.width()), 0);
+            dx = Math.max((firstPos.x() + 0.5 - 0.5 * firstBounds.width()) - (secondPos.x() + 0.5 + 0.5 * secondBounds.width()), 0);
         } else {
             dx = 0;
         }
 
         final double dz;
         if (firstPos.z() < secondPos.z()) {
-            dz = Math.max((secondPos.z() + 0.5 * secondBounds.width()) - (firstPos.z() + 0.5 * firstBounds.width()), 0);
+            dz = Math.max((secondPos.z() + 0.5 - 0.5 * secondBounds.width()) - (firstPos.z() + 0.5 + 0.5 * firstBounds.width()), 0);
         } else if (firstPos.z() > secondPos.z()) {
-            dz = Math.max((firstPos.z() + 0.5 * firstBounds.width()) - (secondPos.z() + 0.5 * secondBounds.width()), 0);
+            dz = Math.max((firstPos.z() + 0.5 - 0.5 * firstBounds.width()) - (secondPos.z() + 0.5 + 0.5 * secondBounds.width()), 0);
         } else {
             dz = 0;
         }

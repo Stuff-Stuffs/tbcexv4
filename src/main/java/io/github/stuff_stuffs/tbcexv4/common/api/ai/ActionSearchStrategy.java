@@ -7,6 +7,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.impl.ai.BasicActionSearchStrategyImpl;
+import io.github.stuff_stuffs.tbcexv4.common.impl.ai.NoopActionSearchStrategy;
 
 import java.util.List;
 import java.util.Optional;
@@ -20,5 +21,9 @@ public interface ActionSearchStrategy {
             throw new IllegalArgumentException();
         }
         return new BasicActionSearchStrategyImpl(temperature);
+    }
+
+    static ActionSearchStrategy noop() {
+        return new NoopActionSearchStrategy();
     }
 }

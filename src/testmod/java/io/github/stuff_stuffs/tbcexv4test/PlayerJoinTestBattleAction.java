@@ -3,6 +3,8 @@ package io.github.stuff_stuffs.tbcexv4test;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
+import io.github.stuff_stuffs.tbcexv4.common.api.ai.ActionSearchStrategy;
+import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorer;
 import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorers;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
@@ -22,9 +24,9 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.BattleTraceEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
-import io.github.stuff_stuffs.tbcexv4.common.impl.ai.NoopActionSearchStrategy;
 import net.minecraft.util.Uuids;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.random.Random;
+import net.minecraft.util.math.random.Xoroshiro128PlusPlusRandom;
 
 import java.util.List;
 import java.util.Optional;
@@ -63,7 +65,8 @@ public class PlayerJoinTestBattleAction implements BattleAction {
             final BattleTracer.Span<BattleTraceEvent> span = tracer.push(new BattleTraceEvent() {
             }, transaction);
             final BattleParticipantTeam playerTeam = new BattleParticipantTeam(playerId);
-            final BattleParticipantTeam enemyTeam = new BattleParticipantTeam(MathHelper.randomUuid());
+            final Random random = new Xoroshiro128PlusPlusRandom(playerId.getLeastSignificantBits(), playerId.getMostSignificantBits());
+            final BattleParticipantTeam enemyTeam = new BattleParticipantTeam(new UUID(random.nextLong(), random.nextLong()));
             final Result<BattleParticipantHandle, BattleState.AddParticipantError> result = state.addParticipant(new BattleParticipantInitialState() {
                 @Override
                 public Optional<UUID> id() {
@@ -130,7 +133,7 @@ public class PlayerJoinTestBattleAction implements BattleAction {
 
             @Override
             public void addAttachments(final BattleParticipantAttachment.Builder builder) {
-                builder.accept(new BattleParticipantAIControllerAttachment(f -> Scorers.health(f.handle()), f -> new NoopActionSearchStrategy()), Tbcexv4Registries.BattleParticipantAttachmentTypes.AI_CONTROLLER);
+                builder.accept(new BattleParticipantAIControllerAttachment(f -> Scorer.sum(Scorers.health(f.handle()), Scorers.enemyTeamHealth(f.handle())), f -> ActionSearchStrategy.basic(1.0)), Tbcexv4Registries.BattleParticipantAttachmentTypes.AI_CONTROLLER);
             }
         }, transactionContext, tracer);
         if (result instanceof final Result.Success<BattleParticipantHandle, BattleState.AddParticipantError> success) {

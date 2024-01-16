@@ -14,8 +14,8 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.eq
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.EquipmentSlot;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Plan;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Target;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.TargetType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.Target;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.TargetType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransaction;
@@ -63,7 +63,7 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
                         break;
                     }
                 }
-                if(failed) {
+                if (failed) {
                     continue;
                 }
                 final double score = iter(participant, scorer, random, state, transaction, tracer, base, 1, cancellation);
@@ -108,7 +108,7 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
                         break;
                     }
                 }
-                if(failed) {
+                if (failed) {
                     continue;
                 }
                 final double score = scorer.score(state, tracer);
@@ -127,13 +127,13 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
         gather(participant, plan -> {
             final Node root = new Node(null);
             final List<Target> stack = new ArrayList<>(8);
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < 4; i++) {
                 stack.clear();
                 int tries = 0;
                 Node current = root;
                 boolean lastFound = false;
                 Plan localPlan = plan;
-                while (!localPlan.canBuild() && tries++ < 8) {
+                while (!localPlan.canBuild() && tries++ < 4) {
                     double weightSum = 0;
                     final Set<TargetType<?>> types = localPlan.targetTypes();
                     if (types.isEmpty()) {
@@ -158,7 +158,6 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
                         if (child.target.equals(chosenTarget)) {
                             current = child;
                             lastFound = true;
-                            break;
                         }
                     }
                     if (!lastFound) {
@@ -191,7 +190,7 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
                         break;
                     }
                 }
-                if(failed) {
+                if (failed) {
                     continue;
                 }
                 final double score = scorer.score(state, tracer);

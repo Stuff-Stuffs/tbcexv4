@@ -3,6 +3,8 @@ package io.github.stuff_stuffs.tbcexv4.common.api;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachmentView;
 import io.github.stuff_stuffs.tbcexv4.common.internal.ServerPlayerExtensions;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.WatchRequestResponsePacket;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.ServerBattleWorld;
@@ -34,12 +36,22 @@ public final class Tbcexv4Api {
     public static Set<BattleHandle> controlling(final ServerPlayerEntity entity) {
         final Set<BattleHandle> activeHandles = new ObjectOpenHashSet<>();
         for (final ServerWorld world : entity.getServer().getWorlds()) {
-            if (world instanceof ServerBattleWorld battleWorld) {
+            if (world instanceof final ServerBattleWorld battleWorld) {
                 final Set<BattleHandle> handles = battleWorld.battleManager().unresolvedBattles(entity.getUuid());
                 for (final BattleHandle handle : handles) {
-                    final Optional<? extends Battle> battle = battleWorld.battleManager().getOrLoadBattle(handle);
-                    if (battle.isPresent() && battle.get().phase() != BattlePhase.FINISHED) {
-                        activeHandles.add(handle);
+                    final Optional<? extends Battle> opt = battleWorld.battleManager().getOrLoadBattle(handle);
+                    if (opt.isPresent()) {
+                        final Battle battle = opt.get();
+                        if (battle.phase() == BattlePhase.FINISHED) {
+                            continue;
+                        }
+                        for (final BattleParticipantHandle pHandle : battle.state().participants()) {
+                            final Optional<BattleParticipantPlayerControllerAttachmentView> attachmentView = battle.state().participant(pHandle).attachmentView(Tbcexv4Registries.BattleParticipantAttachmentTypes.PLAYER_CONTROLLED);
+                            if (attachmentView.isPresent() && attachmentView.get().controllerId().equals(entity.getUuid())) {
+                                activeHandles.add(handle);
+                                break;
+                            }
+                        }
                     }
                 }
             }

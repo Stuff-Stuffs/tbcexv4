@@ -5,13 +5,28 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
+import io.github.stuff_stuffs.tbcexv4.common.api.util.EventPair;
 import net.minecraft.text.Text;
 import org.jetbrains.annotations.Nullable;
 
+import java.lang.ref.WeakReference;
 import java.util.Optional;
 import java.util.Set;
 
 public final class Tbcexv4ClientApi {
+    public static final EventPair<BattleWatchEvent> BATTLE_WATCH_EVENT = new EventPair<>(BattleWatchEvent.class, events -> (battleHandle, participantHandle) -> {
+        for (final BattleWatchEvent event : events) {
+            event.onWatch(battleHandle, participantHandle);
+        }
+    }, references -> (battleHandle, participantHandle) -> {
+        for (WeakReference<BattleWatchEvent> reference : references) {
+            final BattleWatchEvent listener = reference.get();
+            if (listener != null) {
+                listener.onWatch(battleHandle, participantHandle);
+            }
+        }
+    });
+
     public static Optional<BattleHandle> watching() {
         return Optional.ofNullable(Tbcexv4Client.watching());
     }
@@ -63,5 +78,9 @@ public final class Tbcexv4ClientApi {
     }
 
     private Tbcexv4ClientApi() {
+    }
+
+    public interface BattleWatchEvent {
+        void onWatch(@Nullable BattleHandle battleHandle, @Nullable BattleParticipantHandle participantHandle);
     }
 }

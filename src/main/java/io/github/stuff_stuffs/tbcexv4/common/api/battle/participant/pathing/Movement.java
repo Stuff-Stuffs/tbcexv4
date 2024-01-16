@@ -1,9 +1,11 @@
 package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing;
 
-public enum BasicMovement {
+public enum Movement {
     WALK,
-    RUN,
-    CLIMB,
-    FALL,
-    JUMP
+    JUMP,
+    FLY,
+    SWIM,
+    CRAWL,
+    TELEPORT,
+    FALL
 }

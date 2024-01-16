@@ -19,6 +19,7 @@ public class CollisionChecker {
     private final BlockView environment;
     private final BlockPos.Mutable mut;
     private final VoxelShape boxShape;
+    public double lastFloorHeight = 0;
 
     public CollisionChecker(final double width, final double height, final BattleBounds bounds, final BlockView environment) {
         lowerWidth = 0.5 - width * 0.5;
@@ -63,6 +64,7 @@ public class CollisionChecker {
         if (Double.isNaN(floorHeight)) {
             floorHeight = floorHeight(x, y, z);
         }
+        lastFloorHeight = floorHeight;
         final int lowestX = MathHelper.floor(x + lowerWidth);
         final int highestX = MathHelper.ceil(x + upperWidth);
         final int lowestY = MathHelper.floor(y + floorHeight);

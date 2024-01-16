@@ -1,4 +1,4 @@
-package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan;
+package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target;
 
 import net.minecraft.text.Text;
 

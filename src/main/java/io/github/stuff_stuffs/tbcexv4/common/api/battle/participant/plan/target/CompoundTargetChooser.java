@@ -1,4 +1,4 @@
-package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan;
+package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target;
 
 import com.google.common.collect.Iterators;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;

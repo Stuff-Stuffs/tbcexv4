@@ -13,7 +13,7 @@ import java.util.Optional;
 public interface BattleAction {
     BattleActionType<?> type();
 
-    boolean apply(BattleState state, BattleTransactionContext transactionContext, BattleTracer tracer, BattleLogContext context);
+    boolean apply(BattleState state, BattleTransactionContext transactionContext, BattleTracer tracer, BattleLogContext logContext);
 
     default Optional<ActionSource> source() {
         return Optional.empty();

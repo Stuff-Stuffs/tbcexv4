@@ -15,6 +15,9 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.eq
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.*;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.ParticipantTarget;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.PosTarget;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.TargetType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.RegisteredStat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatModificationPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.EnergyTurnManager;

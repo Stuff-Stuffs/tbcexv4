@@ -53,12 +53,12 @@ public final class Scorers {
                 team = exemplar.team();
             }
             double sum = 0;
-            int count = 0;
+            int count = 1;
             for (final BattleParticipantHandle pHandle : state.participants()) {
                 final BattleParticipantView participant = state.participant(pHandle);
                 if (state.relation(participant.team(), team) == BattleParticipantTeamRelation.HOSTILE) {
                     final double percent = participant.health() / participant.stats().get(Tbcexv4Registries.Stats.MAX_HEALTH);
-                    sum = sum + 1 - (percent * percent);
+                    sum = sum * 0.1 + sum * (1 - (percent * percent));
                     count++;
                 }
             }

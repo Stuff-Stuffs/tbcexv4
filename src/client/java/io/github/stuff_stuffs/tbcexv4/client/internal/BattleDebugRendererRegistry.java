@@ -18,6 +18,8 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Colors;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.ColorHelper;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 
@@ -28,7 +30,7 @@ import java.util.function.Function;
 public final class BattleDebugRendererRegistry {
     public static final class RenderLayerHolder extends RenderLayer {
         public static final Function<Float, RenderLayer> DEBUG_LINES = Util.memoize(lineWidth -> RenderLayer.of(
-                "debug_line_strip",
+                "debug_line",
                 VertexFormats.POSITION_COLOR,
                 VertexFormat.DrawMode.DEBUG_LINES,
                 1536,
@@ -123,15 +125,21 @@ public final class BattleDebugRendererRegistry {
             final VertexConsumer buffer = context.consumers().getBuffer(RenderLayerHolder.DEBUG_LINES.apply(1.0F));
             final Vec3d cameraPos = context.camera().getPos();
             final MatrixStack matrices = context.matrixStack();
+
             for (final BattleParticipantHandle handle : battle.state().participants()) {
                 final BattleParticipant participant = battle.state().participant(handle);
+                final int i = participant.team().id().hashCode() & 0x7FFFFFFF;
+                final int rgb = MathHelper.hsvToRgb(i / (float) Integer.MAX_VALUE, 1.0F, 1.5F);
                 final BattleParticipantBounds bounds = participant.bounds();
                 final Box box = bounds.asBox(
                         battle.worldX(participant.pos().x()) - cameraPos.x,
                         battle.worldY(participant.pos().y()) - cameraPos.y,
                         battle.worldZ(participant.pos().z()) - cameraPos.z
                 );
-                WorldRenderer.drawBox(matrices, buffer, box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ, 1, 1, 1, 1);
+                final float red = ColorHelper.Argb.getRed(rgb) / 255.0F;
+                final float green = ColorHelper.Argb.getGreen(rgb) / 255.0F;
+                final float blue = ColorHelper.Argb.getBlue(rgb) / 255.0F;
+                WorldRenderer.drawBox(matrices, buffer, box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ, red, green, blue, 1);
             }
             for (final BattleParticipantHandle handle : battle.state().participants()) {
                 final BattleParticipant participant = battle.state().participant(handle);

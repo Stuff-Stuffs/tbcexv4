@@ -2,6 +2,7 @@ package io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.env;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.Pather;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
@@ -11,6 +12,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapsho
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.env.BasicEnvEvents;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.BattleParticipantImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.pather.CollisionChecker;
+import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BlockEntity;
@@ -20,10 +22,12 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.biome.Biome;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.UnknownNullability;
+
+import java.util.Map;
 
 public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotParticipant<AbstractBattleEnvironmentImpl.Delta> implements BattleEnvironment {
     protected final Battle battle;
+    private @Nullable Map<BattleParticipantHandle, Pather.Paths> cached;
 
     protected AbstractBattleEnvironmentImpl(final Battle battle) {
         this.battle = battle;
@@ -51,12 +55,35 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
                     return false;
                 }
             }
-            delta(transactionContext, new BlockDelta(x, y, z, oldState));
+            delta(transactionContext, new BlockDelta(x, y, z, oldState, cached));
+            cached = null;
             try (final var span = preSpan.push(new CoreBattleTraceEvents.SetBlockState(x, y, z, oldState, state), transactionContext)) {
                 battleState.events().invoker(BasicEnvEvents.POST_SET_BLOCK_STATE_EVENT_KEY, transactionContext).onPostSetBlockStateEvent(battleState, x, y, z, oldState, transactionContext, span);
             }
             return true;
         }
+    }
+
+    @Override
+    public void cachePaths(final BattleParticipantHandle handle, final Pather.Paths paths) {
+        if (cached == null) {
+            cached = new Object2ReferenceOpenHashMap<>();
+        }
+        cached.put(handle, paths);
+    }
+
+    @Override
+    public @Nullable Pather.Paths lookupCachedPaths(final BattleParticipantHandle handle) {
+        if (cached == null) {
+            return null;
+        }
+        return cached.get(handle);
+    }
+
+    @Override
+    public void clearCachePath(final BattleTransactionContext context) {
+        delta(context, new PathClearDelta(cached));
+        cached = null;
     }
 
     @Override
@@ -152,10 +179,12 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
         void apply(AbstractBattleEnvironmentImpl environment);
     }
 
-    private record BlockDelta(int x, int y, int z, BlockState state) implements Delta {
+    private record BlockDelta(int x, int y, int z, BlockState state,
+                              @Nullable Map<BattleParticipantHandle, Pather.Paths> cachedPaths) implements Delta {
         @Override
         public void apply(final AbstractBattleEnvironmentImpl environment) {
             environment.setBlockState0(x, y, z, state);
+            environment.cached = cachedPaths;
         }
     }
 
@@ -163,6 +192,13 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
         @Override
         public void apply(final AbstractBattleEnvironmentImpl environment) {
             environment.setBiome0(x, y, z, biome);
+        }
+    }
+
+    private record PathClearDelta(@Nullable Map<BattleParticipantHandle, Pather.Paths> cachedPaths) implements Delta {
+        @Override
+        public void apply(final AbstractBattleEnvironmentImpl environment) {
+            environment.cached = cachedPaths;
         }
     }
 }

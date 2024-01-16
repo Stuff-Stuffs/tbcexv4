@@ -2,6 +2,7 @@ package io.github.stuff_stuffs.tbcexv4.client.mixin;
 
 import io.github.stuff_stuffs.tbcexv4.client.api.Tbcexv4ClientApi;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BattleMenuScreen;
+import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BattleTargetingMenu;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
@@ -24,7 +25,11 @@ public abstract class MixinInventoryScreen extends Screen {
     private void hookScreenSwitch(final CallbackInfo ci) {
         final Optional<BattleHandle> watching = Tbcexv4ClientApi.watching();
         if (watching.isPresent() && client.interactionManager.getCurrentGameMode() == GameMode.SPECTATOR) {
-            client.setScreen(new BattleMenuScreen(watching.get()));
+            if (BattleTargetingMenu.targeting()) {
+                BattleTargetingMenu.inventoryPressed();
+            } else {
+                client.setScreen(new BattleMenuScreen(watching.get()));
+            }
             ci.cancel();
         }
     }

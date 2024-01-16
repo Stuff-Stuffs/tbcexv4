@@ -1,6 +1,9 @@
 package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.Target;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.TargetChooser;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.TargetType;
 
 import java.util.List;
 import java.util.Set;

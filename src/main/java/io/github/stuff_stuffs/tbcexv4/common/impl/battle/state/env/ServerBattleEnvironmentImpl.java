@@ -6,19 +6,29 @@ import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.ServerBattleWorld;
+import it.unimi.dsi.fastutil.HashCommon;
 import net.minecraft.block.BlockState;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.source.BiomeCoords;
+import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.WorldChunk;
+
+import java.util.Arrays;
 
 public class ServerBattleEnvironmentImpl extends AbstractBattleEnvironmentImpl {
     private final BlockPos.Mutable scratch;
+    private final Chunk[] chunksCache;
+    private final long[] keyCache;
 
     public ServerBattleEnvironmentImpl(final Battle battle) {
         super(battle);
         scratch = new BlockPos.Mutable();
+        chunksCache = new Chunk[1024];
+        keyCache = new long[1024];
+        Arrays.fill(keyCache, -1);
     }
 
     public BattleView battle() {
@@ -35,7 +45,15 @@ public class ServerBattleEnvironmentImpl extends AbstractBattleEnvironmentImpl {
     @Override
     protected BlockState getBlockState0(final int x, final int y, final int z) {
         scratch.set(battle.worldX(x), battle.worldY(y), battle.worldZ(z));
-        return ((ServerBattleImpl) battle).world().getBlockState(scratch);
+        final long l = ChunkPos.toLong(scratch.getX() >> 4, scratch.getZ() >> 4);
+        final int index = (int) HashCommon.mix(l) & 1023;
+        if (keyCache[index] == l) {
+            return chunksCache[index].getBlockState(scratch);
+        }
+        final Chunk chunk = ((ServerBattleImpl) battle).world().getChunk(scratch);
+        keyCache[index] = l;
+        chunksCache[index] = chunk;
+        return chunk.getBlockState(scratch);
     }
 
     @Override

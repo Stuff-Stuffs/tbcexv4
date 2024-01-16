@@ -1,6 +1,8 @@
 package io.github.stuff_stuffs.tbcexv4.client.internal.ui.component;
 
 import io.github.stuff_stuffs.tbcexv4.client.api.Tbcexv4ClientApi;
+import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BattleTargetingMenu;
+import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
@@ -8,11 +10,10 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.In
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.InventoryView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItem;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Plan;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.PlanType;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
-import io.wispforest.owo.ui.component.BoxComponent;
-import io.wispforest.owo.ui.component.Components;
-import io.wispforest.owo.ui.component.DropdownComponent;
-import io.wispforest.owo.ui.component.LabelComponent;
+import io.wispforest.owo.ui.component.*;
 import io.wispforest.owo.ui.container.Containers;
 import io.wispforest.owo.ui.container.FlowLayout;
 import io.wispforest.owo.ui.container.GridLayout;
@@ -90,6 +91,23 @@ public final class Tbcexv4UiComponents {
         layout.child(inventoryList);
         layout.child(itemDisplay);
         return layout;
+    }
+
+    public static Component actions(final BattleParticipantView participant) {
+        final List<Plan> plans = new ArrayList<>();
+        Tbcexv4Registries.DefaultPlans.forEach(participant, plans::add);
+        final FlowLayout list = Containers.verticalFlow(Sizing.fill(), Sizing.content());
+        list.gap(4);
+        final ScrollContainer<FlowLayout> scroll = Containers.verticalScroll(Sizing.content(), Sizing.fill(80), list);
+        for (final Plan plan : plans) {
+            final PlanType type = plan.type();
+            final ButtonComponent component = Components.button(type.name(), b -> {
+                BattleTargetingMenu.openRoot(plan);
+            });
+            component.tooltip(type.description());
+            list.child(component);
+        }
+        return scroll;
     }
 
     public static Component createInventoryItemDisplay(final Consumer<Consumer<Optional<BattleItem>>> itemUpdater) {
