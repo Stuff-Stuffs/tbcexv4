@@ -61,10 +61,16 @@ public class CollisionChecker {
     }
 
     public boolean check(final int x, final int y, final int z, double floorHeight) {
+        if (!inBounds(x, y, z)) {
+            return false;
+        }
         if (Double.isNaN(floorHeight)) {
             floorHeight = floorHeight(x, y, z);
         }
         lastFloorHeight = floorHeight;
+        if (floorHeight > 0.99999) {
+            return false;
+        }
         final int lowestX = MathHelper.floor(x + lowerWidth);
         final int highestX = MathHelper.ceil(x + upperWidth);
         final int lowestY = MathHelper.floor(y + floorHeight);

@@ -1,4 +1,4 @@
-package io.github.stuff_stuffs.tbcexv4.client.api;
+package io.github.stuff_stuffs.tbcexv4.client.api.render;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItem;
 import net.minecraft.client.render.VertexConsumerProvider;

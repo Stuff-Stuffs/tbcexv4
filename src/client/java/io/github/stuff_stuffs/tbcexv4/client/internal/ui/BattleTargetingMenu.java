@@ -1,7 +1,7 @@
 package io.github.stuff_stuffs.tbcexv4.client.internal.ui;
 
-import io.github.stuff_stuffs.tbcexv4.client.api.TargetUi;
-import io.github.stuff_stuffs.tbcexv4.client.api.TargetUiRegistry;
+import io.github.stuff_stuffs.tbcexv4.client.api.ui.TargetUi;
+import io.github.stuff_stuffs.tbcexv4.client.api.ui.TargetUiRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.api.Tbcexv4ClientApi;
 import io.github.stuff_stuffs.tbcexv4.client.impl.TargetUiContextImpl;
 import io.github.stuff_stuffs.tbcexv4.client.internal.Tbcexv4Client;
@@ -26,6 +26,7 @@ import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public class BattleTargetingMenu extends BaseOwoScreen<TopmostLayout> {
@@ -73,6 +74,7 @@ public class BattleTargetingMenu extends BaseOwoScreen<TopmostLayout> {
                     if (topmostLayout.stackSize() > 0) {
                         topmostLayout.pop();
                     } else {
+                        uiContext.menuOpen = false;
                         close();
                     }
                     return true;
@@ -106,6 +108,12 @@ public class BattleTargetingMenu extends BaseOwoScreen<TopmostLayout> {
     }
 
     public static void initClient() {
+        Tbcexv4ClientApi.BATTLE_WATCH_EVENT.register((battleHandle, participantHandle) -> {
+            final Screen screen = MinecraftClient.getInstance().currentScreen;
+            if (screen instanceof BattleTargetingMenu) {
+                screen.close();
+            }
+        });
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
             if (!STACK.isEmpty()) {
                 final TargetUiContextImpl uiContext = STACK.get(STACK.size() - 1);
@@ -117,11 +125,13 @@ public class BattleTargetingMenu extends BaseOwoScreen<TopmostLayout> {
     public static void inventoryPressed() {
         if (targeting()) {
             final TargetUiContextImpl context = STACK.get(STACK.size() - 1);
-            if (!context.menuOpen) {
+            if (!context.menuOpen && !context.items.isEmpty()) {
+                context.menuOpen = true;
                 MinecraftClient.getInstance().setScreen(new BattleTargetingMenu(context));
             } else {
                 final Screen screen = MinecraftClient.getInstance().currentScreen;
                 if (screen != null) {
+                    context.menuOpen = false;
                     screen.close();
                 }
             }
@@ -164,6 +174,17 @@ public class BattleTargetingMenu extends BaseOwoScreen<TopmostLayout> {
     }
 
     private static void openNested(final Plan plan) {
+        if (plan.targetTypes().size() == 1) {
+            final TargetChooser<?> chooser = plan.ofType(plan.targetTypes().iterator().next());
+            final Iterator<? extends Target> iterator = chooser.all();
+            if (iterator.hasNext()) {
+                final Target target = iterator.next();
+                if (!iterator.hasNext()) {
+                    openNested(plan.addTarget(target));
+                    return;
+                }
+            }
+        }
         final TargetUiContextImpl context = new TargetUiContextImpl(plan, BattleTargetingMenu::openNested, Tbcexv4Client.watched());
         for (final TargetType<?> type : plan.targetTypes()) {
             append(context, type, plan.ofType(type));
@@ -173,5 +194,27 @@ public class BattleTargetingMenu extends BaseOwoScreen<TopmostLayout> {
             context.menuOpen = true;
             MinecraftClient.getInstance().setScreen(new BattleTargetingMenu(context));
         }
+    }
+
+    public static boolean onAttack() {
+        if (targeting()) {
+            final TargetUiContextImpl context = STACK.get(STACK.size() - 1);
+            if (!context.menuOpen) {
+                double d = Double.POSITIVE_INFINITY;
+                TargetUi.WorldInteraction chosen = null;
+                for (final TargetUi.WorldInteraction interaction : context.interactions) {
+                    final double distance = interaction.buttonDistance();
+                    if (distance < d) {
+                        d = distance;
+                        chosen = interaction;
+                    }
+                }
+                if (chosen != null) {
+                    chosen.onButton(context);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

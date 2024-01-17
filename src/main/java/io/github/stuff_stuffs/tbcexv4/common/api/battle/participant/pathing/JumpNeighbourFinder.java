@@ -44,9 +44,9 @@ public class JumpNeighbourFinder implements NeighbourFinder {
         }
 
         protected void tryAdj(final int x, final int y, final int z, final Pather.PathNode previous, final NeighbourData data, final Consumer<Pather.PathNode> consumer) {
-            if (!(data.cost(x, y, z) < previous.cost() + cost) && checker.check(x + 1, y, z, Double.NaN)) {
-                final boolean floor = checker.lastFloorHeight > 0 || checker.floorHeight(x + 1, y - 1, z) != 0;
-                consumer.accept(new Pather.PathNode(previous, previous.cost() + 1, previous.depth() + 1, Movement.JUMP, floor, x + 1, y, z));
+            if (checker.check(x, y, z, Double.NaN)) {
+                final boolean floor = checker.lastFloorHeight > 0 || checker.floorHeight(x, y - 1, z) != 0;
+                consumer.accept(new Pather.PathNode(previous, previous.cost() + cost, previous.depth() + 1, Movement.JUMP, floor, x, y, z));
             }
         }
     }

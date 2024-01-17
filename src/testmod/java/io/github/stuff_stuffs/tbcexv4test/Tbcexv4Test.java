@@ -22,11 +22,10 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Plan;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.PlanType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Plans;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.SingleTargetPlan;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.ParticipantTarget;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.TargetChooser;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.TargetChoosers;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.*;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateView;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattleEnvironmentInitialState;
@@ -46,17 +45,28 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.ChunkSectionPos;
+import net.minecraft.util.math.random.Random;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class Tbcexv4Test implements ModInitializer {
     private static final PlanType PLAN_TYPE = new PlanType() {
         @Override
         public Text name() {
             return Text.of("TODO");
+        }
+
+        @Override
+        public Text description() {
+            return Text.of("TODO");
+        }
+    };
+    private static final PlanType WALK_PLAN_TYPE = new PlanType() {
+        @Override
+        public Text name() {
+            return Text.of("WALK");
         }
 
         @Override
@@ -130,14 +140,51 @@ public class Tbcexv4Test implements ModInitializer {
                 }
             })));
         });
+        NeighbourFinder.GATHER_EVENT.register(new NeighbourFinder.Gather() {
+            @Override
+            public void gather(final BattleParticipantView participant, final Consumer<NeighbourFinder> consumer) {
+                consumer.accept(new WalkNeighbourFinder());
+                consumer.accept(new JumpNeighbourFinder());
+                consumer.accept(new FallNeighbourFinder());
+            }
+        });
         Tbcexv4Registries.DefaultPlans.register((participant, consumer) -> {
             final BattlePos pos = participant.pos();
             final BattleStateView battleState = participant.battleState();
             Pather.Paths cache = battleState.environment().lookupCachedPaths(participant.handle());
             if (cache == null) {
-                final Pather pather = Pather.create(new NeighbourFinder[]{new FallNeighbourFinder(), new JumpNeighbourFinder(), new WalkNeighbourFinder()}, Pather.PathNode::onFloor);
-                cache = pather.compute(new Pather.PathNode(null, 0, 0, Movement.WALK, true, pos.x(), pos.y(), pos.z()), PatherOptions.NONE, participant);
-                battleState.environment().cachePaths(participant.handle(), cache);
+                final List<NeighbourFinder> finders = new ArrayList<>();
+                NeighbourFinder.GATHER_EVENT.invoker().gather(participant, finders::add);
+                if (!finders.isEmpty()) {
+                    final Pather pather = Pather.create(finders.toArray(NeighbourFinder[]::new), Pather.PathNode::onFloor);
+                    cache = pather.compute(new Pather.PathNode(null, 0, 0, Movement.WALK, true, pos.x(), pos.y(), pos.z()), PatherOptions.NONE, participant);
+                    battleState.environment().cachePaths(participant.handle(), cache);
+                }
+            }
+            if (cache.all().findAny().isPresent()) {
+                final Pather.Paths paths = cache;
+                final Function<Pather.PathNode, PathTarget> factory = p -> new PathTarget(p, paths.isTerminal(p));
+                Plans.acceptPlayer(participant, new SingleTargetPlan<>(new TargetChooser<PathTarget>() {
+                    @Override
+                    public TargetType<PathTarget> type() {
+                        return Tbcexv4Registries.TargetTypes.PATH_TARGET;
+                    }
+
+                    @Override
+                    public Iterator<? extends PathTarget> all() {
+                        return paths.all().map(factory).iterator();
+                    }
+
+                    @Override
+                    public PathTarget choose(final double temperature, final Random random, final BattleTransactionContext context) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public double weight() {
+                        return 1;
+                    }
+                }, target -> List.of(new WalkBattleAction(participant.handle(), new BattlePos(target.node().x(), target.node().y(), target.node().z()))), WALK_PLAN_TYPE), consumer);
             }
             final List<BattleParticipantView> targets = new ArrayList<>();
             for (final BattleParticipantHandle handle : battleState.participants()) {
@@ -161,26 +208,26 @@ public class Tbcexv4Test implements ModInitializer {
                 }
                 return attackable;
             }, (pos1, handles) -> {
+                final BattlePos p = new BattlePos(pos1.x(), pos1.y(), pos1.z());
                 final Optional<TargetChooser<ParticipantTarget>> chooser = TargetChoosers.hurtParticipant(participant, handles::contains, 3);
                 if (chooser.isPresent()) {
-                    return new SingleTargetPlan<>(chooser.get(), (FunctionType<ParticipantTarget, List<BattleAction>>) participantTarget -> List.of(new WalkBattleAction(participant.handle(), pos1), new AttackBattleAction(participant.handle(), participantTarget.participant())), PLAN_TYPE);
+                    return new SingleTargetPlan<>(chooser.get(), (FunctionType<ParticipantTarget, List<BattleAction>>) participantTarget -> List.of(new WalkBattleAction(participant.handle(), p), new AttackBattleAction(participant.handle(), participantTarget.participant())), PLAN_TYPE);
                 }
                 return Plan.EMPTY_PLAN;
             }, value -> 5 / battleState.participant(value).health(), 1, PLAN_TYPE);
             if (plan.isPresent()) {
                 consumer.accept(plan.get());
-            } else {
-                final Optional<TargetChooser<ParticipantTarget>> chooser = TargetChoosers.hurtParticipant(participant, s -> {
-                    final BattleParticipantView target = battleState.participant(s);
-                    final double distanced = BattleParticipantBounds.distance2(participant.bounds(), participant.pos(), target.bounds(), target.pos());
-                    if (s.equals(participant.handle())) {
-                        return false;
-                    }
-                    return distanced < 3;
-                }, 3);
-                if (chooser.isPresent()) {
-                    consumer.accept(new SingleTargetPlan<>(chooser.get(), (FunctionType<ParticipantTarget, List<BattleAction>>) participantTarget -> List.of(new AttackBattleAction(participant.handle(), participantTarget.participant())), PLAN_TYPE));
+            }
+            final Optional<TargetChooser<ParticipantTarget>> chooser = TargetChoosers.hurtParticipant(participant, s -> {
+                final BattleParticipantView target = battleState.participant(s);
+                final double distanced = BattleParticipantBounds.distance2(participant.bounds(), participant.pos(), target.bounds(), target.pos());
+                if (s.equals(participant.handle())) {
+                    return false;
                 }
+                return distanced < 3;
+            }, 3);
+            if (chooser.isPresent()) {
+                consumer.accept(new SingleTargetPlan<>(chooser.get(), (FunctionType<ParticipantTarget, List<BattleAction>>) participantTarget -> List.of(new AttackBattleAction(participant.handle(), participantTarget.participant())), PLAN_TYPE));
             }
         });
     }

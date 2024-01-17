@@ -12,7 +12,5 @@ public interface TargetChooser<T extends Target> {
 
     T choose(double temperature, Random random, BattleTransactionContext context);
 
-    double weight(T target, double temperature, Random random, BattleTransactionContext context);
-
     double weight();
 }

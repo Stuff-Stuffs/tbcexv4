@@ -1,8 +1,10 @@
 package io.github.stuff_stuffs.tbcexv4.client.internal;
 
 import io.github.stuff_stuffs.tbcexv4.client.api.*;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.BattleItemRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.ClientBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.state.env.ClientBattleEnvironmentImpl;
+import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BasicTargetUi;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BattleMenuScreen;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BattleTargetingMenu;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.component.Tbcexv4UiComponents;
@@ -16,8 +18,6 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachmentView;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.PosTarget;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.TargetChooser;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
@@ -28,22 +28,19 @@ import io.github.stuff_stuffs.tbcexv4.common.internal.network.WatchRequestPacket
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.WatchRequestResponsePacket;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattleEnvironmentInitialState;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectIterators;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.render.*;
+import net.minecraft.client.render.LightmapTextureManager;
+import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
-import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
@@ -199,43 +196,7 @@ public class Tbcexv4Client implements ClientModInitializer {
                         )
         ));
         BattleTargetingMenu.initClient();
-        TargetUiRegistry.register(Tbcexv4Registries.TargetTypes.POS_TARGET, (chooser, context) -> {
-            final ObjectList<? extends PosTarget> pour = ObjectIterators.pour(chooser.all());
-            context.addRenderable(new TargetUi.WorldInteraction() {
-                @Override
-                public void render(final WorldRenderContext renderContext) {
-                    final MatrixStack matrices = renderContext.matrixStack();
-                    final Camera camera = renderContext.camera();
-                    matrices.push();
-                    matrices.translate(-camera.getPos().x, -camera.getPos().y, -camera.getPos().z);
-                    final BattleView battle = context.battle();
-                    final VertexConsumerProvider consumers = renderContext.consumers();
-                    final VertexConsumer buffer = consumers.getBuffer(RenderLayer.LINES);
-                    for (final PosTarget target : pour) {
-                        final int x = battle.worldX(target.pos().x());
-                        final int y = battle.worldY(target.pos().y());
-                        final int z = battle.worldZ(target.pos().z());
-                        WorldRenderer.drawBox(matrices, buffer, x + 0.25, y + 0.25, z + 0.25, x + 0.75, y + 0.75, z + 0.75, 0, 1, 0, 1);
-                    }
-                    matrices.pop();
-                }
-
-                @Override
-                public double buttonDistance(final int button) {
-                    return 0;
-                }
-
-                @Override
-                public void onButton(final TargetUi.Context context) {
-
-                }
-
-                @Override
-                public void close() {
-
-                }
-            });
-        });
+        BasicTargetUi.init();
     }
 
     public static DelayedResponse<Tbcexv4ClientApi.RequestResult> sendRequest(final BattleAction request) {

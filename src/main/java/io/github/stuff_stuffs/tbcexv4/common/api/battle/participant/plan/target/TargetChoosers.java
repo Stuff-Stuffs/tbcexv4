@@ -76,11 +76,6 @@ public final class TargetChoosers {
         }
 
         @Override
-        protected BattleParticipantHandle extract(final ParticipantTarget target) {
-            return target.participant();
-        }
-
-        @Override
         protected Iterator<? extends BattleParticipantHandle> iterator() {
             return state.participants().stream().filter(predicate).iterator();
         }

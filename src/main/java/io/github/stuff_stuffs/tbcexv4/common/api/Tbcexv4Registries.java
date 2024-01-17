@@ -14,8 +14,10 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.Damag
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.EquipmentSlot;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemType;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.*;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Plan;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.PlanFactory;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.ParticipantTarget;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.PathTarget;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.PosTarget;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.TargetType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.RegisteredStat;
@@ -204,6 +206,17 @@ public final class Tbcexv4Registries {
 
             @Override
             public Text description(final PosTarget target) {
+                return Text.of("TODO");
+            }
+        };
+        public static final TargetType<PathTarget> PATH_TARGET = new TargetType<PathTarget>() {
+            @Override
+            public Text name() {
+                return Text.of("Path");
+            }
+
+            @Override
+            public Text description(final PathTarget target) {
                 return Text.of("TODO");
             }
         };

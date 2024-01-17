@@ -1,6 +1,6 @@
 package io.github.stuff_stuffs.tbcexv4.client.internal.ui.component;
 
-import io.github.stuff_stuffs.tbcexv4.client.api.BattleItemRendererRegistry;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.BattleItemRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItem;
 import io.wispforest.owo.ui.base.BaseComponent;
 import io.wispforest.owo.ui.core.OwoUIDrawContext;

@@ -1,4 +1,4 @@
-package io.github.stuff_stuffs.tbcexv4.client.api;
+package io.github.stuff_stuffs.tbcexv4.client.api.ui;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.Target;
@@ -23,7 +23,7 @@ public interface TargetUi<T extends Target> {
     interface WorldInteraction {
         void render(WorldRenderContext renderContext);
 
-        double buttonDistance(int button);
+        double buttonDistance();
 
         void onButton(Context context);
 

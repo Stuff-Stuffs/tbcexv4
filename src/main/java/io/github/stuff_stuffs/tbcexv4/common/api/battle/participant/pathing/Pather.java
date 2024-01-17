@@ -24,6 +24,8 @@ public interface Pather {
 
         Stream<? extends PathNode> all();
 
+        boolean isTerminal(PathNode node);
+
         static int pack(final int x, final int y, final int z) {
             return (x & MASK) << 2 * SHIFT | (y & MASK) << SHIFT | z & MASK;
         }

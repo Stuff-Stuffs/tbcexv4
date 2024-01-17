@@ -1,6 +1,6 @@
 package io.github.stuff_stuffs.tbcexv4.client.impl;
 
-import io.github.stuff_stuffs.tbcexv4.client.api.TargetUi;
+import io.github.stuff_stuffs.tbcexv4.client.api.ui.TargetUi;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Plan;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.Target;
@@ -15,12 +15,12 @@ import java.util.function.Consumer;
 public class TargetUiContextImpl implements TargetUi.Context {
     public final Plan plan;
     private final Consumer<Plan> consumer;
-    private final List<TargetUi.WorldInteraction> interactions = new ArrayList<>();
+    public final List<TargetUi.WorldInteraction> interactions = new ArrayList<>();
     public final List<MenuItem> items = new ArrayList<>();
     public boolean menuOpen = false;
     private final BattleView battle;
 
-    public TargetUiContextImpl(final Plan plan, final Consumer<Plan> consumer, BattleView battle) {
+    public TargetUiContextImpl(final Plan plan, final Consumer<Plan> consumer, final BattleView battle) {
         this.plan = plan;
         this.consumer = consumer;
         this.battle = battle;

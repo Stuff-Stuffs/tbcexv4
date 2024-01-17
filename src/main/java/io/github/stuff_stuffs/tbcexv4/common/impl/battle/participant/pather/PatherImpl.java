@@ -11,7 +11,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -33,6 +32,7 @@ public class PatherImpl implements Pather {
             instances[index++] = finder.apply(options, participant);
         }
         final Int2ObjectMap<PathNode> visited = new Int2ObjectOpenHashMap<>(512);
+        final Int2ObjectMap<IntSet> longerAdjacency = new Int2ObjectOpenHashMap<>(512);
         visited.put(Paths.pack(startingNode.x(), startingNode.y(), startingNode.z()), startingNode);
         final PriorityQueue<PathNode> queue = new ObjectHeapPriorityQueue<>(512);
         queue.enqueue(startingNode);
@@ -43,10 +43,25 @@ public class PatherImpl implements Pather {
             }
             return node.cost();
         };
-        final BiFunction<PathNode, PathNode, PathNode> min = (n0, n1) -> n0.cost() <= n1.cost() ? n0 : n1;
         final Consumer<PathNode> consumer = node -> {
-            if (visited.merge(Paths.pack(node.x(), node.y(), node.z()), node, min) == node) {
+            final int key = Paths.pack(node.x(), node.y(), node.z());
+            final PathNode old = visited.get(key);
+            if (old == null || node.cost() < old.cost()) {
+                visited.put(key, node);
+                if (old != null) {
+                    final PathNode prev = old.prev();
+                    if (prev != null) {
+                        final int prevKey = Paths.pack(prev.x(), prev.y(), prev.z());
+                        longerAdjacency.computeIfAbsent(prevKey, i -> new IntOpenHashSet(4)).add(key);
+                    }
+                }
                 queue.enqueue(node);
+            } else {
+                final PathNode prev = node.prev();
+                if (prev != null) {
+                    final int prevKey = Paths.pack(prev.x(), prev.y(), prev.z());
+                    longerAdjacency.computeIfAbsent(prevKey, i -> new IntOpenHashSet(4)).add(key);
+                }
             }
         };
         final int maxDepth = (int) options.getValue(PatherOptions.MAX_DEPTH_KEY, 32);
@@ -61,7 +76,7 @@ public class PatherImpl implements Pather {
         }
         final IntSet terminalSet = new IntOpenHashSet(visited.keySet());
         final Int2ObjectMap<PathNode> processedNodes = new Int2ObjectLinkedOpenHashMap<>(visited.size());
-        for (final Int2ObjectMap.Entry<PathNode> entry : visited.int2ObjectEntrySet()) {
+        for (final Int2ObjectMap.Entry<PathNode> entry : Int2ObjectMaps.fastIterable(visited)) {
             final PathNode node = entry.getValue();
             final PathNode prev = node.prev();
             final boolean valid = endNodeValidator.test(node);
@@ -70,6 +85,19 @@ public class PatherImpl implements Pather {
             }
             if (valid) {
                 processedNodes.put(entry.getIntKey(), entry.getValue());
+            }
+        }
+        for (final Int2ObjectMap.Entry<IntSet> entry : Int2ObjectMaps.fastIterable(longerAdjacency)) {
+            final IntIterator iterator = entry.getValue().iterator();
+            boolean anyAdjValid = false;
+            while (iterator.hasNext()) {
+                if (processedNodes.containsKey(iterator.nextInt())) {
+                    anyAdjValid = true;
+                    break;
+                }
+            }
+            if (anyAdjValid) {
+                terminalSet.remove(entry.getIntKey());
             }
         }
         final IntIterator iterator = terminalSet.iterator();
@@ -87,11 +115,16 @@ public class PatherImpl implements Pather {
 
     private static final class PathsImpl implements Paths {
         private final Int2ObjectMap<PathNode> nodes;
+        private final IntSet terminalKeys;
         private final List<PathNode> terminals;
 
         private PathsImpl(final Int2ObjectMap<PathNode> nodes, final List<PathNode> terminals) {
             this.nodes = nodes;
             this.terminals = terminals;
+            terminalKeys = new IntOpenHashSet(terminals.size());
+            for (final PathNode terminal : terminals) {
+                terminalKeys.add(Paths.pack(terminal.x(), terminal.y(), terminal.z()));
+            }
         }
 
         @Override
@@ -113,6 +146,11 @@ public class PatherImpl implements Pather {
         @Override
         public Stream<? extends PathNode> all() {
             return nodes.values().stream();
+        }
+
+        @Override
+        public boolean isTerminal(final PathNode node) {
+            return terminalKeys.contains(Paths.pack(node.x(), node.y(), node.z()));
         }
     }
 }

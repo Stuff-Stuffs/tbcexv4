@@ -14,8 +14,6 @@ public abstract class AbstractTargetChooser<I, T extends Target> implements Targ
         this.state = state;
     }
 
-    protected abstract I extract(T target);
-
     protected abstract Iterator<? extends I> iterator();
 
     protected abstract double weight0(I obj, double temperature, final Random random, final BattleTransactionContext context);
@@ -54,10 +52,5 @@ public abstract class AbstractTargetChooser<I, T extends Target> implements Targ
     @Override
     public T choose(final double temperature, final Random random, final BattleTransactionContext context) {
         return create(choose0(temperature, random, context));
-    }
-
-    @Override
-    public double weight(final T target, final double temperature, final Random random, final BattleTransactionContext context) {
-        return weight0(extract(target), temperature, random, context);
     }
 }

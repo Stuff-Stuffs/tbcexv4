@@ -1,4 +1,4 @@
-package io.github.stuff_stuffs.tbcexv4.client.api;
+package io.github.stuff_stuffs.tbcexv4.client.api.ui;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.Target;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.TargetType;

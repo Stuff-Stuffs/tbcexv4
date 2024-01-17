@@ -53,7 +53,7 @@ public interface Plan {
             return new PlanType() {
                 @Override
                 public Text name() {
-                    return Text.of("EMPTY");
+                    return Text.of("ERROR");
                 }
 
                 @Override
