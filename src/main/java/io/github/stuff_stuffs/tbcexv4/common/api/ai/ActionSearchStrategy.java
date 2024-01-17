@@ -14,13 +14,13 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public interface ActionSearchStrategy {
-    Optional<List<BattleAction>> search(TurnManager manager, BattleParticipant participant, Scorer scorer, BattleTracer tracer, BattleTransactionContext context, long seed, CompletableFuture<CompletableFuture<Unit>> cancellation);
+    Optional<List<BattleAction>> search(TurnManager manager, BattleParticipant participant, BattleTracer tracer, BattleTransactionContext context, long seed, CompletableFuture<CompletableFuture<Unit>> cancellation);
 
-    static ActionSearchStrategy basic(final double temperature) {
+    static ActionSearchStrategy basic(final double temperature, final Scorer scorer) {
         if (temperature <= 0) {
             throw new IllegalArgumentException();
         }
-        return new BasicActionSearchStrategyImpl(temperature);
+        return new BasicActionSearchStrategyImpl(temperature, scorer);
     }
 
     static ActionSearchStrategy noop() {

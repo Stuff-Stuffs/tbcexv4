@@ -122,7 +122,7 @@ public class BattleManager implements AutoCloseable {
         return new ServerBattleImpl.AiController() {
 
             @Override
-            public void compute(final BattleParticipantHandle pHandle, final Scorer scorer, final ActionSearchStrategy strategy, final BattleTransaction context, final BattleTracer tracer) {
+            public void compute(final BattleParticipantHandle pHandle, final ActionSearchStrategy strategy, final BattleTransaction context, final BattleTracer tracer) {
                 final AiTask removed = ongoingAi.remove(handle);
                 if (removed != null) {
                     BattleManager.cancel(removed);
@@ -134,7 +134,7 @@ public class BattleManager implements AutoCloseable {
                 final ServerBattleImpl battle = loadedBattles.get(handle).battle;
                 final BattleParticipant participant = battle.state().participant(pHandle);
                 final CompletableFuture<CompletableFuture<Unit>> cancellation = new CompletableFuture<>();
-                final CompletableFuture<Optional<List<BattleAction>>> future = CompletableFuture.supplyAsync(() -> strategy.search(battle.turnManager(), participant, scorer, tracer, context, tracer.latest().hashCode(), cancellation), ((ServerExtensions) world.getServer()).tbcexv4$getBackgroundExecutor());
+                final CompletableFuture<Optional<List<BattleAction>>> future = CompletableFuture.supplyAsync(() -> strategy.search(battle.turnManager(), participant, tracer, context, tracer.latest().hashCode(), cancellation), ((ServerExtensions) world.getServer()).tbcexv4$getBackgroundExecutor());
                 ongoingAi.put(handle, new AiTask(future, cancellation, cleanup, pHandle));
             }
 

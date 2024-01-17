@@ -133,7 +133,7 @@ public class PlayerJoinTestBattleAction implements BattleAction {
 
             @Override
             public void addAttachments(final BattleParticipantAttachment.Builder builder) {
-                builder.accept(new BattleParticipantAIControllerAttachment(f -> Scorer.sum(Scorers.health(f.handle()), Scorers.enemyTeamHealth(f.handle())), f -> ActionSearchStrategy.basic(1.0)), Tbcexv4Registries.BattleParticipantAttachmentTypes.AI_CONTROLLER);
+                builder.accept(new BattleParticipantAIControllerAttachment(f -> ActionSearchStrategy.basic(1.0, Scorer.sum(Scorers.health(f.handle()), Scorers.enemyTeamHealth(f.handle())))), Tbcexv4Registries.BattleParticipantAttachmentTypes.AI_CONTROLLER);
             }
         }, transactionContext, tracer);
         if (result instanceof final Result.Success<BattleParticipantHandle, BattleState.AddParticipantError> success) {

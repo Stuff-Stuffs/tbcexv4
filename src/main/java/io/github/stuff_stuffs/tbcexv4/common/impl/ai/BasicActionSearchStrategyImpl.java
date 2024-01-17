@@ -33,13 +33,15 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
     private static final int MAX_DEPTH = 4;
     private static final double EPS = 0.000001;
     private final double temperature;
+    private final Scorer scorer;
 
-    public BasicActionSearchStrategyImpl(final double temperature) {
+    public BasicActionSearchStrategyImpl(final double temperature, final Scorer scorer) {
         this.temperature = temperature;
+        this.scorer = scorer;
     }
 
     @Override
-    public Optional<List<BattleAction>> search(final TurnManager turnManager, final BattleParticipant participant, final Scorer scorer, final BattleTracer tracer, final BattleTransactionContext context, final long seed, final CompletableFuture<CompletableFuture<Unit>> cancellation) {
+    public Optional<List<BattleAction>> search(final TurnManager turnManager, final BattleParticipant participant, final BattleTracer tracer, final BattleTransactionContext context, final long seed, final CompletableFuture<CompletableFuture<Unit>> cancellation) {
         CompletableFuture<Unit> cancellationFuture = cancellation.getNow(null);
         if (cancellationFuture != null) {
             cancellationFuture.complete(Unit.INSTANCE);

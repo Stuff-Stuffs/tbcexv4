@@ -5,7 +5,6 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.ai.ActionSearchStrategy;
-import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
@@ -188,7 +187,7 @@ public class ServerBattleImpl implements Battle {
                     throw new RuntimeException();
                 }
                 final BattleParticipantAIControllerAttachment attachment = opt.get();
-                aiController.compute(chosen, attachment.scorer(), attachment.strategy(), state.transactionManager().open(), tracer);
+                aiController.compute(chosen, attachment.strategy(), state.transactionManager().open(), tracer);
             }
         }
     }
@@ -271,7 +270,7 @@ public class ServerBattleImpl implements Battle {
     }
 
     public interface AiController {
-        void compute(BattleParticipantHandle handle, Scorer scorer, ActionSearchStrategy strategy, BattleTransaction context, BattleTracer tracer);
+        void compute(BattleParticipantHandle handle, ActionSearchStrategy strategy, BattleTransaction context, BattleTracer tracer);
 
         void cancel();
     }
