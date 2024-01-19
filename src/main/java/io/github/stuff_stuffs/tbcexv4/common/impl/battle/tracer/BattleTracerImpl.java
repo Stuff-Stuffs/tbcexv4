@@ -126,7 +126,7 @@ public class BattleTracerImpl extends DeltaSnapshotParticipant<BattleTracerImpl.
     @Override
     public Stream<? extends Node<?>> all() {
         flatten();
-        return flattened.stream().sorted();
+        return flattened.stream();
     }
 
     @Override

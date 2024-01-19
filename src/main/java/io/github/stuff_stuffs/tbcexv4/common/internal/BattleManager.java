@@ -212,16 +212,14 @@ public class BattleManager implements AutoCloseable {
     }
 
     public void tick() {
-        for (final Iterator<Map.Entry<BattleHandle, AiTask>> iterator = ongoingAi.entrySet().iterator(); iterator.hasNext(); ) {
-            final Map.Entry<BattleHandle, AiTask> entry = iterator.next();
-            final AiTask task = entry.getValue();
-            final BattleHandle key = entry.getKey();
+        for (BattleHandle handle : new ObjectOpenHashSet<>(ongoingAi.keySet())) {
+            final AiTask task = ongoingAi.get(handle);
             if (task.actionFuture.isDone()) {
-                iterator.remove();
+                ongoingAi.remove(handle);
                 try {
                     final Optional<List<BattleAction>> action = task.actionFuture.get();
                     task.cleanup.run();
-                    final LoadedBattle battle = loadedBattles.get(key);
+                    final LoadedBattle battle = loadedBattles.get(handle);
                     if (battle != null) {
                         if (action.isPresent()) {
                             for (final BattleAction battleAction : action.get()) {

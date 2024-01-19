@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantBounds;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
@@ -12,10 +13,12 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.*;
+import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.command.CommandSource;
 import net.minecraft.text.Text;
 import net.minecraft.util.Colors;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.ColorHelper;
@@ -28,6 +31,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 public final class BattleDebugRendererRegistry {
+    private static final Identifier HEALTH_BACKGROUND = new Identifier("boss_bar/notched_20_background");
+    private static final Identifier HEALTH_FOREGROUND = new Identifier("boss_bar/white_progress");
+
     public static final class RenderLayerHolder extends RenderLayer {
         public static final Function<Float, RenderLayer> DEBUG_LINES = Util.memoize(lineWidth -> RenderLayer.of(
                 "debug_line",
@@ -41,6 +47,7 @@ public final class BattleDebugRendererRegistry {
                         .cull(DISABLE_CULLING)
                         .build(false)
         ));
+        public static final RenderLayer GUI = RenderLayer.of("gui", VertexFormats.POSITION_COLOR_TEXTURE, VertexFormat.DrawMode.QUADS, 4096, false, true, RenderLayer.MultiPhaseParameters.builder().program(POSITION_COLOR_TEXTURE_PROGRAM).transparency(RenderPhase.TRANSLUCENT_TRANSPARENCY).cull(RenderPhase.DISABLE_CULLING).texture(new Texture(new Identifier("textures/atlas/gui.png"), false, false)).depthTest(RenderPhase.LEQUAL_DEPTH_TEST).build(false));
 
         public RenderLayerHolder(final String name, final VertexFormat vertexFormat, final VertexFormat.DrawMode drawMode, final int expectedBufferSize, final boolean hasCrumbling, final boolean translucent, final Runnable startAction, final Runnable endAction) {
             super(name, vertexFormat, drawMode, expectedBufferSize, hasCrumbling, translucent, startAction, endAction);
@@ -120,6 +127,51 @@ public final class BattleDebugRendererRegistry {
                 buffer.vertex(pMat, endX, startY, z).color(0xFFFF00FF).normal(0, 0, 1).next();
                 buffer.vertex(pMat, endX, endY, z).color(0xFFFF00FF).normal(0, 0, 1).next();
             }
+        });
+        register("participant_health", (context, battle) -> {
+            final Vec3d cameraPos = context.camera().getPos();
+            final MatrixStack matrices = context.matrixStack();
+            matrices.push();
+            matrices.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
+            final VertexConsumerProvider consumers = context.consumers();
+            for (final BattleParticipantHandle handle : battle.state().participants()) {
+                final BattleParticipant participant = battle.state().participant(handle);
+                final float healthPercent = (float) (participant.health() / participant.stats().get(Tbcexv4Registries.Stats.MAX_HEALTH));
+                if (!Float.isFinite(healthPercent)) {
+                    continue;
+                }
+                matrices.push();
+                final double x = battle.worldX(participant.pos().x()) + 0.5;
+                final double y = battle.worldY(participant.pos().y()) + participant.bounds().height() + 1;
+                final double z = battle.worldZ(participant.pos().z()) + 0.5;
+                matrices.translate(x, y, z);
+                matrices.multiply(context.camera().getRotation());
+                final Matrix4f pMat = matrices.peek().getPositionMatrix();
+                final int i = participant.team().id().hashCode() & 0x7FFFFFFF;
+                final int rgb = MathHelper.hsvToRgb(i / (float) Integer.MAX_VALUE, 1.0F, 1.5F);
+                final float red = ColorHelper.Argb.getRed(rgb) / 255.0F;
+                final float green = ColorHelper.Argb.getGreen(rgb) / 255.0F;
+                final float blue = ColorHelper.Argb.getBlue(rgb) / 255.0F;
+                final VertexConsumer buffer = consumers.getBuffer(RenderLayerHolder.GUI);
+                {
+                    final Sprite sprite = MinecraftClient.getInstance().getGuiAtlasManager().getSprite(new Identifier("boss_bar/white_background"));
+                    buffer.vertex(pMat, -0.75F, -0.075F, 0.0F).color(red, green, blue, 1.0F).texture(sprite.getMinU(), sprite.getMinV()).next();
+                    buffer.vertex(pMat, 0.75F, -0.075F, 0.0F).color(red, green, blue, 1.0F).texture(sprite.getMaxU(), sprite.getMinV()).next();
+                    buffer.vertex(pMat, 0.75F, 0.075F, 0.0F).color(red, green, blue, 1.0F).texture(sprite.getMaxU(), sprite.getMaxV()).next();
+                    buffer.vertex(pMat, -0.75F, 0.075F, 0.0F).color(red, green, blue, 1.0F).texture(sprite.getMinU(), sprite.getMaxV()).next();
+                }
+                {
+                    final Sprite sprite = MinecraftClient.getInstance().getGuiAtlasManager().getSprite(new Identifier("boss_bar/white_progress"));
+                    final float maxU = (sprite.getMaxU() - sprite.getMinU()) * healthPercent + sprite.getMinU();
+                    buffer.vertex(pMat, -0.75F, -0.075F, -0.001F).color(red, green, blue, 1.0F).texture(maxU, sprite.getMinV()).next();
+                    buffer.vertex(pMat, 0.75F * healthPercent, -0.075F, -0.001F).color(red, green, blue, 1.0F).texture(sprite.getMinU(), sprite.getMinV()).next();
+                    buffer.vertex(pMat, 0.75F * healthPercent, 0.075F, -0.001F).color(red, green, blue, 1.0F).texture(sprite.getMinU(), sprite.getMaxV()).next();
+                    buffer.vertex(pMat, -0.75F, 0.075F, -0.001F).color(red, green, blue, 1.0F).texture(maxU, sprite.getMaxV()).next();
+                }
+
+                matrices.pop();
+            }
+            matrices.pop();
         });
         register("participant_bounds", (context, battle) -> {
             final VertexConsumer buffer = context.consumers().getBuffer(RenderLayerHolder.DEBUG_LINES.apply(1.0F));

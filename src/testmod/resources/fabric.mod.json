@@ -15,6 +15,9 @@
   "entrypoints": {
     "main": [
       "io.github.stuff_stuffs.tbcexv4test.Tbcexv4Test"
+    ],
+    "client": [
+      "io.github.stuff_stuffs.tbcexv4test.client.Tbcexv4TestClient"
     ]
   },
   "depends": {

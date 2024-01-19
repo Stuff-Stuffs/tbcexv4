@@ -7,6 +7,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.B
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.DamageType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.Inventory;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.Pather;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatContainer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
@@ -41,6 +42,8 @@ public interface BattleParticipant extends BattleParticipantView {
 
     double setHealth(double amount, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
+    Result<Pather.PathNode, MoveError> move(Pather.PathNode node, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
+
     <T extends BattleParticipantAttachment> Optional<T> attachment(BattleParticipantAttachmentType<?, T> type);
 
     <T extends BattleParticipantAttachment> void setAttachment(@Nullable T value, BattleParticipantAttachmentType<?, T> type, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
@@ -54,5 +57,11 @@ public interface BattleParticipant extends BattleParticipantView {
         EVENT,
         OUTSIDE_BATTLE,
         ENV_COLLISION
+    }
+
+    enum MoveError {
+        EVENT,
+        ENV_COLLISION,
+        OUTSIDE_BATTLE
     }
 }

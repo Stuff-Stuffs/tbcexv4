@@ -7,6 +7,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.InventoryHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.Pather;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
@@ -52,20 +53,38 @@ public final class CoreBattleTraceEvents {
     }
 
     public record PreSetParticipantBounds(
+            BattleParticipantHandle handle,
             BattleParticipantBounds attemptedBounds
     ) implements BattleTraceEvent {
     }
 
     public record SetParticipantBounds(
+            BattleParticipantHandle handle,
             BattleParticipantBounds oldBounds,
             BattleParticipantBounds newBounds
     ) implements BattleTraceEvent {
     }
 
-    public record PreSetParticipantPos(BattlePos attemptedBounds) implements BattleTraceEvent {
+    public record PreSetParticipantPos(
+            BattleParticipantHandle handle,
+            BattlePos attemptedBounds
+    ) implements BattleTraceEvent {
     }
 
-    public record SetParticipantPos(BattlePos oldPos, BattlePos newPos) implements BattleTraceEvent {
+    public record SetParticipantPos(
+            BattleParticipantHandle handle,
+            BattlePos oldPos,
+            BattlePos newPos
+    ) implements BattleTraceEvent {
+    }
+
+    public record PreMoveParticipant(BattleParticipantHandle handle, Pather.PathNode path) implements BattleTraceEvent {
+    }
+
+    public record PostMoveParticipant(
+            BattleParticipantHandle handle,
+            Pather.PathNode pathNode
+    ) implements BattleTraceEvent {
     }
 
     public record PreSetTeamRelation(

@@ -157,7 +157,7 @@ public class Tbcexv4Test implements ModInitializer {
                 NeighbourFinder.GATHER_EVENT.invoker().gather(participant, finders::add);
                 if (!finders.isEmpty()) {
                     final Pather pather = Pather.create(finders.toArray(NeighbourFinder[]::new), Pather.PathNode::onFloor);
-                    cache = pather.compute(new Pather.PathNode(null, 0, 0, Movement.WALK, true, pos.x(), pos.y(), pos.z()), PatherOptions.NONE, participant);
+                    cache = pather.compute(new Pather.PathNode((Pather.PathNode) null, 0, 0, Movement.WALK, true, pos.x(), pos.y(), pos.z()), PatherOptions.NONE, participant);
                     battleState.environment().cachePaths(participant.handle(), cache);
                 }
             }
@@ -184,7 +184,7 @@ public class Tbcexv4Test implements ModInitializer {
                     public double weight() {
                         return 1;
                     }
-                }, target -> List.of(new WalkBattleAction(participant.handle(), new BattlePos(target.node().x(), target.node().y(), target.node().z()))), WALK_PLAN_TYPE), consumer);
+                }, target -> List.of(new WalkBattleAction(participant.handle(), target.node())), WALK_PLAN_TYPE), consumer);
             }
             final List<BattleParticipantView> targets = new ArrayList<>();
             for (final BattleParticipantHandle handle : battleState.participants()) {
@@ -207,11 +207,10 @@ public class Tbcexv4Test implements ModInitializer {
                     }
                 }
                 return attackable;
-            }, (pos1, handles) -> {
-                final BattlePos p = new BattlePos(pos1.x(), pos1.y(), pos1.z());
+            }, (node, handles) -> {
                 final Optional<TargetChooser<ParticipantTarget>> chooser = TargetChoosers.hurtParticipant(participant, handles::contains, 3);
                 if (chooser.isPresent()) {
-                    return new SingleTargetPlan<>(chooser.get(), (FunctionType<ParticipantTarget, List<BattleAction>>) participantTarget -> List.of(new WalkBattleAction(participant.handle(), p), new AttackBattleAction(participant.handle(), participantTarget.participant())), PLAN_TYPE);
+                    return new SingleTargetPlan<>(chooser.get(), (FunctionType<ParticipantTarget, List<BattleAction>>) participantTarget -> List.of(new WalkBattleAction(participant.handle(), node), new AttackBattleAction(participant.handle(), participantTarget.participant())), PLAN_TYPE);
                 }
                 return Plan.EMPTY_PLAN;
             }, value -> 5 / battleState.participant(value).health(), 1, PLAN_TYPE);

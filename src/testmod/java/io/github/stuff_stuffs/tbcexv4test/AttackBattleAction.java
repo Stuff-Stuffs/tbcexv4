@@ -47,7 +47,7 @@ public class AttackBattleAction implements BattleAction {
                     nested.abort();
                     return false;
                 }
-                final double damage = targetParticipant.damage(3, Tbcexv4Registries.DamageTypes.ROOT, nested, span);
+                final double damage = targetParticipant.damage(1, Tbcexv4Registries.DamageTypes.ROOT, nested, span);
                 if (damage <= 0.0) {
                     nested.abort();
                     return false;

@@ -1,7 +1,11 @@
 package io.github.stuff_stuffs.tbcexv4.client.internal;
 
-import io.github.stuff_stuffs.tbcexv4.client.api.*;
+import io.github.stuff_stuffs.tbcexv4.client.api.BattleActionReceivedEvent;
+import io.github.stuff_stuffs.tbcexv4.client.api.DelayedResponse;
+import io.github.stuff_stuffs.tbcexv4.client.api.Tbcexv4ClientApi;
+import io.github.stuff_stuffs.tbcexv4.client.api.WatchedBattleChangeEvent;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.BattleItemRendererRegistry;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.PropertyTypes;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.ClientBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.state.env.ClientBattleEnvironmentImpl;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BasicTargetUi;
@@ -32,6 +36,7 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
@@ -157,8 +162,14 @@ public class Tbcexv4Client implements ClientModInitializer {
             }
         });
         BattleDebugRendererRegistry.init();
+        ClientTickEvents.START_CLIENT_TICK.register(client -> {
+            if (WATCHED_BATTLE != null) {
+                WATCHED_BATTLE.tick();
+            }
+        });
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
             if (WATCHED_BATTLE != null) {
+                WATCHED_BATTLE.animationQueue().state().setTime(WATCHED_BATTLE.time(context.tickDelta()));
                 for (final String s : BattleDebugRendererRegistry.enabled()) {
                     final BattleDebugRenderer renderer = BattleDebugRendererRegistry.get(s);
                     renderer.render(context, WATCHED_BATTLE);
@@ -197,6 +208,7 @@ public class Tbcexv4Client implements ClientModInitializer {
         ));
         BattleTargetingMenu.initClient();
         BasicTargetUi.init();
+        PropertyTypes.init();
     }
 
     public static DelayedResponse<Tbcexv4ClientApi.RequestResult> sendRequest(final BattleAction request) {

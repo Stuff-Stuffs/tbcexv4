@@ -1,10 +1,15 @@
 package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing;
 
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
+import io.github.stuff_stuffs.tbcexv4.common.api.util.NullSafeOptionalFieldCodec;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.pather.PatherImpl;
+import net.minecraft.util.dynamic.Codecs;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -53,6 +58,21 @@ public interface Pather {
             int y,
             int z
     ) implements Comparable<PathNode> {
+        public static final Codec<PathNode> CODEC = Codecs.createRecursive("PathNode", codec -> RecordCodecBuilder.create(instance -> instance.group(
+                new NullSafeOptionalFieldCodec<>("prev", codec).forGetter(node -> Optional.ofNullable(node.prev)),
+                Codec.DOUBLE.fieldOf("cost").forGetter(node -> node.cost),
+                Codec.INT.fieldOf("depth").forGetter(node -> node.depth),
+                Movement.CODEC.fieldOf("movement").forGetter(node -> node.movement),
+                Codec.BOOL.fieldOf("onFloor").forGetter(node -> node.onFloor),
+                Codec.INT.fieldOf("x").forGetter(node -> node.x),
+                Codec.INT.fieldOf("y").forGetter(node -> node.y),
+                Codec.INT.fieldOf("z").forGetter(node -> node.z)
+        ).apply(instance, PathNode::new)));
+
+        public PathNode(final Optional<PathNode> prev, final double cost, final int depth, final Movement movement, final boolean onFloor, final int x, final int y, final int z) {
+            this(prev.orElse(null), cost, depth, movement, onFloor, x, y, z);
+        }
+
         @Override
         public int compareTo(final PathNode o) {
             return Double.compare(cost, o.cost);

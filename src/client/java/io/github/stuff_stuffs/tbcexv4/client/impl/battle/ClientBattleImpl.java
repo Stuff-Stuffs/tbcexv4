@@ -1,6 +1,17 @@
 package io.github.stuff_stuffs.tbcexv4.client.impl.battle;
 
+import com.mojang.datafixers.util.Unit;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationFactoryRegistry;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationQueue;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleRenderState;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.Property;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.PropertyTypes;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.RenderState;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.state.env.ClientBattleEnvironmentImpl;
+import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.AnimationQueueImpl;
+import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state.BattleRenderStateImpl;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
@@ -11,16 +22,15 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateEventInitEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracerView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
+import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.log.BattleLogContextImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.registry.RegistryKey;
-import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -42,6 +52,8 @@ public class ClientBattleImpl implements Battle {
     private TurnManager turnManager;
     private BattleState state;
     private BattleTracer tracer;
+    private AnimationQueue queue;
+    private double time = 0;
 
     public ClientBattleImpl(final ClientWorld world, final BattleHandle handle, final RegistryKey<World> sourceWorld, final BlockPos min, final int xSize, final int ySize, final int zSize, final Supplier<TurnManager> factory) {
         turnManagerFactory = factory;
@@ -60,14 +72,24 @@ public class ClientBattleImpl implements Battle {
         initialize();
     }
 
+    public void tick() {
+        time = time + 1 / 20.0;
+    }
+
     private void initialize() {
         turnManager = turnManagerFactory.get();
         state = new BattleStateImpl(this, createEnv(), sourceWorld, builder, participantEventBuilder);
         tracer = BattleTracer.create(new CoreBattleTraceEvents.Root());
+        queue = new AnimationQueueImpl(new BattleRenderStateImpl());
         try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.TurnManagerSetup(), transaction)) {
             turnManager.setup(state, transaction, span);
             transaction.commit();
         }
+        tracer.all().forEach(node -> AnimationFactoryRegistry.create(node.event()).ifPresent(animation -> queue.enqueue(animation, 0, Double.POSITIVE_INFINITY)));
+    }
+
+    public AnimationQueue animationQueue() {
+        return queue;
     }
 
     private BattleEnvironment createEnv() {
@@ -157,6 +179,7 @@ public class ClientBattleImpl implements Battle {
     @Override
     public void pushAction(final BattleAction action) {
         actions.add(action);
+        final BattleTracerView.Node<?> latest = tracer.latest();
         final Optional<ActionSource> actionSource = action.source();
         final BattleLogContextImpl logContext = new BattleLogContextImpl();
         try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.ActionRoot(actionSource.map(ActionSource::actor)), transaction)) {
@@ -164,14 +187,50 @@ public class ClientBattleImpl implements Battle {
             actionSource.ifPresent(source -> turnManager.onAction(source.energy(), source.actor(), state, transaction, span));
             transaction.commit();
         }
-        final ClientPlayerEntity player = MinecraftClient.getInstance().player;
-        for (final Text text : logContext.collect()) {
-            player.sendMessage(text, false);
-        }
+        tracer.after(latest.timeStamp()).forEach(node -> AnimationFactoryRegistry.create(node.event()).ifPresent(animation -> queue.enqueue(wrap(animation), time(0), Double.POSITIVE_INFINITY)));
     }
 
     @Override
     public TurnManager turnManager() {
         return turnManager;
+    }
+
+    public double time(final double partial) {
+        return (time + partial / 20.0) * 12.5;
+    }
+
+    private Animation<BattleRenderState> wrap(final Animation<BattleRenderState> animation) {
+        return new Animation<>() {
+            @Override
+            public Result<List<AppliedStateModifier<?>>, Unit> setup(final double time, final BattleRenderState state, final AnimationContext context) {
+                final Result<List<AppliedStateModifier<?>>, Unit> result = animation.setup(time, state, context);
+                if (result instanceof Result.Failure<List<AppliedStateModifier<?>>, Unit>) {
+                    return result;
+                }
+                final Result.Success<List<AppliedStateModifier<?>>, Unit> success = (Result.Success<List<AppliedStateModifier<?>>, Unit>) result;
+                final Property<Unit> lock = state.getOrCreateProperty(RenderState.LOCK_ID, PropertyTypes.LOCK, Unit.INSTANCE);
+                final List<AppliedStateModifier<?>> mods = new ArrayList<>(success.val().size() + 1);
+                double last = Double.NEGATIVE_INFINITY;
+                for (final AppliedStateModifier<?> modifier : success.val()) {
+                    mods.add(modifier);
+                    last = Math.max(last, modifier.end());
+                }
+                final Result<AppliedStateModifier<Unit>, Unit> reserve = lock.reserve(StateModifier.lock(), time, last, t -> 0, context, Property.ReservationLevel.ACTION);
+                if (reserve instanceof Result.Failure<AppliedStateModifier<Unit>, Unit>) {
+                    return new Result.Failure<>(Unit.INSTANCE);
+                }
+                mods.add(((Result.Success<AppliedStateModifier<Unit>, Unit>) reserve).val());
+                return new Result.Success<>(mods);
+            }
+
+            @Override
+            public void cleanupFailure(final double time, final BattleRenderState state, final AnimationContext context) {
+                animation.cleanupFailure(time, state, context);
+                final Optional<Property<Unit>> property = state.getProperty(RenderState.LOCK_ID, PropertyTypes.LOCK);
+                if (property.isPresent()) {
+                    property.get().clearAll(context);
+                }
+            }
+        };
     }
 }
