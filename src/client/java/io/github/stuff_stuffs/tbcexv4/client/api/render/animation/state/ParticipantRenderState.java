@@ -2,71 +2,51 @@ package io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state;
 
 import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public interface ParticipantRenderState extends RenderState {
-    String POS_ID = "pos";
+    PropertyKey<Vec3d> POSITION = ModelRenderState.POSITION;
 
     ModelRenderState modelRoot();
 
-    static Animation<BattleRenderState> lift(final Animation<ParticipantRenderState> animation, final BattleParticipantHandle handle) {
-        return new Animation<>() {
-            @Override
-            public Result<List<AppliedStateModifier<?>>, Unit> setup(final double time, final BattleRenderState state, final AnimationContext context) {
-                final ParticipantRenderState participant = state.getParticipant(handle);
-                if (participant != null) {
-                    return animation.setup(time, participant, context);
-                } else {
-                    return new Result.Failure<>(Unit.INSTANCE);
-                }
-            }
+    @Override
+    public BattleRenderState parent();
 
-            @Override
-            public void cleanupFailure(final double time, final BattleRenderState state, final AnimationContext context) {
-                final ParticipantRenderState participant = state.getParticipant(handle);
-                if (participant != null) {
-                    animation.cleanupFailure(time, participant, context);
-                }
+    static Animation<BattleRenderState> lift(final Animation<ParticipantRenderState> animation, final BattleParticipantHandle handle) {
+        return (time, state, context) -> {
+            final Optional<ParticipantRenderState> participant = state.getParticipant(handle, time);
+            if (participant.isPresent()) {
+                return animation.animate(time, participant.get(), context);
+            } else {
+                return new Result.Failure<>(Unit.INSTANCE);
             }
         };
     }
 
     static Animation<BattleRenderState> lift(final Animation<ParticipantRenderState> animation, final LiftingPredicate<ParticipantRenderState, BattleParticipantHandle> predicate) {
-        return new Animation<>() {
-            @Override
-            public Result<List<AppliedStateModifier<?>>, Unit> setup(final double time, final BattleRenderState state, final AnimationContext context) {
-                final List<AppliedStateModifier<?>> modifiers = new ArrayList<>();
-                for (final BattleParticipantHandle handle : state.participants()) {
-                    final ParticipantRenderState participant = state.getParticipant(handle);
-                    if (predicate.test(participant, handle, context)) {
-                        final Result<List<AppliedStateModifier<?>>, Unit> setup = animation.setup(time, participant, context);
-                        if (setup instanceof final Result.Success<List<AppliedStateModifier<?>>, Unit> success) {
-                            modifiers.addAll(success.val());
-                        } else {
-                            return setup;
-                        }
-                    }
-                }
-                if (modifiers.isEmpty()) {
-                    return new Result.Failure<>(Unit.INSTANCE);
-                }
-                return new Result.Success<>(modifiers);
-            }
-
-            @Override
-            public void cleanupFailure(final double time, final BattleRenderState state, final AnimationContext context) {
-                for (final BattleParticipantHandle handle : state.participants()) {
-                    final ParticipantRenderState participant = state.getParticipant(handle);
-                    if (predicate.test(participant, handle, context)) {
-                        animation.cleanupFailure(time, participant, context);
+        return (time, state, context) -> {
+            final List<Animation.TimedEvent> modifiers = new ArrayList<>();
+            for (final BattleParticipantHandle handle : state.participants(time)) {
+                final Optional<ParticipantRenderState> participant = state.getParticipant(handle, time);
+                if (participant.isPresent() && predicate.test(participant.get(), handle, context)) {
+                    final Result<List<Animation.TimedEvent>, Unit> setup = animation.animate(time, participant.get(), context);
+                    if (setup instanceof final Result.Success<List<Animation.TimedEvent>, Unit> success) {
+                        modifiers.addAll(success.val());
+                    } else {
+                        return setup;
                     }
                 }
             }
+            if (modifiers.isEmpty()) {
+                return new Result.Failure<>(Unit.INSTANCE);
+            }
+            return new Result.Success<>(modifiers);
         };
     }
 }

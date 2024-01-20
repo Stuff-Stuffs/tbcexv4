@@ -106,6 +106,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
             throw new RuntimeException();
         }
         phase = BattleParticipantPhase.BATTLE;
+        tracer.push(new CoreBattleTraceEvents.SetParticipantPos(handle(), pos, pos), context).close();
         for (final BattleParticipantAttachment attachment : attachments.values()) {
             attachment.init(this, context, tracer);
         }

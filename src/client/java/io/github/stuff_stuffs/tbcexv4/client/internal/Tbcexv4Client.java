@@ -5,9 +5,16 @@ import io.github.stuff_stuffs.tbcexv4.client.api.DelayedResponse;
 import io.github.stuff_stuffs.tbcexv4.client.api.Tbcexv4ClientApi;
 import io.github.stuff_stuffs.tbcexv4.client.api.WatchedBattleChangeEvent;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.BattleItemRendererRegistry;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.BattleRenderContext;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleRenderState;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.PropertyTypes;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.ClientBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.state.env.ClientBattleEnvironmentImpl;
+import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state.BattleRenderStateImpl;
+import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state.ModelRenderStateImpl;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BasicTargetUi;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BattleMenuScreen;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BattleTargetingMenu;
@@ -46,9 +53,11 @@ import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.render.model.json.ModelTransformationMode;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
@@ -69,6 +78,9 @@ public class Tbcexv4Client implements ClientModInitializer {
             final Screen screen = MinecraftClient.getInstance().currentScreen;
             if (screen instanceof BattleMenuScreen) {
                 MinecraftClient.getInstance().setScreen(null);
+            }
+            if (BattleTargetingMenu.targeting()) {
+                BattleTargetingMenu.closeAll();
             }
         });
         ClientPlayConnectionEvents.INIT.register((handler, client) -> {
@@ -162,19 +174,35 @@ public class Tbcexv4Client implements ClientModInitializer {
             }
         });
         BattleDebugRendererRegistry.init();
-        ClientTickEvents.START_CLIENT_TICK.register(client -> {
+        ClientTickEvents.END_WORLD_TICK.register(client -> {
             if (WATCHED_BATTLE != null) {
                 WATCHED_BATTLE.tick();
             }
         });
-        WorldRenderEvents.AFTER_ENTITIES.register(context -> {
+        WorldRenderEvents.BEFORE_ENTITIES.register(context -> {
             if (WATCHED_BATTLE != null) {
-                WATCHED_BATTLE.animationQueue().state().setTime(WATCHED_BATTLE.time(context.tickDelta()));
-                for (final String s : BattleDebugRendererRegistry.enabled()) {
-                    final BattleDebugRenderer renderer = BattleDebugRendererRegistry.get(s);
-                    renderer.render(context, WATCHED_BATTLE);
-                }
+                final BattleRenderState state = WATCHED_BATTLE.animationQueue().state();
+                ((BattleRenderStateImpl) state).update(WATCHED_BATTLE.time(context.tickDelta()));
             }
+        });
+        WorldRenderEvents.AFTER_ENTITIES.register(context -> {
+            if (WATCHED_BATTLE == null) {
+                return;
+            }
+            for (final String s : BattleDebugRendererRegistry.enabled()) {
+                final BattleDebugRenderer renderer = BattleDebugRendererRegistry.get(s);
+                renderer.render(context, WATCHED_BATTLE);
+            }
+            final BattleRenderContext renderContext = () -> context;
+            final MatrixStack matrices = context.matrixStack();
+            matrices.push();
+            final Vec3d pos = context.camera().getPos();
+            matrices.translate(-pos.x, -pos.y, -pos.z);
+            matrices.translate(WATCHED_BATTLE.worldX(0), WATCHED_BATTLE.worldY(0), WATCHED_BATTLE.worldZ(0));
+            for (final ParticipantRenderState participant : ((BattleRenderStateImpl) WATCHED_BATTLE.animationQueue().state()).cached()) {
+                render(participant.modelRoot(), renderContext);
+            }
+            matrices.pop();
         });
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
                 ClientCommandManager.literal("tbcexv4ClientDebug")
@@ -209,6 +237,14 @@ public class Tbcexv4Client implements ClientModInitializer {
         BattleTargetingMenu.initClient();
         BasicTargetUi.init();
         PropertyTypes.init();
+        ModelRendererRegistry.init();
+    }
+
+    private void render(final ModelRenderState state, final BattleRenderContext context) {
+        state.getProperty(ModelRenderState.RENDERER).get().render(context, state);
+        for (final ModelRenderState child : ((ModelRenderStateImpl) state).cached()) {
+            render(child, context);
+        }
     }
 
     public static DelayedResponse<Tbcexv4ClientApi.RequestResult> sendRequest(final BattleAction request) {

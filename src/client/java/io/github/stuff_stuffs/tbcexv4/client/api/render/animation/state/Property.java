@@ -9,11 +9,11 @@ import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 public interface Property<T> {
     PropertyType<T> type();
 
-    void setDefaultValue(T val);
+    Result<Animation.TimedEvent, Unit> reserve(Animation.StateModifier<T> modifier, double startTime, double endTime, Easing inout, AnimationContext context, ReservationLevel level);
 
-    Result<Animation.AppliedStateModifier<T>, Unit> reserve(Animation.StateModifier<T> modifier, double startTime, double endTime, Easing inout, AnimationContext context, ReservationLevel level);
+    Result<Animation.TimedEvent, Unit> setDefaultValue(T val, double time, AnimationContext context);
 
-    void clearAll(AnimationContext id);
+    void clearAll(AnimationContext context);
 
     T get();
 

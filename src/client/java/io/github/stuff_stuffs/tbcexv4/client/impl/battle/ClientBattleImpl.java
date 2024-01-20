@@ -2,16 +2,11 @@ package io.github.stuff_stuffs.tbcexv4.client.impl.battle;
 
 import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationFactoryRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationQueue;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleRenderState;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.Property;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.PropertyTypes;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.RenderState;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.state.env.ClientBattleEnvironmentImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.AnimationQueueImpl;
-import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state.BattleRenderStateImpl;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
@@ -73,14 +68,14 @@ public class ClientBattleImpl implements Battle {
     }
 
     public void tick() {
-        time = time + 1 / 20.0;
+        time = time + 1;
     }
 
     private void initialize() {
         turnManager = turnManagerFactory.get();
         state = new BattleStateImpl(this, createEnv(), sourceWorld, builder, participantEventBuilder);
         tracer = BattleTracer.create(new CoreBattleTraceEvents.Root());
-        queue = new AnimationQueueImpl(new BattleRenderStateImpl());
+        queue = new AnimationQueueImpl();
         try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.TurnManagerSetup(), transaction)) {
             turnManager.setup(state, transaction, span);
             transaction.commit();
@@ -196,41 +191,28 @@ public class ClientBattleImpl implements Battle {
     }
 
     public double time(final double partial) {
-        return (time + partial / 20.0) * 12.5;
+        return (time + partial);
     }
 
     private Animation<BattleRenderState> wrap(final Animation<BattleRenderState> animation) {
-        return new Animation<>() {
-            @Override
-            public Result<List<AppliedStateModifier<?>>, Unit> setup(final double time, final BattleRenderState state, final AnimationContext context) {
-                final Result<List<AppliedStateModifier<?>>, Unit> result = animation.setup(time, state, context);
-                if (result instanceof Result.Failure<List<AppliedStateModifier<?>>, Unit>) {
-                    return result;
-                }
-                final Result.Success<List<AppliedStateModifier<?>>, Unit> success = (Result.Success<List<AppliedStateModifier<?>>, Unit>) result;
-                final Property<Unit> lock = state.getOrCreateProperty(RenderState.LOCK_ID, PropertyTypes.LOCK, Unit.INSTANCE);
-                final List<AppliedStateModifier<?>> mods = new ArrayList<>(success.val().size() + 1);
-                double last = Double.NEGATIVE_INFINITY;
-                for (final AppliedStateModifier<?> modifier : success.val()) {
-                    mods.add(modifier);
-                    last = Math.max(last, modifier.end());
-                }
-                final Result<AppliedStateModifier<Unit>, Unit> reserve = lock.reserve(StateModifier.lock(), time, last, t -> 0, context, Property.ReservationLevel.ACTION);
-                if (reserve instanceof Result.Failure<AppliedStateModifier<Unit>, Unit>) {
-                    return new Result.Failure<>(Unit.INSTANCE);
-                }
-                mods.add(((Result.Success<AppliedStateModifier<Unit>, Unit>) reserve).val());
-                return new Result.Success<>(mods);
+        return (time, state, context) -> {
+            final Result<List<Animation.TimedEvent>, Unit> result = animation.animate(time, state, context);
+            if (result instanceof Result.Failure<List<Animation.TimedEvent>, Unit>) {
+                return result;
             }
-
-            @Override
-            public void cleanupFailure(final double time, final BattleRenderState state, final AnimationContext context) {
-                animation.cleanupFailure(time, state, context);
-                final Optional<Property<Unit>> property = state.getProperty(RenderState.LOCK_ID, PropertyTypes.LOCK);
-                if (property.isPresent()) {
-                    property.get().clearAll(context);
-                }
+            final Result.Success<List<Animation.TimedEvent>, Unit> success = (Result.Success<List<Animation.TimedEvent>, Unit>) result;
+            final List<Animation.TimedEvent> mods = new ArrayList<>(success.val().size() + 1);
+            double last = Double.NEGATIVE_INFINITY;
+            for (final Animation.TimedEvent modifier : success.val()) {
+                mods.add(modifier);
+                last = Math.max(last, modifier.end());
             }
+            final Result<Animation.TimedEvent, Unit> reserve = state.completeLock(time, last, context);
+            if (reserve instanceof Result.Failure<Animation.TimedEvent, Unit>) {
+                return new Result.Failure<>(Unit.INSTANCE);
+            }
+            mods.add(((Result.Success<Animation.TimedEvent, Unit>) reserve).val());
+            return new Result.Success<>(mods);
         };
     }
 }

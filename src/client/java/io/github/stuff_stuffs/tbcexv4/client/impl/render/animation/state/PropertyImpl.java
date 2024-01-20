@@ -5,28 +5,29 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.Property;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.PropertyType;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.RenderState;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Easing;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
 public class PropertyImpl<T> implements Property<T> {
     private static final ReservationLevel[] LEVELS = ReservationLevel.values();
-    private final RenderState parent;
-    private final String id;
     private final PropertyType<T> type;
-    private T defaultValue;
+    private final List<DefaultValueEvent<T>> defaultValues;
+    private final Map<AnimationContext, Set<DefaultValueEvent<T>>> valuesByContext;
     private final Map<ReservationLevel, LevelManager<T>> levelManagers;
+    private long nextId = 0;
     private T value;
 
-    public PropertyImpl(final RenderState parent, final String id, final PropertyType<T> type, final T defaultValue) {
-        this.parent = parent;
-        this.id = id;
+    public PropertyImpl(final PropertyType<T> type, final T defaultValue) {
         this.type = type;
-        this.defaultValue = defaultValue;
+        defaultValues = new ArrayList<>();
+        valuesByContext = new Object2ReferenceOpenHashMap<>();
         value = defaultValue;
+        defaultValues.add(new DefaultValueEvent<>(Double.NEGATIVE_INFINITY, defaultValue, nextId++));
         levelManagers = new EnumMap<>(ReservationLevel.class);
         for (final ReservationLevel level : LEVELS) {
             levelManagers.put(level, new LevelManager<>(this));
@@ -39,14 +40,9 @@ public class PropertyImpl<T> implements Property<T> {
     }
 
     @Override
-    public void setDefaultValue(final T val) {
-        defaultValue = val;
-    }
-
-    @Override
-    public Result<Animation.AppliedStateModifier<T>, Unit> reserve(final Animation.StateModifier<T> modifier, final double startTime, double endTime, final Easing inOut, final AnimationContext context, final ReservationLevel level) {
+    public Result<Animation.TimedEvent, Unit> reserve(final Animation.StateModifier<T> modifier, final double startTime, double endTime, final Easing inOut, final AnimationContext context, final ReservationLevel level) {
         if (context.cutoff() <= startTime) {
-            return new Result.Success<>(new AppliedStateModifierImpl<>(modifier, id, type, parent, new Interval(startTime, startTime, inOut)));
+            return new Result.Success<>(new TimedEventImpl<>(new Interval(startTime, startTime, inOut, 0), modifier));
         } else if (context.cutoff() < endTime) {
             endTime = context.cutoff();
         }
@@ -54,14 +50,52 @@ public class PropertyImpl<T> implements Property<T> {
     }
 
     @Override
-    public void clearAll(final AnimationContext id) {
+    public Result<Animation.TimedEvent, Unit> setDefaultValue(final T val, final double time, final AnimationContext context) {
+        final DefaultValueEvent<T> event = new DefaultValueEvent<>(time, val, nextId++);
+        final int index = Collections.binarySearch(defaultValues, event);
+        if (index >= 0) {
+            throw new IllegalStateException();
+        }
+        final int rIndex = -index - 1;
+        if (rIndex != defaultValues.size()) {
+            return Result.failure(Unit.INSTANCE);
+        }
+        defaultValues.add(event);
+        valuesByContext.computeIfAbsent(context, k -> new ObjectOpenHashSet<>()).add(event);
+        return Result.success(new Animation.TimedEvent() {
+            @Override
+            public double start() {
+                return time;
+            }
+
+            @Override
+            public double end() {
+                return time;
+            }
+        });
+    }
+
+    @Override
+    public void clearAll(final AnimationContext context) {
+        final Set<DefaultValueEvent<T>> removed = valuesByContext.remove(context);
+        if (removed != null) {
+            defaultValues.removeAll(removed);
+        }
         for (final ReservationLevel level : LEVELS) {
-            levelManagers.get(level).clearAll(id);
+            levelManagers.get(level).clearAll(context);
         }
     }
 
     public void compute(final double time) {
-        T val = defaultValue;
+        final DefaultValueEvent<T> event = new DefaultValueEvent<>(time, null, Long.MAX_VALUE);
+        final int index = Collections.binarySearch(defaultValues, event);
+        final int rIndex;
+        if (index >= 0) {
+            rIndex = index;
+        } else {
+            rIndex = Math.min(defaultValues.size() - 1, -index - 1);
+        }
+        T val = defaultValues.get(rIndex).val;
         for (final ReservationLevel level : LEVELS) {
             val = levelManagers.get(level).compute(val, time);
         }
@@ -73,11 +107,25 @@ public class PropertyImpl<T> implements Property<T> {
         return value;
     }
 
+    public double lastAbove(@Nullable final ReservationLevel level) {
+        double last = Double.NEGATIVE_INFINITY;
+        for (final DefaultValueEvent<T> defaultValue : defaultValues) {
+            last = Math.max(last, defaultValue.time);
+        }
+        for (final ReservationLevel reservationLevel : LEVELS) {
+            if (level == null || level.ordinal() < reservationLevel.ordinal()) {
+                last = Math.max(last, levelManagers.get(reservationLevel).lastEvent());
+            }
+        }
+        return last;
+    }
+
     private static final class LevelManager<T> {
         private final PropertyImpl<T> parent;
         private final List<Interval> intervals;
-        private final List<AppliedStateModifierImpl<T>> modifiers;
-        private final Map<AnimationContext, List<AppliedStateModifierImpl<T>>> map;
+        private final List<TimedEventImpl<T>> modifiers;
+        private final Map<AnimationContext, List<TimedEventImpl<T>>> map;
+        private long nextId;
 
         private LevelManager(final PropertyImpl<T> parent) {
             this.parent = parent;
@@ -86,10 +134,25 @@ public class PropertyImpl<T> implements Property<T> {
             map = new Object2ReferenceOpenHashMap<>();
         }
 
-        private Result<Animation.AppliedStateModifier<T>, Unit> reserve(final Animation.StateModifier<T> modifier, final double startTime, final double endTime, final Easing inout, final AnimationContext id) {
-            final Interval interval = new Interval(startTime, endTime, inout);
+        private int advance(int index, final double time) {
+            while (index < intervals.size() && intervals.get(index).end < time) {
+                index++;
+            }
+            return index;
+        }
+
+        private Result<Animation.TimedEvent, Unit> reserve(final Animation.StateModifier<T> stateModifier, final double startTime, final double endTime, final Easing inout, final AnimationContext id) {
+            final Interval interval = new Interval(startTime, endTime, inout, nextId++);
             final int index = Collections.binarySearch(intervals, interval);
             if (index >= 0) {
+                final int rIndex = advance(index, startTime);
+                if (rIndex == intervals.size()) {
+                    intervals.add(rIndex, interval);
+                    final TimedEventImpl<T> applied = new TimedEventImpl<>(interval, stateModifier);
+                    modifiers.add(rIndex, applied);
+                    map.computeIfAbsent(id, i -> new ArrayList<>()).add(applied);
+                    return new Result.Success<>(applied);
+                }
                 return new Result.Failure<>(Unit.INSTANCE);
             }
             final int rIndex = -index - 1;
@@ -106,16 +169,16 @@ public class PropertyImpl<T> implements Property<T> {
                 }
             }
             intervals.add(rIndex, interval);
-            final AppliedStateModifierImpl<T> applied = new AppliedStateModifierImpl<>(modifier, parent.id, parent.type, parent.parent, interval);
+            final TimedEventImpl<T> applied = new TimedEventImpl<>(interval, stateModifier);
             modifiers.add(rIndex, applied);
             map.computeIfAbsent(id, i -> new ArrayList<>()).add(applied);
             return new Result.Success<>(applied);
         }
 
         private T compute(final T lower, final double time) {
-            final Interval interval = new Interval(time, 0, null);
+            final Interval interval = new Interval(time, 0, null, Long.MAX_VALUE);
             final int index = Collections.binarySearch(intervals, interval);
-            final AppliedStateModifierImpl<T> modifier;
+            final TimedEventImpl<T> modifier;
             if (index >= 0) {
                 modifier = modifiers.get(index);
             } else {
@@ -123,7 +186,7 @@ public class PropertyImpl<T> implements Property<T> {
                 if (rIndex == 0) {
                     return lower;
                 } else {
-                    final AppliedStateModifierImpl<T> prev = modifiers.get(rIndex - 1);
+                    final TimedEventImpl<T> prev = modifiers.get(rIndex - 1);
                     if (prev.interval.end < time) {
                         return lower;
                     }
@@ -134,36 +197,41 @@ public class PropertyImpl<T> implements Property<T> {
         }
 
         public void clearAll(final AnimationContext id) {
-            final List<AppliedStateModifierImpl<T>> list = map.remove(id);
+            final List<TimedEventImpl<T>> list = map.remove(id);
             if (list != null) {
-                for (final AppliedStateModifierImpl<T> modifier : list) {
+                for (final TimedEventImpl<T> modifier : list) {
                     modifiers.remove(modifier);
                     intervals.remove(modifier.interval);
                 }
             }
         }
-    }
 
-    public record Interval(double start, double end, Easing inout) implements Comparable<Interval> {
-        @Override
-        public int compareTo(final Interval o) {
-            return Double.compare(start, o.start);
+        public double lastEvent() {
+            if (modifiers.isEmpty()) {
+                return Double.NEGATIVE_INFINITY;
+            }
+            return modifiers.get(modifiers.size() - 1).interval.end;
         }
     }
 
-    public static final class AppliedStateModifierImpl<T> implements Animation.AppliedStateModifier<T> {
-        private final Animation.StateModifier<T> modifier;
-        private final String id;
-        private final PropertyType<T> type;
-        private final RenderState state;
-        private final Interval interval;
+    private record Interval(double start, double end, Easing inout, long id) implements Comparable<Interval> {
+        @Override
+        public int compareTo(final Interval o) {
+            final int c = Double.compare(start, o.start);
+            if (c != 0) {
+                return c;
+            }
+            return Long.compare(id, o.id);
+        }
+    }
 
-        public AppliedStateModifierImpl(final Animation.StateModifier<T> modifier, final String id, final PropertyType<T> type, final RenderState state, final Interval interval) {
-            this.modifier = modifier;
-            this.id = id;
-            this.type = type;
-            this.state = state;
+    private static final class TimedEventImpl<T> implements Animation.TimedEvent {
+        private final Interval interval;
+        private final Animation.StateModifier<T> modifier;
+
+        public TimedEventImpl(final Interval interval, final Animation.StateModifier<T> modifier) {
             this.interval = interval;
+            this.modifier = modifier;
         }
 
         @Override
@@ -175,30 +243,16 @@ public class PropertyImpl<T> implements Property<T> {
         public double end() {
             return interval.end;
         }
+    }
 
+    private record DefaultValueEvent<T>(double time, T val, long id) implements Comparable<DefaultValueEvent<?>> {
         @Override
-        public Easing inout() {
-            return interval.inout;
-        }
-
-        @Override
-        public Animation.StateModifier<T> modifier() {
-            return modifier;
-        }
-
-        @Override
-        public String id() {
-            return id;
-        }
-
-        @Override
-        public PropertyType<T> type() {
-            return type;
-        }
-
-        @Override
-        public RenderState state() {
-            return state;
+        public int compareTo(final DefaultValueEvent<?> o) {
+            final int c = Double.compare(time, o.time);
+            if (c != 0) {
+                return c;
+            }
+            return Long.compare(id, o.id);
         }
     }
 }

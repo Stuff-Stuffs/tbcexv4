@@ -1,8 +1,8 @@
 package io.github.stuff_stuffs.tbcexv4.client.internal.ui;
 
+import io.github.stuff_stuffs.tbcexv4.client.api.Tbcexv4ClientApi;
 import io.github.stuff_stuffs.tbcexv4.client.api.ui.TargetUi;
 import io.github.stuff_stuffs.tbcexv4.client.api.ui.TargetUiRegistry;
-import io.github.stuff_stuffs.tbcexv4.client.api.Tbcexv4ClientApi;
 import io.github.stuff_stuffs.tbcexv4.client.impl.TargetUiContextImpl;
 import io.github.stuff_stuffs.tbcexv4.client.internal.Tbcexv4Client;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.component.Tbcexv4UiComponents;
@@ -216,5 +216,9 @@ public class BattleTargetingMenu extends BaseOwoScreen<TopmostLayout> {
             }
         }
         return false;
+    }
+
+    public static void closeAll() {
+        STACK.clear();
     }
 }
