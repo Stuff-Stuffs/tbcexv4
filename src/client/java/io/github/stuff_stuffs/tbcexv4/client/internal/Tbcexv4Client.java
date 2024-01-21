@@ -13,6 +13,7 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.Property
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.ClientBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.state.env.ClientBattleEnvironmentImpl;
+import io.github.stuff_stuffs.tbcexv4.client.impl.render.BattleRenderContextImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state.BattleRenderStateImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state.ModelRenderStateImpl;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BasicTargetUi;
@@ -193,7 +194,7 @@ public class Tbcexv4Client implements ClientModInitializer {
                 final BattleDebugRenderer renderer = BattleDebugRendererRegistry.get(s);
                 renderer.render(context, WATCHED_BATTLE);
             }
-            final BattleRenderContext renderContext = () -> context;
+            final BattleRenderContext renderContext = new BattleRenderContextImpl(context, WATCHED_BATTLE);
             final MatrixStack matrices = context.matrixStack();
             matrices.push();
             final Vec3d pos = context.camera().getPos();
