@@ -29,4 +29,9 @@ public final class BattleParticipantAIControllerAttachment implements BattlePart
     public void deinit(final BattleParticipant participant, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
 
     }
+
+    @Override
+    public Object traceSnapshot() {
+        return this;
+    }
 }

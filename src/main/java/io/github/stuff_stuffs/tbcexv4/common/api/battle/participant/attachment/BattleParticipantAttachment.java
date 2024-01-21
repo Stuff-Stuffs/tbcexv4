@@ -9,6 +9,8 @@ public interface BattleParticipantAttachment {
 
     void deinit(BattleParticipant participant, BattleTransactionContext transactionContext, BattleTracer.Span<?> tracer);
 
+    Object traceSnapshot();
+
     interface Builder {
         <T extends BattleParticipantAttachment> void accept(T value, BattleParticipantAttachmentType<?, T> type);
     }

@@ -7,10 +7,8 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRenderer;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
-import io.github.stuff_stuffs.tbcexv4.common.api.util.Vec2i;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Vec3i;
 import org.joml.Quaternionfc;
 
 import java.util.ArrayList;
@@ -19,8 +17,9 @@ import java.util.Optional;
 import java.util.Set;
 
 public interface ModelRenderState extends RenderState {
+    PropertyKey<Vec3d> OFFSET = new PropertyKey<>("offset", PropertyTypes.VEC3D);
     PropertyKey<Vec3d> POSITION = new PropertyKey<>("position", PropertyTypes.VEC3D);
-    PropertyKey<Vec3d> EXTENTS = new PropertyKey<>("rotation", PropertyTypes.VEC3D);
+    PropertyKey<Vec3d> EXTENTS = new PropertyKey<>("extents", PropertyTypes.VEC3D);
     PropertyKey<Integer> COLOR = new PropertyKey<>("color", PropertyTypes.COLOR);
     PropertyKey<Quaternionfc> ROTATION = new PropertyKey<>("rotation", PropertyTypes.ROTATION);
     PropertyKey<ModelRenderer> RENDERER = new PropertyKey<>("model_renderer", PropertyTypes.MODEL_RENDERER);
@@ -139,23 +138,25 @@ public interface ModelRenderState extends RenderState {
 
     record TextureData(
             Identifier id,
-            int width,
-            int height,
-            int depth,
-            int u,
-            int v,
-            int textureWidth,
-            int textureHeight
+            float width,
+            float height,
+            float depth,
+            float u,
+            float v,
+            float textureWidth,
+            float textureHeight,
+            boolean transparent
     ) {
         public static final Codec<TextureData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
                 Identifier.CODEC.fieldOf("id").forGetter(TextureData::id),
-                Codec.intRange(1, Integer.MAX_VALUE).fieldOf("width").forGetter(TextureData::width),
-                Codec.intRange(1, Integer.MAX_VALUE).fieldOf("height").forGetter(TextureData::height),
-                Codec.intRange(1, Integer.MAX_VALUE).fieldOf("depth").forGetter(TextureData::depth),
-                Codec.intRange(0, Integer.MAX_VALUE).fieldOf("u").forGetter(TextureData::u),
-                Codec.intRange(0, Integer.MAX_VALUE).fieldOf("v").forGetter(TextureData::v),
-                Codec.intRange(1, Integer.MAX_VALUE).fieldOf("texture_width").forGetter(TextureData::textureWidth),
-                Codec.intRange(1, Integer.MAX_VALUE).fieldOf("texture_height").forGetter(TextureData::textureHeight)
+                Codec.floatRange(0, Float.MAX_VALUE).fieldOf("width").forGetter(TextureData::width),
+                Codec.floatRange(0, Float.MAX_VALUE).fieldOf("height").forGetter(TextureData::height),
+                Codec.floatRange(0, Float.MAX_VALUE).fieldOf("depth").forGetter(TextureData::depth),
+                Codec.floatRange(0, Float.MAX_VALUE).fieldOf("u").forGetter(TextureData::u),
+                Codec.floatRange(0, Float.MAX_VALUE).fieldOf("v").forGetter(TextureData::v),
+                Codec.floatRange(0, Float.MAX_VALUE).fieldOf("textureWidth").forGetter(TextureData::u),
+                Codec.floatRange(0, Float.MAX_VALUE).fieldOf("textureHeight").forGetter(TextureData::v),
+                Codec.BOOL.fieldOf("transparent").forGetter(TextureData::transparent)
         ).apply(instance, TextureData::new));
     }
 }

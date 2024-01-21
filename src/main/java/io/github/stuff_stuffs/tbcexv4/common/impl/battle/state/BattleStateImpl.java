@@ -15,6 +15,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.attachment.BattleA
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreParticipantTraceEvents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapshotParticipant;
@@ -114,7 +115,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
     @Override
     public Result<Unit, RemoveParticipantError> removeParticipant(final BattleParticipantHandle handle, final RemoveParticipantReason reason, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         ensureBattleOngoing();
-        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreRemoveParticipant(handle, reason), transactionContext)) {
+        try (final var preSpan = tracer.push(new CoreParticipantTraceEvents.PreRemoveParticipant(handle, reason), transactionContext)) {
             if (!participantContainer.participants.containsKey(handle)) {
                 return new Result.Failure<>(RemoveParticipantError.MISSING_PARTICIPANT);
             }
@@ -126,7 +127,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
                 participant.finish(transactionContext);
                 delta(transactionContext, new RemoveParticipantDelta(participant, participant.team()));
                 participantContainer.remove(handle);
-                try (final var span = preSpan.push(new CoreBattleTraceEvents.RemoveParticipant(handle, reason), transactionContext)) {
+                try (final var span = preSpan.push(new CoreParticipantTraceEvents.RemoveParticipant(handle, reason), transactionContext)) {
                     events().invoker(BasicEvents.POST_REMOVE_PARTICIPANT_EVENT_KEY, transactionContext).onPostRemoveParticipantEvent(this, handle, reason, transactionContext, span);
                 }
                 return new Result.Success<>(Unit.INSTANCE);
@@ -140,7 +141,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
         ensureBattleOngoing();
         final Optional<UUID> id = battleParticipant.id();
         final BattleParticipantHandle handle = new BattleParticipantHandle(id.orElseGet(() -> new UUID(random.nextLong(), random.nextLong())));
-        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreAddParticipant(handle), transactionContext)) {
+        try (final var preSpan = tracer.push(new CoreParticipantTraceEvents.PreAddParticipant(handle), transactionContext)) {
             if (id.isPresent() && participantContainer.participants.containsKey(new BattleParticipantHandle(id.get()))) {
                 return new Result.Failure<>(AddParticipantError.ID_OVERLAP);
             }
@@ -163,10 +164,10 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
             participantContainer.participants.put(participant.handle(), participant);
             participantContainer.teams.put(participant.handle(), battleParticipant.team());
             participantContainer.byTeam.computeIfAbsent(battleParticipant.team(), k -> new ObjectOpenHashSet<>()).add(participant.handle());
-            try (final var span = preSpan.push(new CoreBattleTraceEvents.AddParticipant(participant.handle()), transactionContext)) {
+            try (final var span = preSpan.push(new CoreParticipantTraceEvents.AddParticipant(participant.handle()), transactionContext)) {
                 participant.start(transactionContext, span);
                 battleParticipant.initialize(this, participant, transactionContext, preSpan);
-                span.push(new CoreBattleTraceEvents.ParticipantSetTeam(handle, Optional.empty(), participant.team()), transactionContext).close();
+                span.push(new CoreParticipantTraceEvents.ParticipantSetTeam(handle, Optional.empty(), participant.team()), transactionContext).close();
                 events().invoker(BasicEvents.POST_ADD_PARTICIPANT_EVENT_KEY, transactionContext).onPostAddParticipantEvent(this, participant, transactionContext, span);
             }
             return new Result.Success<>(participant.handle());
@@ -265,7 +266,7 @@ public class BattleStateImpl extends DeltaSnapshotParticipant<BattleStateImpl.De
         if (oldTeam.equals(newTeam)) {
             return new Result.Success<>(Unit.INSTANCE);
         }
-        tracer.push(new CoreBattleTraceEvents.ParticipantSetTeam(handle, Optional.of(oldTeam), newTeam), context).close();
+        tracer.push(new CoreParticipantTraceEvents.ParticipantSetTeam(handle, Optional.of(oldTeam), newTeam), context).close();
         participantContainer.setTeam(handle, newTeam);
         delta(context, new SetTeamAttachment(handle, oldTeam));
         return new Result.Success<>(Unit.INSTANCE);

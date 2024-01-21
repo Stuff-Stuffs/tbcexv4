@@ -118,6 +118,13 @@ public sealed interface Result<T, E> {
         }, (u0, u1) -> Unit.INSTANCE);
     }
 
+    static <T> Folder<List<T>, List<T>, Unit> mutableListFold() {
+        return Result.<List<T>, Unit>success(new ArrayList<>()).folder((ts, t) -> {
+            ts.addAll(t);
+            return ts;
+        }, (u0, u1) -> Unit.INSTANCE);
+    }
+
     final class Folder<T, T0, E> {
         private final BiFunction<T, T0, T> combiner;
         private final BiFunction<E, E, E> errorCombiner;

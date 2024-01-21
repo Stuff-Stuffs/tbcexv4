@@ -3,15 +3,21 @@ package io.github.stuff_stuffs.tbcexv4test.client;
 import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationFactoryRegistry;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.Property;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRendererRegistry;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.model.ModelConverter;
+import io.github.stuff_stuffs.tbcexv4.client.mixin.MixinEntityModelLoader;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.Pather;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreParticipantTraceEvents;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
+import io.github.stuff_stuffs.tbcexv4test.RenderDataParticipantAttachmentView;
+import io.github.stuff_stuffs.tbcexv4test.Tbcexv4Test;
 import net.fabricmc.api.ClientModInitializer;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.model.TexturedModelData;
+import net.minecraft.client.render.entity.model.EntityModelLayer;
+import net.minecraft.client.render.entity.model.EntityModelLayers;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -24,84 +30,37 @@ public class Tbcexv4TestClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         AnimationFactoryRegistry.register(event -> {
-            if (event instanceof final CoreBattleTraceEvents.AddParticipant add) {
-                return Optional.of((time, state, context) -> {
-                    final var folder = Result.<Animation.TimedEvent>mutableFold();
-                    folder.accept(state.addParticipant(add.handle(), time, context));
-                    folder.accept(
-                            state.getParticipant(add.handle(), time).map(
-                                    participant -> participant.modelRoot().getProperty(
-                                            ModelRenderState.EXTENTS
-                                    ).setDefaultValue(
-                                            new Vec3d(1, 1, 1),
-                                            time,
-                                            context
-                                    )
-                            ).orElse(
-                                    Result.failure(Unit.INSTANCE)
-                            )
-                    );
-                    folder.accept(
-                            state.getParticipant(add.handle(), time).map(
-                                    participant -> participant.modelRoot().getProperty(
-                                            ModelRenderState.RENDERER
-                                    ).setDefaultValue(
-                                            ModelRendererRegistry.DEFAULT_RENDERER,
-                                            time,
-                                            context
-                                    )
-                            ).orElse(
-                                    Result.failure(Unit.INSTANCE)
-                            )
-                    );
-                    folder.accept(
-                            state.getParticipant(add.handle(), time).map(
-                                    participant -> participant.modelRoot().getProperty(
-                                            ModelRenderState.POSITION
-                                    ).setDefaultValue(
-                                            new Vec3d(0, 0.5, 0),
-                                            time,
-                                            context
-                                    )
-                            ).orElse(
-                                    Result.failure(Unit.INSTANCE)
-                            )
-                    );
-                    folder.accept(state.getParticipant(add.handle(), time).map(
-                            participant -> participant.modelRoot().getProperty(
-                                    ModelRenderState.TEXTURE_DATA
-                            ).setDefaultValue(
-                                    Optional.of(
-                                            new ModelRenderState.TextureData(
-                                                    new Identifier("textures/entity/player/wide/steve.png"),
-                                                    16,
-                                                    16,
-                                                    16,
-                                                    0,
-                                                    0,
-                                                    48,
-                                                    48
-                                            )
-                                    ),
-                                    time,
-                                    context
-                            )
-                    ).orElse(Result.failure(Unit.INSTANCE)));
-                    return folder.get();
-                });
-            } else if (event instanceof final CoreBattleTraceEvents.RemoveParticipant remove) {
+            if (event instanceof final CoreParticipantTraceEvents.AddParticipant add) {
+                return Optional.of((time, state, context) -> state.addParticipant(add.handle(), time, context).mapSuccess(List::of));
+            } else if (event instanceof final CoreParticipantTraceEvents.RemoveParticipant remove) {
                 return Optional.of((time, state, context) -> state.removeParticipant(remove.handle(), time, context).mapSuccess(List::of));
-            } else if (event instanceof final CoreBattleTraceEvents.SetParticipantPos setPos) {
+            } else if (event instanceof final CoreParticipantTraceEvents.SetParticipantPos setPos) {
                 return Optional.of((time, state, context) -> {
                     final BattlePos pos = setPos.newPos();
                     final Vec3d vec = new Vec3d(pos.x() + 0.5, pos.y(), pos.z() + 0.5);
                     return state.getParticipant(setPos.handle(), time).map(participant -> participant.getProperty(ParticipantRenderState.POSITION).setDefaultValue(vec, time, context).mapSuccess(List::of)).orElseGet(() -> Result.failure(Unit.INSTANCE));
                 });
+            } else if (event instanceof final CoreParticipantTraceEvents.SetParticipantAttachment attachment) {
+                if (attachment.type() == Tbcexv4Test.RENDER_DATA_ATTACHMENT && attachment.snapshot() instanceof final RenderDataParticipantAttachmentView attachmentView) {
+                    final EntityModelLayer layer = switch (attachmentView.type()) {
+                        case PLAYER -> EntityModelLayers.PLAYER;
+                        case PIG -> EntityModelLayers.PIG;
+                        case SHEEP -> EntityModelLayers.SHEEP;
+                    };
+                    final Identifier texture = switch (attachmentView.type()) {
+                        case PLAYER -> new Identifier("textures/entity/player/wide/steve.png");
+                        case PIG -> new Identifier("textures/entity/pig/pig.png");
+                        case SHEEP -> new Identifier("textures/entity/sheep/sheep.png");
+                    };
+                    final TexturedModelData data = ((MixinEntityModelLoader) MinecraftClient.getInstance().getEntityModelLoader()).getModelParts().get(layer);
+                    final ModelConverter model = new ModelConverter(data, texture);
+                    return Optional.of(ParticipantRenderState.lift(model, attachment.handle()));
+                }
             }
             return Optional.empty();
         });
         AnimationFactoryRegistry.register(event -> {
-            if (event instanceof final CoreBattleTraceEvents.PostMoveParticipant move) {
+            if (event instanceof final CoreParticipantTraceEvents.PostMoveParticipant move) {
                 final int depth = move.pathNode().depth();
                 final List<Pather.PathNode> flattened = new ArrayList<>(depth);
                 Pather.PathNode node = move.pathNode();

@@ -3,8 +3,14 @@
   "package": "io.github.stuff_stuffs.tbcexv4.client.mixin",
   "compatibilityLevel": "JAVA_17",
   "client": [
+    "MixinDilation",
+    "MixinEntityModelLoader",
     "MixinInventoryScreen",
-    "MixinMinecraftClient"
+    "MixinMinecraftClient",
+    "MixinModelCuboidData",
+    "MixinModelPartData",
+    "MixinTextureDimensions",
+    "MixinTexturedModelData"
   ],
   "injectors": {
     "defaultRequire": 1

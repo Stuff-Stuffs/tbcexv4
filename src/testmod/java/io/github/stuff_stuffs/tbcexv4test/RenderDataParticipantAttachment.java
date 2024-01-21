@@ -1,14 +1,17 @@
-package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment;
+package io.github.stuff_stuffs.tbcexv4test;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 
-import java.util.UUID;
+public class RenderDataParticipantAttachment implements BattleParticipantAttachment, RenderDataParticipantAttachmentView {
+    private final Type type;
 
-public record BattleParticipantPlayerControllerAttachment(
-        UUID controllerId
-) implements BattleParticipantAttachment, BattleParticipantPlayerControllerAttachmentView {
+    public RenderDataParticipantAttachment(final Type type) {
+        this.type = type;
+    }
+
     @Override
     public void init(final BattleParticipant participant, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
 
@@ -22,5 +25,10 @@ public record BattleParticipantPlayerControllerAttachment(
     @Override
     public Object traceSnapshot() {
         return this;
+    }
+
+    @Override
+    public Type type() {
+        return type;
     }
 }

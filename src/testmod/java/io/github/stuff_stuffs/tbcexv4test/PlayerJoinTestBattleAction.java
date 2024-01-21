@@ -91,6 +91,8 @@ public class PlayerJoinTestBattleAction implements BattleAction {
                 @Override
                 public void addAttachments(final BattleParticipantAttachment.Builder builder) {
                     builder.accept(new BattleParticipantPlayerControllerAttachment(playerId), Tbcexv4Registries.BattleParticipantAttachmentTypes.PLAYER_CONTROLLED);
+                    builder.accept(new RenderDataParticipantAttachment(RenderDataParticipantAttachmentView.Type.PLAYER), Tbcexv4Test.RENDER_DATA_ATTACHMENT);
+
                 }
             }, transaction, span);
             if (result instanceof Result.Failure<BattleParticipantHandle, BattleState.AddParticipantError>) {
@@ -102,7 +104,7 @@ public class PlayerJoinTestBattleAction implements BattleAction {
                 participant.heal(1000, transactionContext, span);
             }
             for (final Entry entry : entries) {
-                if (!join(state, entry.enemy ? enemyTeam : playerTeam, entry.pos, transaction, span)) {
+                if (!join(state, entry.enemy ? enemyTeam : playerTeam, entry.pos, transaction, span, entry.enemy ? RenderDataParticipantAttachmentView.Type.SHEEP : RenderDataParticipantAttachmentView.Type.PIG)) {
                     transaction.abort();
                     return false;
                 }
@@ -114,7 +116,7 @@ public class PlayerJoinTestBattleAction implements BattleAction {
         }
     }
 
-    private boolean join(final BattleState state, final BattleParticipantTeam team, final BattlePos pos, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
+    private boolean join(final BattleState state, final BattleParticipantTeam team, final BattlePos pos, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer, RenderDataParticipantAttachmentView.Type type) {
         final Result<BattleParticipantHandle, BattleState.AddParticipantError> result = state.addParticipant(new BattleParticipantInitialState() {
             @Override
             public BattleParticipantBounds bounds() {
@@ -134,6 +136,7 @@ public class PlayerJoinTestBattleAction implements BattleAction {
             @Override
             public void addAttachments(final BattleParticipantAttachment.Builder builder) {
                 builder.accept(new BattleParticipantAIControllerAttachment(f -> ActionSearchStrategy.basic(1.0, Scorer.sum(Scorers.health(f.handle()), Scorers.enemyTeamHealth(f.handle())))), Tbcexv4Registries.BattleParticipantAttachmentTypes.AI_CONTROLLER);
+                builder.accept(new RenderDataParticipantAttachment(type), Tbcexv4Test.RENDER_DATA_ATTACHMENT);
             }
         }, transactionContext, tracer);
         if (result instanceof final Result.Success<BattleParticipantHandle, BattleState.AddParticipantError> success) {

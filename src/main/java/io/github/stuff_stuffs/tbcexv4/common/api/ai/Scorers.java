@@ -6,7 +6,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracerView;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreParticipantTraceEvents;
 
 import java.util.Optional;
 import java.util.Set;
@@ -44,7 +44,7 @@ public final class Scorers {
             final BattleParticipantView exemplar = state.participant(handle);
             final BattleParticipantTeam team;
             if (exemplar == null) {
-                final Optional<BattleTracerView.Node<CoreBattleTraceEvents.ParticipantSetTeam>> teamNode = tracer.mostRecent(node -> node.event().handle().equals(handle), CoreBattleTraceEvents.ParticipantSetTeam.class);
+                final Optional<BattleTracerView.Node<CoreParticipantTraceEvents.ParticipantSetTeam>> teamNode = tracer.mostRecent(node -> node.event().handle().equals(handle), CoreParticipantTraceEvents.ParticipantSetTeam.class);
                 if (teamNode.isEmpty()) {
                     return 0;
                 }
@@ -71,7 +71,7 @@ public final class Scorers {
             final BattleParticipantView exemplar = state.participant(handle);
             final BattleParticipantTeam team;
             if (exemplar == null) {
-                final Optional<BattleTracerView.Node<CoreBattleTraceEvents.ParticipantSetTeam>> teamNode = tracer.mostRecent(node -> node.event().handle().equals(handle), CoreBattleTraceEvents.ParticipantSetTeam.class);
+                final Optional<BattleTracerView.Node<CoreParticipantTraceEvents.ParticipantSetTeam>> teamNode = tracer.mostRecent(node -> node.event().handle().equals(handle), CoreParticipantTraceEvents.ParticipantSetTeam.class);
                 if (teamNode.isEmpty()) {
                     return 0;
                 }

@@ -17,6 +17,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.StartBattleA
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantBounds;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.*;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Plan;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.PlanType;
@@ -48,6 +49,8 @@ import net.minecraft.util.math.ChunkSectionPos;
 import net.minecraft.util.math.random.Random;
 
 import java.util.*;
+import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -74,6 +77,7 @@ public class Tbcexv4Test implements ModInitializer {
             return Text.of("TODO");
         }
     };
+    public static final BattleParticipantAttachmentType<RenderDataParticipantAttachmentView, RenderDataParticipantAttachment> RENDER_DATA_ATTACHMENT = new BattleParticipantAttachmentType<>((participantView, attachment) -> Text.of("TODO"), (participantView, attachment) -> false, Function.identity());
     public static final BattleActionType<PlayerJoinTestBattleAction> JOIN_TEST_TYPE = new BattleActionType<>(context -> PlayerJoinTestBattleAction.CODEC);
     public static final BattleActionType<WalkBattleAction> WALK_TYPE = new BattleActionType<>(context -> WalkBattleAction.CODEC);
     public static final BattleActionType<AttackBattleAction> ATTACK_TYPE = new BattleActionType<>(context -> AttackBattleAction.CODEC);
