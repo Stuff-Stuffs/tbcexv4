@@ -14,12 +14,16 @@ import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.ChunkSectionPos;
+import net.minecraft.world.LightType;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.BiomeKeys;
 import net.minecraft.world.chunk.PalettedContainer;
 import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.world.chunk.light.LightingProvider;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -85,14 +89,34 @@ public class BattleEnvironmentInitialState {
     }
 
     public void apply(final World world, final int baseSectionX, final int baseSectionZ) {
+        final LightingProvider provider = world.getLightingProvider();
         for (int i = 0; i < width; i++) {
             for (int k = 0; k < depth; k++) {
                 final WorldChunk chunk = world.getChunk(baseSectionX + i, baseSectionZ + k);
+                final ChunkPos pos = new ChunkPos(baseSectionX + i, baseSectionZ + k);
                 for (int j = 0; j < height; j++) {
                     final ChunkSection section = sections[i + width * (j + height * k)];
                     final ChunkSectionExtensions chunkSection = (ChunkSectionExtensions) chunk.getSection(j);
                     chunkSection.tbcexv4$copy(section.nonEmptyBlockCount, section.randomTickableCount, section.nonEmptyFluidCount, section.blockStates, section.biomes);
+                }
+                chunk.setLightOn(true);
+                chunk.refreshSurfaceY();
+                for (int j = 0; j < height; j++) {
+                    final ChunkSectionExtensions chunkSection = (ChunkSectionExtensions) chunk.getSection(j);
+                    final ChunkSectionPos sectionPos = ChunkSectionPos.from(pos, j + world.getBottomSectionCoord());
+                    provider.setSectionStatus(sectionPos, true);
+                    provider.setSectionStatus(sectionPos, false);
+                    provider.enqueueSectionData(LightType.SKY, sectionPos, null);
+                    provider.enqueueSectionData(LightType.BLOCK, sectionPos, null);
                     chunkSection.tbcexv4$setNeedsFlush();
+                }
+                provider.setColumnEnabled(pos, true);
+                provider.setRetainData(pos, false);
+                provider.propagateLight(pos);
+                for (int j = 0; j < 16; j++) {
+                    for (int l = 0; l < 16; l++) {
+                        provider.get(LightType.SKY).checkBlock(new BlockPos(pos.getStartX() + j, height * 16 + world.getBottomY() + 31, pos.getStartZ() + l));
+                    }
                 }
                 chunk.setNeedsSaving(true);
             }

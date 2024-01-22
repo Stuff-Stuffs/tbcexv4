@@ -14,8 +14,4 @@ public interface BattleEnvironmentView {
     RegistryEntry<Biome> biome(int x, int y, int z);
 
     BlockView asBlockView();
-
-    void cachePaths(BattleParticipantHandle handle, Pather.Paths paths);
-
-    @Nullable Pather.Paths lookupCachedPaths(BattleParticipantHandle handle);
 }

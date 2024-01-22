@@ -155,15 +155,14 @@ public class Tbcexv4Test implements ModInitializer {
         Tbcexv4Registries.DefaultPlans.register((participant, consumer) -> {
             final BattlePos pos = participant.pos();
             final BattleStateView battleState = participant.battleState();
-            Pather.Paths cache = battleState.environment().lookupCachedPaths(participant.handle());
-            if (cache == null) {
-                final List<NeighbourFinder> finders = new ArrayList<>();
-                NeighbourFinder.GATHER_EVENT.invoker().gather(participant, finders::add);
-                if (!finders.isEmpty()) {
-                    final Pather pather = Pather.create(finders.toArray(NeighbourFinder[]::new), Pather.PathNode::onFloor);
-                    cache = pather.compute(new Pather.PathNode((Pather.PathNode) null, 0, 0, Movement.WALK, true, pos.x(), pos.y(), pos.z()), PatherOptions.NONE, participant);
-                    battleState.environment().cachePaths(participant.handle(), cache);
-                }
+            Pather.Paths cache;
+            final List<NeighbourFinder> finders = new ArrayList<>();
+            NeighbourFinder.GATHER_EVENT.invoker().gather(participant, finders::add);
+            if (!finders.isEmpty()) {
+                final Pather pather = Pather.create(finders.toArray(NeighbourFinder[]::new), Pather.PathNode::onFloor);
+                cache = pather.compute(new Pather.PathNode((Pather.PathNode) null, 0, 0, Movement.WALK, true, pos.x(), pos.y(), pos.z()), PatherOptions.NONE, participant);
+            } else {
+                return;
             }
             if (cache.all().findAny().isPresent()) {
                 final Pather.Paths paths = cache;

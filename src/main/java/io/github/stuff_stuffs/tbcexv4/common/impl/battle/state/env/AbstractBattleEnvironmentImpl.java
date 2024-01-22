@@ -65,19 +65,6 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
     }
 
     @Override
-    public void cachePaths(final BattleParticipantHandle handle, final Pather.Paths paths) {
-        if (cached == null) {
-            cached = new Object2ReferenceOpenHashMap<>();
-        }
-        cached.put(handle, paths);
-    }
-
-    @Override
-    public @Nullable Pather.Paths lookupCachedPaths(final BattleParticipantHandle handle) {
-        return null;
-    }
-
-    @Override
     public void clearCachePath(final BattleTransactionContext context) {
         delta(context, new PathClearDelta(cached));
         cached = null;
