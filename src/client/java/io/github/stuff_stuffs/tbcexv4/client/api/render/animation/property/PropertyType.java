@@ -1,4 +1,4 @@
-package io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state;
+package io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;

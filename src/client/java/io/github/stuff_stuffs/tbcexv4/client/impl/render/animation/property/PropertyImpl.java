@@ -1,10 +1,10 @@
-package io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state;
+package io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.property;
 
 import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.Property;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.PropertyType;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Property;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyType;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Easing;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;

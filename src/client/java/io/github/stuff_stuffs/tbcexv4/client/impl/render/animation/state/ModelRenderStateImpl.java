@@ -4,7 +4,7 @@ import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.Property;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Property;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.RenderState;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 

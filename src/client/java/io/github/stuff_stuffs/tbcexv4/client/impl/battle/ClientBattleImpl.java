@@ -49,7 +49,7 @@ public class ClientBattleImpl implements Battle {
     private TurnManager turnManager;
     private BattleState state;
     private BattleTracer tracer;
-    private AnimationQueue queue;
+    private AnimationQueueImpl queue;
     private double time = 0;
     private final Queue<BattleLogContextImpl> logs;
 
@@ -199,11 +199,12 @@ public class ClientBattleImpl implements Battle {
 
     private double pushAnimation(final Animation<BattleRenderState> animation) {
         final double currentTime = time(0);
-        final double t = queue.enqueue(wrap(animation), currentTime, Double.POSITIVE_INFINITY);
+        final double t = queue.enqueue(animation, currentTime, Double.POSITIVE_INFINITY);
         if (Double.isNaN(t)) {
             Tbcexv4.LOGGER.error("Could not schedule animation!");
             return currentTime;
         }
+        queue.checkpoint(t);
         return t;
     }
 
@@ -214,27 +215,5 @@ public class ClientBattleImpl implements Battle {
 
     public double time(final double partial) {
         return (time + partial);
-    }
-
-    private Animation<BattleRenderState> wrap(final Animation<BattleRenderState> animation) {
-        return (time, state, context) -> {
-            final Result<List<Animation.TimedEvent>, Unit> result = animation.animate(time, state, context);
-            if (result instanceof Result.Failure<List<Animation.TimedEvent>, Unit>) {
-                return result;
-            }
-            final Result.Success<List<Animation.TimedEvent>, Unit> success = (Result.Success<List<Animation.TimedEvent>, Unit>) result;
-            final List<Animation.TimedEvent> mods = new ArrayList<>(success.val().size() + 1);
-            double last = Double.NEGATIVE_INFINITY;
-            for (final Animation.TimedEvent modifier : success.val()) {
-                mods.add(modifier);
-                last = Math.max(last, modifier.end());
-            }
-            final Result<List<Animation.TimedEvent>, Unit> reserve = state.completeLock(time, last, context);
-            if (reserve instanceof Result.Failure<List<Animation.TimedEvent>, Unit>) {
-                return new Result.Failure<>(Unit.INSTANCE);
-            }
-            mods.addAll(((Result.Success<List<Animation.TimedEvent>, Unit>) reserve).val());
-            return new Result.Success<>(mods);
-        };
     }
 }

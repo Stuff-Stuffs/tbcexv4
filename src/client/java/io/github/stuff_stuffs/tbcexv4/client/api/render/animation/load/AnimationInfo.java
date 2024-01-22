@@ -1,7 +1,7 @@
 package io.github.stuff_stuffs.tbcexv4.client.api.render.animation.load;
 
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.PropertyType;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyType;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.RenderState;
 
 import java.util.Map;

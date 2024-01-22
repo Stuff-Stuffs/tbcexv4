@@ -5,7 +5,7 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationFactoryRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.Property;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Property;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.model.ModelConverter;
 import io.github.stuff_stuffs.tbcexv4.client.mixin.AccessorEntityModelLoader;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
@@ -55,7 +55,7 @@ public class Tbcexv4TestClient implements ClientModInitializer {
                                                         t -> 0xFFFF0000,
                                                         time,
                                                         time + 20,
-                                                        Easing.from(EasingFunction.LINEAR, time, time + 20),
+                                                        Easing.in(EasingFunction.LINEAR, time, time + 20),
                                                         context,
                                                         Property.ReservationLevel.ACTION
                                                 ).mapSuccess(
@@ -80,7 +80,7 @@ public class Tbcexv4TestClient implements ClientModInitializer {
                         case SHEEP -> new Identifier("textures/entity/sheep/sheep.png");
                     };
                     final TexturedModelData data = ((AccessorEntityModelLoader) MinecraftClient.getInstance().getEntityModelLoader()).getModelParts().get(layer);
-                    final ModelConverter model = new ModelConverter(data, texture);
+                    final ModelConverter model = new ModelConverter(data, texture, false);
                     return Optional.of(ParticipantRenderState.lift(model, attachment.handle()));
                 }
             } else if (event instanceof final CoreParticipantTraceEvents.PostMoveParticipant move) {

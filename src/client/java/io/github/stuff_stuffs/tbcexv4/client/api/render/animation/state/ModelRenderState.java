@@ -5,6 +5,8 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyKey;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyTypes;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRenderer;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import net.minecraft.util.Identifier;

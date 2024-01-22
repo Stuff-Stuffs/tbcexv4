@@ -7,25 +7,30 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationQueue
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state.BattleRenderStateImpl;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
-import it.unimi.dsi.fastutil.objects.ObjectAVLTreeSet;
+import it.unimi.dsi.fastutil.doubles.DoubleAVLTreeSet;
+import it.unimi.dsi.fastutil.doubles.DoubleBidirectionalIterator;
+import it.unimi.dsi.fastutil.doubles.DoubleSortedSet;
 
 import java.util.List;
-import java.util.SortedSet;
 
 public class AnimationQueueImpl implements AnimationQueue {
     private final BattleRenderStateImpl state;
-    private final SortedSet<EventEntry> events;
+    private final DoubleSortedSet events;
     private long nextId = 0;
 
     public AnimationQueueImpl() {
         state = new BattleRenderStateImpl();
-        events = new ObjectAVLTreeSet<>();
+        events = new DoubleAVLTreeSet();
+    }
+
+    public void checkpoint(final double time) {
+        events.headSet(time).clear();
+        events.add(time);
     }
 
     @Override
     public double enqueue(final Animation<BattleRenderState> animation, final double minTime, final double cutoff) {
-        final EventEntry entry = new EventEntry(minTime);
-        final SortedSet<EventEntry> tailSet = events.tailSet(entry);
+        final DoubleSortedSet tailSet = events.tailSet(minTime);
         final AnimationContext context = new AnimationContextImpl(nextId++, cutoff);
         if (tailSet.isEmpty()) {
             final Result<List<Animation.TimedEvent>, Unit> setup = animation.animate(minTime, state, context);
@@ -35,21 +40,22 @@ public class AnimationQueueImpl implements AnimationQueue {
             }
             final Result.Success<List<Animation.TimedEvent>, Unit> success = (Result.Success<List<Animation.TimedEvent>, Unit>) setup;
             for (final Animation.TimedEvent modifier : success.val()) {
-                events.add(new EventEntry(modifier.start()));
+                events.add(modifier.start());
                 if (modifier.end() != modifier.start()) {
-                    events.add(new EventEntry(modifier.end()));
+                    events.add(modifier.end());
                 }
             }
             return minTime;
         } else {
-            for (final EventEntry eventEntry : tailSet) {
-                final double t = eventEntry.time;
+            final DoubleBidirectionalIterator iterator = tailSet.iterator();
+            while (iterator.hasNext()) {
+                final double t = iterator.nextDouble();
                 final Result<List<Animation.TimedEvent>, Unit> setup = animation.animate(t, state, context);
                 if (setup instanceof final Result.Success<List<Animation.TimedEvent>, Unit> success) {
                     for (final Animation.TimedEvent modifier : success.val()) {
-                        events.add(new EventEntry(modifier.start()));
+                        events.add(modifier.start());
                         if (modifier.end() != modifier.start()) {
-                            events.add(new EventEntry(modifier.end()));
+                            events.add(modifier.end());
                         }
                     }
                     return t;
@@ -66,18 +72,15 @@ public class AnimationQueueImpl implements AnimationQueue {
         return state;
     }
 
-    private record EventEntry(double time) implements Comparable<EventEntry> {
-        @Override
-        public int compareTo(final EventEntry o) {
-            return Double.compare(time, o.time);
-        }
-    }
-
     private record AnimationContextImpl(long id, double cutoff) implements AnimationContext {
         @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof AnimationContextImpl context)) return false;
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof final AnimationContextImpl context)) {
+                return false;
+            }
 
             return id == context.id;
         }

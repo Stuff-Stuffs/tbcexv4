@@ -27,17 +27,19 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
     private final Identifier texture;
     private final int textureWidth;
     private final int textureHeight;
+    private final boolean transparent;
 
-    public ModelConverter(final TexturedModelData data, final Identifier texture) {
+    public ModelConverter(final TexturedModelData data, final Identifier texture, boolean transparent) {
         this.data = data;
         this.texture = texture;
+        this.transparent = transparent;
         final AccessorTexturedModelData modelData = (AccessorTexturedModelData) data;
         textureWidth = ((AccessorTextureDimensions) modelData.getDimensions()).getWidth();
         textureHeight = ((AccessorTextureDimensions) modelData.getDimensions()).getHeight();
     }
 
     public static String childId(final int index) {
-        return "cuboid_" + index;
+        return "generated_cuboid_" + index;
     }
 
     @Override
@@ -74,7 +76,7 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
             folder.accept(childState.getProperty(ModelRenderState.ROTATION).setDefaultValue(new Quaternionf().rotationZYX(rotationData.roll, rotationData.yaw, rotationData.pitch), time, context));
             final Vector2f uv = modelCuboidData.getTextureUV();
             final Vector2f scale = modelCuboidData.getTextureScale();
-            final ModelRenderState.TextureData textureData = new ModelRenderState.TextureData(texture, size.x, size.y, size.z, (int) uv.getX(), (int) uv.getY(), textureWidth * scale.getX(), textureHeight * scale.getY(), true);
+            final ModelRenderState.TextureData textureData = new ModelRenderState.TextureData(texture, size.x, size.y, size.z, (int) uv.getX(), (int) uv.getY(), textureWidth * scale.getX(), textureHeight * scale.getY(), transparent);
             folder.accept(childState.getProperty(ModelRenderState.TEXTURE_DATA).setDefaultValue(Optional.of(textureData), time, context));
             folder.accept(childState.getProperty(ModelRenderState.RENDERER).setDefaultValue(ModelRendererRegistry.DEFAULT_RENDERER, time, context));
         }

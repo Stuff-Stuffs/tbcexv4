@@ -1,8 +1,11 @@
-package io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state;
+package io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property;
 
 import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.BattleEffectRenderer;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.BattleEffectRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRenderer;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
@@ -24,20 +27,20 @@ public final class PropertyTypes {
     public static final PropertyType<Unit> LOCK = new PropertyType<>(Unit.class, Codec.unit(Unit.INSTANCE), (start, end, time) -> start, () -> Unit.INSTANCE);
     public static final PropertyType<ModelRenderer> MODEL_RENDERER = new PropertyType<>(ModelRenderer.class, ModelRendererRegistry.CODEC, (start, end, time) -> end, () -> ModelRendererRegistry.NOOP_RENDERER);
     public static final PropertyType<Integer> COLOR = new PropertyType<>(Integer.class, Codec.INT, (start, end, time) -> {
-        final double a0 = ((start >> 24) & 0xFF) * (1 / 255.0);
-        final double r0 = ((start >> 16) & 0xFF) * (1 / 255.0);
-        final double g0 = ((start >> 8) & 0xFF) * (1 / 255.0);
-        final double b0 = ((start >> 0) & 0xFF) * (1 / 255.0);
+        final double a0 = (start >> 24) & 0xFF;
+        final double r0 = (start >> 16) & 0xFF;
+        final double g0 = (start >> 8) & 0xFF;
+        final double b0 = (start >> 0) & 0xFF;
 
-        final double a1 = ((end >> 24) & 0xFF) * (1 / 255.0);
-        final double r1 = ((end >> 16) & 0xFF) * (1 / 255.0);
-        final double g1 = ((end >> 8) & 0xFF) * (1 / 255.0);
-        final double b1 = ((end >> 0) & 0xFF) * (1 / 255.0);
+        final double a1 = (end >> 24) & 0xFF;
+        final double r1 = (end >> 16) & 0xFF;
+        final double g1 = (end >> 8) & 0xFF;
+        final double b1 = (end >> 0) & 0xFF;
 
-        final int a = MathHelper.clamp((int) Math.round((a0 * (1 - time) + a1 * time) * 255), 0, 255);
-        final int r = MathHelper.clamp((int) Math.round((r0 * (1 - time) + r1 * time) * 255), 0, 255);
-        final int g = MathHelper.clamp((int) Math.round((g0 * (1 - time) + g1 * time) * 255), 0, 255);
-        final int b = MathHelper.clamp((int) Math.round((b0 * (1 - time) + b1 * time) * 255), 0, 255);
+        final int a = MathHelper.clamp((int) Math.round(a0 * (1 - time) + a1 * time), 0, 255);
+        final int r = MathHelper.clamp((int) Math.round(r0 * (1 - time) + r1 * time), 0, 255);
+        final int g = MathHelper.clamp((int) Math.round(g0 * (1 - time) + g1 * time), 0, 255);
+        final int b = MathHelper.clamp((int) Math.round(b0 * (1 - time) + b1 * time), 0, 255);
 
         return (a << 24) | (r << 16) | (g << 8) | b;
     }, () -> 0xFFFFFFFF);
@@ -47,6 +50,7 @@ public final class PropertyTypes {
             (start, end, time) -> time < 0.5 ? start : end,
             Optional::empty
     );
+    public static final PropertyType<BattleEffectRenderer> BATTLE_EFFECT_RENDERER = new PropertyType<>(BattleEffectRenderer.class, BattleEffectRendererRegistry.CODEC, (start, end, time) -> time < 0.5 ? start : end, () -> BattleEffectRendererRegistry.NOOP_RENDERER);
 
     public static void init() {
         PropertyType.register(Tbcexv4.id("vec3d"), VEC3D);
@@ -55,6 +59,7 @@ public final class PropertyTypes {
         PropertyType.register(Tbcexv4.id("model_renderer"), MODEL_RENDERER);
         PropertyType.register(Tbcexv4.id("color"), COLOR);
         PropertyType.register(Tbcexv4.id("texture_data"), TEXTURE_DATA);
+        PropertyType.register(Tbcexv4.id("battle_effect_renderer"), BATTLE_EFFECT_RENDERER);
     }
 
     private PropertyTypes() {

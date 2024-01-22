@@ -6,10 +6,12 @@ import io.github.stuff_stuffs.tbcexv4.client.api.Tbcexv4ClientApi;
 import io.github.stuff_stuffs.tbcexv4.client.api.WatchedBattleChangeEvent;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.BattleItemRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.BattleRenderContext;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyTypes;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleEffectRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.PropertyTypes;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.BattleEffectRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.ClientBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.state.env.ClientBattleEnvironmentImpl;
@@ -200,8 +202,12 @@ public class Tbcexv4Client implements ClientModInitializer {
             final Vec3d pos = context.camera().getPos();
             matrices.translate(-pos.x, -pos.y, -pos.z);
             matrices.translate(WATCHED_BATTLE.worldX(0), WATCHED_BATTLE.worldY(0), WATCHED_BATTLE.worldZ(0));
-            for (final ParticipantRenderState participant : ((BattleRenderStateImpl) WATCHED_BATTLE.animationQueue().state()).cached()) {
-                render(participant.modelRoot(), renderContext);
+            final BattleRenderStateImpl state = (BattleRenderStateImpl) WATCHED_BATTLE.animationQueue().state();
+            for (final ParticipantRenderState participant : state.cachedParticipants()) {
+                renderModel(participant.modelRoot(), renderContext);
+            }
+            for (final BattleEffectRenderState effect : state.cachedEffects()) {
+                renderBattleEffect(effect, renderContext);
             }
             matrices.pop();
         });
@@ -228,10 +234,11 @@ public class Tbcexv4Client implements ClientModInitializer {
                                                                 new BattleDebugRendererRegistry.DebugRendererArgumentType()
                                                         )
                                                         .executes(context -> {
-                                                            final String id = context.getArgument("renderer", String.class);
-                                                            BattleDebugRendererRegistry.disable(id);
-                                                            return 0;
-                                                        })
+                                                                    final String id = context.getArgument("renderer", String.class);
+                                                                    BattleDebugRendererRegistry.disable(id);
+                                                                    return 0;
+                                                                }
+                                                        )
                                         )
                         )
         ));
@@ -239,13 +246,18 @@ public class Tbcexv4Client implements ClientModInitializer {
         BasicTargetUi.init();
         PropertyTypes.init();
         ModelRendererRegistry.init();
+        BattleEffectRendererRegistry.init();
     }
 
-    private void render(final ModelRenderState state, final BattleRenderContext context) {
+    private void renderModel(final ModelRenderState state, final BattleRenderContext context) {
         state.getProperty(ModelRenderState.RENDERER).get().render(context, state);
         for (final ModelRenderState child : ((ModelRenderStateImpl) state).cached()) {
-            render(child, context);
+            renderModel(child, context);
         }
+    }
+
+    private void renderBattleEffect(final BattleEffectRenderState state, final BattleRenderContext context) {
+        state.getProperty(BattleEffectRenderState.RENDERER).get().render(context, state);
     }
 
     public static DelayedResponse<Tbcexv4ClientApi.RequestResult> sendRequest(final BattleAction request) {

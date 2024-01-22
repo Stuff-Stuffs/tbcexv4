@@ -14,7 +14,7 @@ public interface Animation<T extends RenderState> {
         T value(double time);
 
         default StateModifier<T> delay(final double delay) {
-            return time -> value(time - delay);
+            return time -> value(time + delay);
         }
 
         static StateModifier<Unit> lock() {

@@ -1,9 +1,10 @@
 package io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state;
 
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.Property;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.PropertyKey;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Property;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyKey;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.RenderState;
+import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.property.PropertyImpl;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 

@@ -2,6 +2,7 @@ package io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state;
 
 import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyKey;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import net.minecraft.util.math.Vec3d;
