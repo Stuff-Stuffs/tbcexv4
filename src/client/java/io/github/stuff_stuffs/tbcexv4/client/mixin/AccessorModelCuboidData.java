@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 import java.util.Set;
 
 @Mixin(ModelCuboidData.class)
-public interface MixinModelCuboidData {
+public interface AccessorModelCuboidData {
     @Accessor
     String getName();
 

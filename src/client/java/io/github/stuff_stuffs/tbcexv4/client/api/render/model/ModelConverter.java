@@ -31,9 +31,9 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
     public ModelConverter(final TexturedModelData data, final Identifier texture) {
         this.data = data;
         this.texture = texture;
-        final MixinTexturedModelData modelData = (MixinTexturedModelData) data;
-        textureWidth = ((MixinTextureDimensions) modelData.getDimensions()).getWidth();
-        textureHeight = ((MixinTextureDimensions) modelData.getDimensions()).getHeight();
+        final AccessorTexturedModelData modelData = (AccessorTexturedModelData) data;
+        textureWidth = ((AccessorTextureDimensions) modelData.getDimensions()).getWidth();
+        textureHeight = ((AccessorTextureDimensions) modelData.getDimensions()).getHeight();
     }
 
     public static String childId(final int index) {
@@ -44,7 +44,7 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
     public Result<List<TimedEvent>, Unit> animate(final double time, final ParticipantRenderState state, final AnimationContext context) {
         final ModelRenderState modelRoot = state.modelRoot();
         final var folder = Result.<TimedEvent>mutableFold();
-        create(((MixinTexturedModelData) data).getData().getRoot(), modelRoot, time, context, folder, true);
+        create(((AccessorTexturedModelData) data).getData().getRoot(), modelRoot, time, context, folder, true);
         return folder.get();
     }
 
@@ -53,8 +53,8 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
             folder.accept(state.getProperty(ModelRenderState.POSITION).setDefaultValue(new Vec3d(0, 1.5, 0), time, context));
         }
         int i = 0;
-        final ModelTransform rotationData = ((MixinModelPartData) data).getRotationData();
-        for (final ModelCuboidData cuboidData : ((MixinModelPartData) data).getCuboidData()) {
+        final ModelTransform rotationData = ((AccessorModelPartData) data).getRotationData();
+        for (final ModelCuboidData cuboidData : ((AccessorModelPartData) data).getCuboidData()) {
             final String id = childId(i++);
             folder.accept(state.addChild(id, time, context));
             final Optional<ModelRenderState> opt = state.getChild(id, time);
@@ -63,10 +63,10 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
                 return;
             }
             final ModelRenderState childState = opt.get();
-            final MixinModelCuboidData modelCuboidData = (MixinModelCuboidData) (Object) cuboidData;
+            final AccessorModelCuboidData modelCuboidData = (AccessorModelCuboidData) (Object) cuboidData;
             final Vector3f size = modelCuboidData.getDimensions();
             final float inv = -1 / 16.0F;
-            final MixinDilation extraSize = (MixinDilation) modelCuboidData.getExtraSize();
+            final AccessorDilation extraSize = (AccessorDilation) modelCuboidData.getExtraSize();
             folder.accept(childState.getProperty(ModelRenderState.EXTENTS).setDefaultValue(new Vec3d((size.x + extraSize.getRadiusX() * 2) * inv, (size.y + extraSize.getRadiusY() * 2) * inv, (size.z + extraSize.getRadiusZ() * 2) * inv), time, context));
             final Vector3f pos = modelCuboidData.getOffset();
             folder.accept(childState.getProperty(ModelRenderState.OFFSET).setDefaultValue(new Vec3d((pos.x + size.x * 0.5) * inv, (pos.y + size.y * 0.5) * inv, (pos.z + size.z * 0.5) * inv), time, context));
@@ -78,7 +78,7 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
             folder.accept(childState.getProperty(ModelRenderState.TEXTURE_DATA).setDefaultValue(Optional.of(textureData), time, context));
             folder.accept(childState.getProperty(ModelRenderState.RENDERER).setDefaultValue(ModelRendererRegistry.DEFAULT_RENDERER, time, context));
         }
-        for (final Map.Entry<String, ModelPartData> entry : ((MixinModelPartData) data).getChildren().entrySet()) {
+        for (final Map.Entry<String, ModelPartData> entry : ((AccessorModelPartData) data).getChildren().entrySet()) {
             folder.accept(state.addChild(entry.getKey(), time, context));
             final Optional<ModelRenderState> opt = state.getChild(entry.getKey(), time);
             if (opt.isEmpty()) {

@@ -198,10 +198,11 @@ public class ClientBattleImpl implements Battle {
     }
 
     private double pushAnimation(final Animation<BattleRenderState> animation) {
-        final double t = queue.enqueue(wrap(animation), time(0), Double.POSITIVE_INFINITY);
+        final double currentTime = time(0);
+        final double t = queue.enqueue(wrap(animation), currentTime, Double.POSITIVE_INFINITY);
         if (Double.isNaN(t)) {
             Tbcexv4.LOGGER.error("Could not schedule animation!");
-            return Double.POSITIVE_INFINITY;
+            return currentTime;
         }
         return t;
     }

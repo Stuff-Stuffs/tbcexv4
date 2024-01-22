@@ -7,7 +7,7 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRen
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.Property;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.model.ModelConverter;
-import io.github.stuff_stuffs.tbcexv4.client.mixin.MixinEntityModelLoader;
+import io.github.stuff_stuffs.tbcexv4.client.mixin.AccessorEntityModelLoader;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.Pather;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreParticipantTraceEvents;
@@ -79,7 +79,7 @@ public class Tbcexv4TestClient implements ClientModInitializer {
                         case PIG -> new Identifier("textures/entity/pig/pig.png");
                         case SHEEP -> new Identifier("textures/entity/sheep/sheep.png");
                     };
-                    final TexturedModelData data = ((MixinEntityModelLoader) MinecraftClient.getInstance().getEntityModelLoader()).getModelParts().get(layer);
+                    final TexturedModelData data = ((AccessorEntityModelLoader) MinecraftClient.getInstance().getEntityModelLoader()).getModelParts().get(layer);
                     final ModelConverter model = new ModelConverter(data, texture);
                     return Optional.of(ParticipantRenderState.lift(model, attachment.handle()));
                 }

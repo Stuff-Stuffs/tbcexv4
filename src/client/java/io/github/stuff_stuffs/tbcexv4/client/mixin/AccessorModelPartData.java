@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 @Mixin(ModelPartData.class)
-public interface MixinModelPartData {
+public interface AccessorModelPartData {
     @Accessor(value = "cuboidData")
     List<ModelCuboidData> getCuboidData();
 

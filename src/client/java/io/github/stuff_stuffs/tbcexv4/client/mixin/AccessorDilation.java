@@ -5,7 +5,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(Dilation.class)
-public interface MixinDilation {
+public interface AccessorDilation {
     @Accessor
     float getRadiusX();
 
