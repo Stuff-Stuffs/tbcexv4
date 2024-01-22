@@ -58,7 +58,7 @@ public class Tbcexv4Test implements ModInitializer {
     private static final PlanType PLAN_TYPE = new PlanType() {
         @Override
         public Text name() {
-            return Text.of("TODO");
+            return Text.of("ATTACK");
         }
 
         @Override

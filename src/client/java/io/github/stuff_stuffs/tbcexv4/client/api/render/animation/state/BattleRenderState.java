@@ -17,6 +17,4 @@ public interface BattleRenderState extends RenderState {
     Result<Animation.TimedEvent, Unit> addParticipant(BattleParticipantHandle handle, double time, AnimationContext context);
 
     Result<Animation.TimedEvent, Unit> removeParticipant(BattleParticipantHandle handle, double time, AnimationContext context);
-
-    void clearEvents(AnimationContext context);
 }

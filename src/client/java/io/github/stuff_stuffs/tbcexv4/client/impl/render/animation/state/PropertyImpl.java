@@ -93,7 +93,7 @@ public class PropertyImpl<T> implements Property<T> {
         if (index >= 0) {
             rIndex = index;
         } else {
-            rIndex = Math.min(defaultValues.size() - 1, -index - 1);
+            rIndex = Math.min(defaultValues.size() - 1, -index - 2);
         }
         T val = defaultValues.get(rIndex).val;
         for (final ReservationLevel level : LEVELS) {

@@ -1,5 +1,6 @@
 package io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state;
 
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
@@ -27,5 +28,11 @@ public class ParticipantRenderStateImpl extends RenderStateImpl implements Parti
     @Override
     public BattleRenderState parent() {
         return parent;
+    }
+
+    @Override
+    public void cleanup(AnimationContext context, double time) {
+        super.cleanup(context, time);
+        rootModel.cleanup(context, time);
     }
 }

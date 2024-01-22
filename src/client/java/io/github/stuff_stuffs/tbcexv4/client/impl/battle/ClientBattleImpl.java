@@ -22,16 +22,18 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleT
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
+import io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.log.BattleLogContextImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
+import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.registry.RegistryKey;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Supplier;
 
 public class ClientBattleImpl implements Battle {
@@ -49,6 +51,7 @@ public class ClientBattleImpl implements Battle {
     private BattleTracer tracer;
     private AnimationQueue queue;
     private double time = 0;
+    private final Queue<BattleLogContextImpl> logs;
 
     public ClientBattleImpl(final ClientWorld world, final BattleHandle handle, final RegistryKey<World> sourceWorld, final BlockPos min, final int xSize, final int ySize, final int zSize, final Supplier<TurnManager> factory) {
         turnManagerFactory = factory;
@@ -64,11 +67,15 @@ public class ClientBattleImpl implements Battle {
         this.xSize = xSize;
         this.ySize = ySize;
         this.zSize = zSize;
+        logs = new ArrayDeque<>();
         initialize();
     }
 
     public void tick() {
         time = time + 1;
+        while (!logs.isEmpty() && logs.peek().time < time) {
+            MinecraftClient.getInstance().player.sendMessage(Tbcexv4Util.concat(logs.poll().collect().toArray(new Text[0])));
+        }
     }
 
     private void initialize() {
@@ -80,7 +87,7 @@ public class ClientBattleImpl implements Battle {
             turnManager.setup(state, transaction, span);
             transaction.commit();
         }
-        tracer.all().forEach(node -> AnimationFactoryRegistry.create(node.event()).ifPresent(animation -> queue.enqueue(animation, 0, Double.POSITIVE_INFINITY)));
+        tracer.all().forEach(node -> AnimationFactoryRegistry.create(node.event()).ifPresent(this::pushAnimation));
     }
 
     public AnimationQueue animationQueue() {
@@ -182,7 +189,21 @@ public class ClientBattleImpl implements Battle {
             actionSource.ifPresent(source -> turnManager.onAction(source.energy(), source.actor(), state, transaction, span));
             transaction.commit();
         }
-        tracer.after(latest.timeStamp()).forEach(node -> AnimationFactoryRegistry.create(node.event()).ifPresent(animation -> queue.enqueue(wrap(animation), time(0), Double.POSITIVE_INFINITY)));
+        final OptionalDouble logTime = tracer.after(latest.timeStamp()).mapToDouble(node -> AnimationFactoryRegistry.create(node.event()).map(this::pushAnimation).orElse(0.0)).min();
+        if (logTime.isEmpty()) {
+            throw new RuntimeException();
+        }
+        logContext.time = logTime.getAsDouble();
+        logs.add(logContext);
+    }
+
+    private double pushAnimation(final Animation<BattleRenderState> animation) {
+        final double t = queue.enqueue(wrap(animation), time(0), Double.POSITIVE_INFINITY);
+        if (Double.isNaN(t)) {
+            Tbcexv4.LOGGER.error("Could not schedule animation!");
+            return Double.POSITIVE_INFINITY;
+        }
+        return t;
     }
 
     @Override
@@ -207,11 +228,11 @@ public class ClientBattleImpl implements Battle {
                 mods.add(modifier);
                 last = Math.max(last, modifier.end());
             }
-            final Result<Animation.TimedEvent, Unit> reserve = state.completeLock(time, last, context);
-            if (reserve instanceof Result.Failure<Animation.TimedEvent, Unit>) {
+            final Result<List<Animation.TimedEvent>, Unit> reserve = state.completeLock(time, last, context);
+            if (reserve instanceof Result.Failure<List<Animation.TimedEvent>, Unit>) {
                 return new Result.Failure<>(Unit.INSTANCE);
             }
-            mods.add(((Result.Success<Animation.TimedEvent, Unit>) reserve).val());
+            mods.addAll(((Result.Success<List<Animation.TimedEvent>, Unit>) reserve).val());
             return new Result.Success<>(mods);
         };
     }

@@ -6,6 +6,8 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationConte
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+
 public interface RenderState {
     PropertyKey<Unit> LOCK = new PropertyKey<>("lock", PropertyTypes.LOCK);
 
@@ -17,12 +19,14 @@ public interface RenderState {
         return getProperty(LOCK).reserve(Animation.StateModifier.lock(), start, end, t -> 1, context, level);
     }
 
-    default Result<Animation.TimedEvent, Unit> completeLock(final double start, final double end, final AnimationContext context) {
+    default Result<List<Animation.TimedEvent>, Unit> completeLock(final double start, final double end, final AnimationContext context) {
         final Property<Unit> property = getProperty(LOCK);
         return property.reserve(Animation.StateModifier.lock(), start, end, t -> 1, context, Property.ReservationLevel.IDLE).flatmapSuccess(
                 s0 -> property.reserve(Animation.StateModifier.lock(), start, end, t -> 1, context, Property.ReservationLevel.ACTION).flatmapSuccess(
                         s1 -> property.reserve(Animation.StateModifier.lock(), start, end, t -> 1, context, Property.ReservationLevel.EFFECT).flatmapSuccess(
-                                s2 -> property.reserve(Animation.StateModifier.lock(), start, end, t -> 1, context, Property.ReservationLevel.TRANSITION)
+                                s2 -> property.reserve(Animation.StateModifier.lock(), start, end, t -> 1, context, Property.ReservationLevel.TRANSITION).mapSuccess(
+                                        s3 -> List.of(s0, s1, s2, s3)
+                                )
                         )
                 )
         );

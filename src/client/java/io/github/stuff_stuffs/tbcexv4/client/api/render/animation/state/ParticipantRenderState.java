@@ -16,7 +16,7 @@ public interface ParticipantRenderState extends RenderState {
     ModelRenderState modelRoot();
 
     @Override
-    public BattleRenderState parent();
+    BattleRenderState parent();
 
     static Animation<BattleRenderState> lift(final Animation<ParticipantRenderState> animation, final BattleParticipantHandle handle) {
         return (time, state, context) -> {

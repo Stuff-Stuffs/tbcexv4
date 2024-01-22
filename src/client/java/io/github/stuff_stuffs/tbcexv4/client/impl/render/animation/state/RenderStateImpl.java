@@ -4,18 +4,19 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationConte
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.Property;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.PropertyKey;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.RenderState;
-import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
-import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Map;
+
 public abstract class RenderStateImpl implements RenderState {
-    private final Reference2ObjectMap<PropertyKey<?>, PropertyImpl<?>> map;
+    private final Map<PropertyKey<?>, PropertyImpl<?>> map;
 
     public RenderStateImpl() {
-        map = new Reference2ObjectOpenHashMap<>();
+        map = new Object2ReferenceOpenHashMap<>();
     }
 
-    public void cleanup(final AnimationContext context) {
+    public void cleanup(final AnimationContext context, final double time) {
         for (final PropertyImpl<?> property : map.values()) {
             property.clearAll(context);
         }

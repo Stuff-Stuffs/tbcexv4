@@ -35,9 +35,9 @@ public class ModelRenderStateImpl extends RenderStateImpl implements ModelRender
     }
 
     @Override
-    public void cleanup(final AnimationContext context) {
-        super.cleanup(context);
-        timedContainer.clear(context);
+    public void cleanup(final AnimationContext context, final double time) {
+        super.cleanup(context, time);
+        timedContainer.clear(context, time);
     }
 
     public List<ModelRenderState> cached() {

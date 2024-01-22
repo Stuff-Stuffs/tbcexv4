@@ -77,8 +77,14 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         return containers.computeIfAbsent(key, k -> new Container()).addOrRemove(time, context, false);
     }
 
-    public void clear(final AnimationContext context) {
-        for (final Container container : containers.values()) {
+    public void clear(final AnimationContext context, final double time) {
+        for (final Map.Entry<K, Container> entry : containers.entrySet()) {
+            final K key = entry.getKey();
+            final int serial = serialNumber(key, time);
+            if (serial != INVALID_SERIAL_NUMBER) {
+                values.get(new Key<>(key, serial)).cleanup(context, time);
+            }
+            final Container container = entry.getValue();
             container.clear(context);
         }
     }

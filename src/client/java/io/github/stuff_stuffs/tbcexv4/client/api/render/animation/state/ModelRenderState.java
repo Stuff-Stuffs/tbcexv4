@@ -72,6 +72,8 @@ public interface ModelRenderState extends RenderState {
                         final Result<List<TimedEvent>, Unit> setup = animation.animate(time, root, context);
                         if (setup instanceof final Result.Success<List<TimedEvent>, Unit> s0) {
                             final List<TimedEvent> combined = new ArrayList<>(success.val().size() + s0.val().size());
+                            combined.addAll(success.val());
+                            combined.addAll(s0.val());
                             res = Result.success(combined);
                         } else if (!soft) {
                             res = Result.failure(Unit.INSTANCE);

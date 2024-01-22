@@ -74,10 +74,7 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
 
     @Override
     public @Nullable Pather.Paths lookupCachedPaths(final BattleParticipantHandle handle) {
-        if (cached == null) {
-            return null;
-        }
-        return cached.get(handle);
+        return null;
     }
 
     @Override

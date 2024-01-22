@@ -10,6 +10,7 @@ import java.util.List;
 public class BattleLogContextImpl implements BattleLogContext {
     private final List<Entry> entries;
     private int indentation = 0;
+    public double time = 0;
 
     public BattleLogContextImpl() {
         entries = new ArrayList<>();

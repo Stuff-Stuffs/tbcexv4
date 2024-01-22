@@ -36,9 +36,9 @@ public class BattleRenderStateImpl extends RenderStateImpl implements BattleRend
     }
 
     @Override
-    public void cleanup(final AnimationContext context) {
-        super.cleanup(context);
-        timedContainer.clear(context);
+    public void cleanup(final AnimationContext context, double time) {
+        super.cleanup(context, time);
+        timedContainer.clear(context, time);
     }
 
     public List<ParticipantRenderState> cached() {
@@ -70,11 +70,6 @@ public class BattleRenderStateImpl extends RenderStateImpl implements BattleRend
             }
         }
         return timedContainer.remove(handle, time, context);
-    }
-
-    @Override
-    public void clearEvents(final AnimationContext context) {
-        timedContainer.clear(context);
     }
 
     @Override

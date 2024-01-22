@@ -18,26 +18,27 @@ public class AnimationQueueImpl implements AnimationQueue {
     private long nextId = 0;
 
     public AnimationQueueImpl() {
-        this.state = new BattleRenderStateImpl();
+        state = new BattleRenderStateImpl();
         events = new ObjectAVLTreeSet<>();
     }
 
     @Override
     public double enqueue(final Animation<BattleRenderState> animation, final double minTime, final double cutoff) {
-        final long id = nextId++;
-        final EventEntry entry = new EventEntry(minTime, id);
+        final EventEntry entry = new EventEntry(minTime);
         final SortedSet<EventEntry> tailSet = events.tailSet(entry);
-        final AnimationContext context = new AnimationContextImpl(id, cutoff);
+        final AnimationContext context = new AnimationContextImpl(nextId++, cutoff);
         if (tailSet.isEmpty()) {
             final Result<List<Animation.TimedEvent>, Unit> setup = animation.animate(minTime, state, context);
             if (setup instanceof Result.Failure<List<Animation.TimedEvent>, Unit>) {
-                state.cleanup(context);
+                state.cleanup(context, minTime);
                 return Double.NaN;
             }
             final Result.Success<List<Animation.TimedEvent>, Unit> success = (Result.Success<List<Animation.TimedEvent>, Unit>) setup;
             for (final Animation.TimedEvent modifier : success.val()) {
-                events.add(new EventEntry(modifier.start(), id));
-                events.add(new EventEntry(modifier.end(), id));
+                events.add(new EventEntry(modifier.start()));
+                if (modifier.end() != modifier.start()) {
+                    events.add(new EventEntry(modifier.end()));
+                }
             }
             return minTime;
         } else {
@@ -46,12 +47,14 @@ public class AnimationQueueImpl implements AnimationQueue {
                 final Result<List<Animation.TimedEvent>, Unit> setup = animation.animate(t, state, context);
                 if (setup instanceof final Result.Success<List<Animation.TimedEvent>, Unit> success) {
                     for (final Animation.TimedEvent modifier : success.val()) {
-                        events.add(new EventEntry(modifier.start(), id));
-                        events.add(new EventEntry(modifier.end(), id));
+                        events.add(new EventEntry(modifier.start()));
+                        if (modifier.end() != modifier.start()) {
+                            events.add(new EventEntry(modifier.end()));
+                        }
                     }
                     return t;
                 } else {
-                    state.cleanup(context);
+                    state.cleanup(context, t);
                 }
             }
             return Double.NaN;
@@ -63,17 +66,25 @@ public class AnimationQueueImpl implements AnimationQueue {
         return state;
     }
 
-    private record EventEntry(double time, long id) implements Comparable<EventEntry> {
+    private record EventEntry(double time) implements Comparable<EventEntry> {
         @Override
         public int compareTo(final EventEntry o) {
-            final int c = Double.compare(time, o.time);
-            if(c!=0) {
-                return c;
-            }
-            return Long.compare(id, o.id);
+            return Double.compare(time, o.time);
         }
     }
 
     private record AnimationContextImpl(long id, double cutoff) implements AnimationContext {
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof AnimationContextImpl context)) return false;
+
+            return id == context.id;
+        }
+
+        @Override
+        public int hashCode() {
+            return (int) (id ^ (id >>> 32));
+        }
     }
 }

@@ -71,6 +71,7 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
                 final double score = iter(participant, scorer, random, state, transaction, tracer, base, 1, cancellation);
                 cancellationFuture = cancellation.getNow(null);
                 if (cancellationFuture != null) {
+                    transaction.close();
                     cancellationFuture.complete(Unit.INSTANCE);
                     return Optional.empty();
                 }
