@@ -57,12 +57,44 @@ public class BattleRenderContextImpl implements BattleRenderContext {
     @Override
     public int light(final double x, final double y, final double z) {
         lightMatrices.peek().getPositionMatrix().transform(lightScratch.set((float) x, (float) y, (float) z, 1.0F));
-        final int lx = MathHelper.floor(lightScratch.x);
-        final int ly = MathHelper.floor(lightScratch.y);
-        final int lz = MathHelper.floor(lightScratch.z);
-        final int ux = MathHelper.ceil(lightScratch.x);
-        final int uy = MathHelper.ceil(lightScratch.y);
-        final int uz = MathHelper.ceil(lightScratch.z);
+        final int lx;
+        final int ly;
+        final int lz;
+        final int ux;
+        final int uy;
+        final int uz;
+        final double rx;
+        final double ry;
+        final double rz;
+        if (MathHelper.fractionalPart(lightScratch.x) < 0.5) {
+            lx = MathHelper.floor(lightScratch.x) - 1;
+            ux = lx + 1;
+            rx = MathHelper.fractionalPart(lightScratch.x + 0.5);
+        } else {
+            lx = MathHelper.floor(lightScratch.x);
+            ux = lx + 1;
+            rx = MathHelper.fractionalPart(lightScratch.x - 0.5);
+        }
+
+        if (MathHelper.fractionalPart(lightScratch.y) < 0.5) {
+            ly = MathHelper.floor(lightScratch.y) - 1;
+            uy = ly + 1;
+            ry = MathHelper.fractionalPart(lightScratch.y + 0.5);
+        } else {
+            ly = MathHelper.floor(lightScratch.y);
+            uy = ly + 1;
+            ry = MathHelper.fractionalPart(lightScratch.y - 0.5);
+        }
+
+        if (MathHelper.fractionalPart(lightScratch.z) < 0.5) {
+            lz = MathHelper.floor(lightScratch.z) - 1;
+            uz = lz + 1;
+            rz = MathHelper.fractionalPart(lightScratch.z + 0.5);
+        } else {
+            lz = MathHelper.floor(lightScratch.z);
+            uz = lz + 1;
+            rz = MathHelper.fractionalPart(lightScratch.z - 0.5);
+        }
         return lerpLight(
                 light(lx, ly, lz),
                 light(lx, ly, uz),
@@ -72,9 +104,9 @@ public class BattleRenderContextImpl implements BattleRenderContext {
                 light(ux, ly, uz),
                 light(ux, uy, lz),
                 light(ux, uy, uz),
-                MathHelper.fractionalPart(x),
-                MathHelper.fractionalPart(y),
-                MathHelper.fractionalPart(z)
+                rx,
+                ry,
+                rz
         );
     }
 

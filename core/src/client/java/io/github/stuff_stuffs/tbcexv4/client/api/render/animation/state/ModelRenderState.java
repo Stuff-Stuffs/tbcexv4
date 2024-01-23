@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 
 public interface ModelRenderState extends RenderState {
+    PropertyKey<Boolean> LAST_INVERSION = new PropertyKey<>("last_inversion", PropertyTypes.FLAG);
     PropertyKey<Vec3d> OFFSET = new PropertyKey<>("offset", PropertyTypes.VEC3D);
     PropertyKey<Vec3d> POSITION = new PropertyKey<>("position", PropertyTypes.VEC3D);
     PropertyKey<Vec3d> EXTENTS = new PropertyKey<>("extents", PropertyTypes.VEC3D);

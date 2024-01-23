@@ -94,6 +94,7 @@ public final class Tbcexv4UiComponents {
                 final Optional<Component> itemActions = itemActions(participant, handle.get());
                 if (itemActions.isPresent()) {
                     final OverlayContainer<Component> overlay = Containers.overlay(itemActions.get());
+                    overlay.surface(Surface.BLANK);
                     overlay.positioning(Positioning.absolute(x, y));
                     overlay.id(itemActionsId);
                     stack.child(overlay);

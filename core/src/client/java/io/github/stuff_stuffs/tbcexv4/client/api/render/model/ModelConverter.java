@@ -29,7 +29,7 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
     private final int textureHeight;
     private final boolean transparent;
 
-    public ModelConverter(final TexturedModelData data, final Identifier texture, boolean transparent) {
+    public ModelConverter(final TexturedModelData data, final Identifier texture, final boolean transparent) {
         this.data = data;
         this.texture = texture;
         this.transparent = transparent;
@@ -52,7 +52,7 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
 
     private void create(final ModelPartData data, final ModelRenderState state, final double time, final AnimationContext context, final Result.Folder<List<TimedEvent>, TimedEvent, Unit> folder, final boolean root) {
         if (root) {
-            folder.accept(state.getProperty(ModelRenderState.POSITION).setDefaultValue(new Vec3d(0, 1.5, 0), time, context));
+            folder.accept(state.getProperty(ModelRenderState.POSITION).setDefaultValue(new Vec3d(0, 1.501, 0), time, context));
         }
         int i = 0;
         final ModelTransform rotationData = ((AccessorModelPartData) data).getRotationData();
@@ -65,9 +65,10 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
                 return;
             }
             final ModelRenderState childState = opt.get();
+            folder.accept(childState.getProperty(ModelRenderState.LAST_INVERSION).setDefaultValue(true, time, context));
             final AccessorModelCuboidData modelCuboidData = (AccessorModelCuboidData) (Object) cuboidData;
             final Vector3f size = modelCuboidData.getDimensions();
-            final float inv = -1 / 16.0F;
+            final float inv = 1 / 16.0F;
             final AccessorDilation extraSize = (AccessorDilation) modelCuboidData.getExtraSize();
             folder.accept(childState.getProperty(ModelRenderState.EXTENTS).setDefaultValue(new Vec3d((size.x + extraSize.getRadiusX() * 2) * inv, (size.y + extraSize.getRadiusY() * 2) * inv, (size.z + extraSize.getRadiusZ() * 2) * inv), time, context));
             final Vector3f pos = modelCuboidData.getOffset();

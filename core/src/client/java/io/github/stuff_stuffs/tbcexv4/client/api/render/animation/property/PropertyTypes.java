@@ -51,6 +51,7 @@ public final class PropertyTypes {
             Optional::empty
     );
     public static final PropertyType<BattleEffectRenderer> BATTLE_EFFECT_RENDERER = new PropertyType<>(BattleEffectRenderer.class, BattleEffectRendererRegistry.CODEC, (start, end, time) -> time < 0.5 ? start : end, () -> BattleEffectRendererRegistry.NOOP_RENDERER);
+    public static final PropertyType<Boolean> FLAG = new PropertyType<>(Boolean.class, Codec.BOOL, ((start, end, time) -> time < 0.5 ? start : end), () -> false);
 
     public static void init() {
         PropertyType.register(Tbcexv4.id("vec3d"), VEC3D);
@@ -60,6 +61,7 @@ public final class PropertyTypes {
         PropertyType.register(Tbcexv4.id("color"), COLOR);
         PropertyType.register(Tbcexv4.id("texture_data"), TEXTURE_DATA);
         PropertyType.register(Tbcexv4.id("battle_effect_renderer"), BATTLE_EFFECT_RENDERER);
+        PropertyType.register(Tbcexv4.id("flag"), FLAG);
     }
 
     private PropertyTypes() {

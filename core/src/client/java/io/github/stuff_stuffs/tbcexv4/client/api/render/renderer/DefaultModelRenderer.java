@@ -27,6 +27,7 @@ public class DefaultModelRenderer implements ModelRenderer {
             final MatrixStack matrices = context.parent().matrixStack();
             matrices.push();
             final MatrixStack lightMatrices = context.lightMatrices();
+            lightMatrices.push();
             walkUp(matrices, lightMatrices, state, true);
             final Matrix4f pMat = matrices.peek().getPositionMatrix();
             final Matrix3f nMat = matrices.peek().getNormalMatrix();
@@ -42,6 +43,7 @@ public class DefaultModelRenderer implements ModelRenderer {
                 drawTextured(buffer, extents, pMat, nMat, color, textureData, context);
             }
             matrices.pop();
+            lightMatrices.pop();
         }
     }
 
@@ -54,22 +56,22 @@ public class DefaultModelRenderer implements ModelRenderer {
         final float z0 = -z1;
 
         //DOWN
-        buffer.vertex(pMat, x1, y0, z1).color(color).next();
-        buffer.vertex(pMat, x0, y0, z1).color(color).next();
-        buffer.vertex(pMat, x0, y0, z0).color(color).next();
-        buffer.vertex(pMat, x1, y0, z0).color(color).next();
+        buffer.vertex(pMat, x1, y0, z1).color(0xFFFF0000).next();
+        buffer.vertex(pMat, x0, y0, z1).color(0xFFFF0000).next();
+        buffer.vertex(pMat, x0, y0, z0).color(0xFFFF0000).next();
+        buffer.vertex(pMat, x1, y0, z0).color(0xFFFF0000).next();
 
         //UP
-        buffer.vertex(pMat, x1, y1, z0).color(color).next();
-        buffer.vertex(pMat, x0, y1, z0).color(color).next();
-        buffer.vertex(pMat, x0, y1, z1).color(color).next();
-        buffer.vertex(pMat, x1, y1, z1).color(color).next();
+        buffer.vertex(pMat, x1, y1, z0).color(0xFF00FF00).next();
+        buffer.vertex(pMat, x0, y1, z0).color(0xFF00FF00).next();
+        buffer.vertex(pMat, x0, y1, z1).color(0xFF00FF00).next();
+        buffer.vertex(pMat, x1, y1, z1).color(0xFF00FF00).next();
 
         //WEST
-        buffer.vertex(pMat, x0, y0, z0).color(color).next();
-        buffer.vertex(pMat, x0, y0, z1).color(color).next();
-        buffer.vertex(pMat, x0, y1, z1).color(color).next();
-        buffer.vertex(pMat, x0, y1, z0).color(color).next();
+        buffer.vertex(pMat, x0, y0, z0).color(0xFF0000FF).next();
+        buffer.vertex(pMat, x0, y0, z1).color(0xFF0000FF).next();
+        buffer.vertex(pMat, x0, y1, z1).color(0xFF0000FF).next();
+        buffer.vertex(pMat, x0, y1, z0).color(0xFF0000FF).next();
 
         //EAST
         buffer.vertex(pMat, x1, y0, z1).color(color).next();
@@ -158,50 +160,50 @@ public class DefaultModelRenderer implements ModelRenderer {
         //DOWN 5401
         final Vector3f scratch = new Vector3f(0, -1, 0);
         scratch.mul(nMat);
-        buffer.vertex(vertex1.x, vertex1.y, vertex1.z).color(color).texture(u2, v1).overlay(OverlayTexture.DEFAULT_UV).light(light1).normal(scratch.x, scratch.y, scratch.z).next();
-        buffer.vertex(vertex0.x, vertex0.y, vertex0.z).color(color).texture(u1, v1).overlay(OverlayTexture.DEFAULT_UV).light(light0).normal(scratch.x, scratch.y, scratch.z).next();
-        buffer.vertex(vertex4.x, vertex4.y, vertex4.z).color(color).texture(u1, v0).overlay(OverlayTexture.DEFAULT_UV).light(light4).normal(scratch.x, scratch.y, scratch.z).next();
         buffer.vertex(vertex5.x, vertex5.y, vertex5.z).color(color).texture(u2, v0).overlay(OverlayTexture.DEFAULT_UV).light(light5).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex4.x, vertex4.y, vertex4.z).color(color).texture(u1, v0).overlay(OverlayTexture.DEFAULT_UV).light(light4).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex0.x, vertex0.y, vertex0.z).color(color).texture(u1, v1).overlay(OverlayTexture.DEFAULT_UV).light(light0).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex1.x, vertex1.y, vertex1.z).color(color).texture(u2, v1).overlay(OverlayTexture.DEFAULT_UV).light(light1).normal(scratch.x, scratch.y, scratch.z).next();
 
         //UP 2376
         scratch.set(0, 1, 0);
         scratch.mul(nMat);
-        buffer.vertex(vertex6.x, vertex6.y, vertex6.z).color(color).texture(u3, v0).overlay(OverlayTexture.DEFAULT_UV).light(light6).normal(scratch.x, scratch.y, scratch.z).next();
-        buffer.vertex(vertex7.x, vertex7.y, vertex7.z).color(color).texture(u2, v0).overlay(OverlayTexture.DEFAULT_UV).light(light7).normal(scratch.x, scratch.y, scratch.z).next();
-        buffer.vertex(vertex3.x, vertex3.y, vertex3.z).color(color).texture(u2, v1).overlay(OverlayTexture.DEFAULT_UV).light(light3).normal(scratch.x, scratch.y, scratch.z).next();
         buffer.vertex(vertex2.x, vertex2.y, vertex2.z).color(color).texture(u3, v1).overlay(OverlayTexture.DEFAULT_UV).light(light2).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex3.x, vertex3.y, vertex3.z).color(color).texture(u2, v1).overlay(OverlayTexture.DEFAULT_UV).light(light3).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex7.x, vertex7.y, vertex7.z).color(color).texture(u2, v0).overlay(OverlayTexture.DEFAULT_UV).light(light7).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex6.x, vertex6.y, vertex6.z).color(color).texture(u3, v0).overlay(OverlayTexture.DEFAULT_UV).light(light6).normal(scratch.x, scratch.y, scratch.z).next();
 
         //WEST 0473
         scratch.set(-1, 0, 0);
         scratch.mul(nMat);
-        buffer.vertex(vertex3.x, vertex3.y, vertex3.z).color(color).texture(u1, v2).overlay(OverlayTexture.DEFAULT_UV).light(light3).normal(scratch.x, scratch.y, scratch.z).next();
-        buffer.vertex(vertex7.x, vertex7.y, vertex7.z).color(color).texture(u0, v2).overlay(OverlayTexture.DEFAULT_UV).light(light7).normal(scratch.x, scratch.y, scratch.z).next();
-        buffer.vertex(vertex4.x, vertex4.y, vertex4.z).color(color).texture(u0, v1).overlay(OverlayTexture.DEFAULT_UV).light(light4).normal(scratch.x, scratch.y, scratch.z).next();
         buffer.vertex(vertex0.x, vertex0.y, vertex0.z).color(color).texture(u1, v1).overlay(OverlayTexture.DEFAULT_UV).light(light0).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex4.x, vertex4.y, vertex4.z).color(color).texture(u0, v1).overlay(OverlayTexture.DEFAULT_UV).light(light4).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex7.x, vertex7.y, vertex7.z).color(color).texture(u0, v2).overlay(OverlayTexture.DEFAULT_UV).light(light7).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex3.x, vertex3.y, vertex3.z).color(color).texture(u1, v2).overlay(OverlayTexture.DEFAULT_UV).light(light3).normal(scratch.x, scratch.y, scratch.z).next();
 
         //EAST 5126
         scratch.set(1, 0, 0);
         scratch.mul(nMat);
-        buffer.vertex(vertex6.x, vertex6.y, vertex6.z).color(color).texture(u4, v2).overlay(OverlayTexture.DEFAULT_UV).light(light6).normal(scratch.x, scratch.y, scratch.z).next();
-        buffer.vertex(vertex2.x, vertex2.y, vertex2.z).color(color).texture(u2, v2).overlay(OverlayTexture.DEFAULT_UV).light(light2).normal(scratch.x, scratch.y, scratch.z).next();
-        buffer.vertex(vertex1.x, vertex1.y, vertex1.z).color(color).texture(u2, v1).overlay(OverlayTexture.DEFAULT_UV).light(light1).normal(scratch.x, scratch.y, scratch.z).next();
         buffer.vertex(vertex5.x, vertex5.y, vertex5.z).color(color).texture(u4, v1).overlay(OverlayTexture.DEFAULT_UV).light(light5).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex1.x, vertex1.y, vertex1.z).color(color).texture(u2, v1).overlay(OverlayTexture.DEFAULT_UV).light(light1).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex2.x, vertex2.y, vertex2.z).color(color).texture(u2, v2).overlay(OverlayTexture.DEFAULT_UV).light(light2).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex6.x, vertex6.y, vertex6.z).color(color).texture(u4, v2).overlay(OverlayTexture.DEFAULT_UV).light(light6).normal(scratch.x, scratch.y, scratch.z).next();
 
         //NORTH 1032
         scratch.set(0, 0, -1);
         scratch.mul(nMat);
-        buffer.vertex(vertex2.x, vertex2.y, vertex2.z).color(color).texture(u2, v2).overlay(OverlayTexture.DEFAULT_UV).light(light2).normal(scratch.x, scratch.y, scratch.z).next();
-        buffer.vertex(vertex3.x, vertex3.y, vertex3.z).color(color).texture(u1, v2).overlay(OverlayTexture.DEFAULT_UV).light(light3).normal(scratch.x, scratch.y, scratch.z).next();
-        buffer.vertex(vertex0.x, vertex0.y, vertex0.z).color(color).texture(u1, v1).overlay(OverlayTexture.DEFAULT_UV).light(light0).normal(scratch.x, scratch.y, scratch.z).next();
         buffer.vertex(vertex1.x, vertex1.y, vertex1.z).color(color).texture(u2, v1).overlay(OverlayTexture.DEFAULT_UV).light(light1).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex0.x, vertex0.y, vertex0.z).color(color).texture(u1, v1).overlay(OverlayTexture.DEFAULT_UV).light(light0).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex3.x, vertex3.y, vertex3.z).color(color).texture(u1, v2).overlay(OverlayTexture.DEFAULT_UV).light(light3).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex2.x, vertex2.y, vertex2.z).color(color).texture(u2, v2).overlay(OverlayTexture.DEFAULT_UV).light(light2).normal(scratch.x, scratch.y, scratch.z).next();
 
         //SOUTH 4567
         scratch.set(0, 0, 1);
         scratch.mul(nMat);
-        buffer.vertex(vertex7.x, vertex7.y, vertex7.z).color(color).texture(u5, v2).overlay(OverlayTexture.DEFAULT_UV).light(light7).normal(scratch.x, scratch.y, scratch.z).next();
-        buffer.vertex(vertex6.x, vertex6.y, vertex6.z).color(color).texture(u4, v2).overlay(OverlayTexture.DEFAULT_UV).light(light6).normal(scratch.x, scratch.y, scratch.z).next();
-        buffer.vertex(vertex5.x, vertex5.y, vertex5.z).color(color).texture(u4, v1).overlay(OverlayTexture.DEFAULT_UV).light(light5).normal(scratch.x, scratch.y, scratch.z).next();
         buffer.vertex(vertex4.x, vertex4.y, vertex4.z).color(color).texture(u5, v1).overlay(OverlayTexture.DEFAULT_UV).light(light4).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex5.x, vertex5.y, vertex5.z).color(color).texture(u4, v1).overlay(OverlayTexture.DEFAULT_UV).light(light5).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex6.x, vertex6.y, vertex6.z).color(color).texture(u4, v2).overlay(OverlayTexture.DEFAULT_UV).light(light6).normal(scratch.x, scratch.y, scratch.z).next();
+        buffer.vertex(vertex7.x, vertex7.y, vertex7.z).color(color).texture(u5, v2).overlay(OverlayTexture.DEFAULT_UV).light(light7).normal(scratch.x, scratch.y, scratch.z).next();
     }
 
     protected void walkUp(final MatrixStack matrices, final MatrixStack lightMatrices, final ModelRenderState state, final boolean root) {
@@ -212,6 +214,10 @@ public class DefaultModelRenderer implements ModelRenderer {
             lightMatrices.translate(position.x, position.y, position.z);
         } else if (parent instanceof final ModelRenderState next) {
             walkUp(matrices, lightMatrices, next, false);
+        }
+        if (root && state.getProperty(ModelRenderState.LAST_INVERSION).get()) {
+            matrices.scale(-1, -1, 1);
+            lightMatrices.scale(-1, -1, 1);
         }
         final Vec3d position = state.getProperty(ModelRenderState.POSITION).get();
         matrices.translate(position.x, position.y, position.z);
