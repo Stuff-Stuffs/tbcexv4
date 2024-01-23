@@ -50,6 +50,7 @@ public class BattleRenderStateImpl extends RenderStateImpl implements BattleRend
     public void cleanup(final AnimationContext context, final double time) {
         super.cleanup(context, time);
         participantContainer.clear(context, time);
+        effectContainer.clear(context, time);
     }
 
     public List<ParticipantRenderState> cachedParticipants() {

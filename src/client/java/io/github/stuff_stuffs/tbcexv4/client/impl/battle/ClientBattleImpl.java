@@ -204,7 +204,6 @@ public class ClientBattleImpl implements Battle {
             Tbcexv4.LOGGER.error("Could not schedule animation!");
             return currentTime;
         }
-        queue.checkpoint(t);
         return t;
     }
 

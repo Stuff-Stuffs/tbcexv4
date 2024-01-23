@@ -13,7 +13,7 @@ import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import java.util.*;
 
 public final class StateModifierLoader {
-    public static <Type> Codec<SimpleStateModifier<Type>> createSimpleCodec(final PropertyType<Type> type, final EasingFunction fallback) {
+    public static <T> Codec<SimpleStateModifier<T>> createSimpleCodec(final PropertyType<T> type, final EasingFunction fallback) {
         return Codec.unboundedMap(Codec.STRING.comapFlatMap(s -> {
             try {
                 return DataResult.success(Double.parseDouble(s));
@@ -30,14 +30,14 @@ public final class StateModifierLoader {
                 type.codec().fieldOf("value").forGetter(Pair::getFirst),
                 EasingFunction.CODEC.fieldOf("easing").forGetter(Pair::getSecond)
         ).apply(instance, Pair::of)))).xmap(map -> {
-            final List<Entry<Type>> entries = new ArrayList<>(map.size());
-            for (final Map.Entry<Double, Pair<Type, EasingFunction>> entry : map.entrySet()) {
+            final List<Entry<T>> entries = new ArrayList<>(map.size());
+            for (final Map.Entry<Double, Pair<T, EasingFunction>> entry : map.entrySet()) {
                 entries.add(new Entry<>(entry.getValue().getFirst(), entry.getKey(), entry.getValue().getSecond()));
             }
             return new SimpleStateModifier<>(entries, type.interpolator(), 0);
         }, modifier -> {
-            final Map<Double, Pair<Type, EasingFunction>> map = new Object2ReferenceOpenHashMap<>();
-            for (final Entry<Type> entry : modifier.entries) {
+            final Map<Double, Pair<T, EasingFunction>> map = new Object2ReferenceOpenHashMap<>();
+            for (final Entry<T> entry : modifier.entries) {
                 map.put(entry.time, Pair.of(entry.value, entry.easing));
             }
             return map;

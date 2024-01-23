@@ -23,11 +23,6 @@ public class AnimationQueueImpl implements AnimationQueue {
         events = new DoubleAVLTreeSet();
     }
 
-    public void checkpoint(final double time) {
-        events.headSet(time).clear();
-        events.add(time);
-    }
-
     @Override
     public double enqueue(final Animation<BattleRenderState> animation, final double minTime, final double cutoff) {
         final DoubleSortedSet tailSet = events.tailSet(minTime);
