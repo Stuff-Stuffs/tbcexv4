@@ -18,6 +18,8 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.*;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.Plan;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.PlanType;
@@ -49,8 +51,6 @@ import net.minecraft.util.math.ChunkSectionPos;
 import net.minecraft.util.math.random.Random;
 
 import java.util.*;
-import java.util.function.BiFunction;
-import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -81,12 +81,21 @@ public class Tbcexv4Test implements ModInitializer {
     public static final BattleActionType<PlayerJoinTestBattleAction> JOIN_TEST_TYPE = new BattleActionType<>(context -> PlayerJoinTestBattleAction.CODEC);
     public static final BattleActionType<WalkBattleAction> WALK_TYPE = new BattleActionType<>(context -> WalkBattleAction.CODEC);
     public static final BattleActionType<AttackBattleAction> ATTACK_TYPE = new BattleActionType<>(context -> AttackBattleAction.CODEC);
+    public static final BattleActionType<HealBattleAction> HEAL_TYPE = new BattleActionType<>(context -> HealBattleAction.CODEC);
+    public static final BattleItemType<TestBattleItem> TEST_BATTLE_ITEM_TYPE = new BattleItemType<>(context -> TestBattleItem.CODEC, (s0, s1) -> {
+        if (s0.item() instanceof TestBattleItem && s1.item() instanceof TestBattleItem) {
+            return Optional.of(new BattleItemStack(s0.item(), s0.count() + s1.count()));
+        }
+        return Optional.empty();
+    }, (i0, i1) -> true);
 
     @Override
     public void onInitialize() {
         Registry.register(Tbcexv4Registries.BattleActionTypes.REGISTRY, Tbcexv4.id("join_test"), JOIN_TEST_TYPE);
         Registry.register(Tbcexv4Registries.BattleActionTypes.REGISTRY, Tbcexv4.id("walk"), WALK_TYPE);
         Registry.register(Tbcexv4Registries.BattleActionTypes.REGISTRY, Tbcexv4.id("attack"), ATTACK_TYPE);
+        Registry.register(Tbcexv4Registries.BattleActionTypes.REGISTRY, Tbcexv4.id("heal"), HEAL_TYPE);
+        Registry.register(Tbcexv4Registries.ItemTypes.REGISTRY, Tbcexv4.id("test"), TEST_BATTLE_ITEM_TYPE);
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(CommandManager.literal("tbcexv4test").then(CommandManager.argument("player", EntityArgumentType.player()).executes(context -> {
                 final ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
@@ -155,7 +164,7 @@ public class Tbcexv4Test implements ModInitializer {
         Tbcexv4Registries.DefaultPlans.register((participant, consumer) -> {
             final BattlePos pos = participant.pos();
             final BattleStateView battleState = participant.battleState();
-            Pather.Paths cache;
+            final Pather.Paths cache;
             final List<NeighbourFinder> finders = new ArrayList<>();
             NeighbourFinder.GATHER_EVENT.invoker().gather(participant, finders::add);
             if (!finders.isEmpty()) {

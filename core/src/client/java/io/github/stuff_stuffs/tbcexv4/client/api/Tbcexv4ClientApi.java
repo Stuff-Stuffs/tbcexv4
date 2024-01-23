@@ -35,8 +35,8 @@ public final class Tbcexv4ClientApi {
         return Optional.ofNullable(Tbcexv4Client.controlling());
     }
 
-    public static Set<BattleParticipantHandle> possibleControlling() {
-        return Tbcexv4Client.possibleControlling();
+    public static Set<BattleParticipantHandle> possibleControlling(BattleHandle handle) {
+        return Tbcexv4Client.possibleControlling(handle);
     }
 
     public static boolean tryControl(final BattleParticipantHandle handle) {

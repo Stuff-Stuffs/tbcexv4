@@ -5,7 +5,6 @@ import com.mojang.datafixers.util.Unit;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.tbcexv4.common.api.ai.ActionSearchStrategy;
-import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
@@ -212,7 +211,7 @@ public class BattleManager implements AutoCloseable {
     }
 
     public void tick() {
-        for (BattleHandle handle : new ObjectOpenHashSet<>(ongoingAi.keySet())) {
+        for (final BattleHandle handle : new ObjectOpenHashSet<>(ongoingAi.keySet())) {
             final AiTask task = ongoingAi.get(handle);
             if (task.actionFuture.isDone()) {
                 ongoingAi.remove(handle);

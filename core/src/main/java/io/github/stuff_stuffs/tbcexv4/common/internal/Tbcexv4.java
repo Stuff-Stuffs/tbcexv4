@@ -77,7 +77,7 @@ public class Tbcexv4 implements ModInitializer {
                 final Optional<? extends Battle> opt = world.battleManager().getOrLoadBattle(current);
                 if (opt.isPresent()) {
                     final Battle battle = opt.get();
-                    entity.teleport(world, battle.worldX(0), battle.worldY(0), battle.worldZ(0), 0, 0);
+                    entity.teleport(world, battle.worldX(battle.xSize()/2), battle.worldY(battle.ySize()/2), battle.worldZ(battle.ySize()/2), 0, 0);
                 }
             }
             ((ServerPlayerExtensions) entity).tbcexv4$setWatchIndex(0);
@@ -101,13 +101,13 @@ public class Tbcexv4 implements ModInitializer {
         });
         ServerEntityWorldChangeEvents.AFTER_ENTITY_CHANGE_WORLD.register((originalEntity, newEntity, origin, destination) -> {
             if (newEntity instanceof final ServerPlayerEntity player) {
-                ServerPlayNetworking.send(player, new ControllingBattleUpdatePacket(List.copyOf(Tbcexv4Api.controlling(player))));
+                ServerPlayNetworking.send(player, new ControllingBattleUpdatePacket(Tbcexv4Api.controlling(player)));
             }
         });
         ServerTickEvents.START_SERVER_TICK.register(server -> {
             for (final ServerPlayerEntity entity : server.getPlayerManager().getPlayerList()) {
-                if (entity.age % 20 == 0) {
-                    ServerPlayNetworking.send(entity, new ControllingBattleUpdatePacket(List.copyOf(Tbcexv4Api.controlling(entity))));
+                if (entity.age % 40 == 0) {
+                    ServerPlayNetworking.send(entity, new ControllingBattleUpdatePacket(Tbcexv4Api.controlling(entity)));
                 }
             }
         });

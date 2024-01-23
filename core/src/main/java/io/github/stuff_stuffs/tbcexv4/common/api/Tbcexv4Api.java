@@ -8,12 +8,14 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.B
 import io.github.stuff_stuffs.tbcexv4.common.internal.ServerPlayerExtensions;
 import io.github.stuff_stuffs.tbcexv4.common.internal.network.WatchRequestResponsePacket;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.ServerBattleWorld;
+import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -33,8 +35,8 @@ public final class Tbcexv4Api {
         }
     }
 
-    public static Set<BattleHandle> controlling(final ServerPlayerEntity entity) {
-        final Set<BattleHandle> activeHandles = new ObjectOpenHashSet<>();
+    public static Map<BattleHandle, Set<BattleParticipantHandle>> controlling(final ServerPlayerEntity entity) {
+        final Map<BattleHandle, Set<BattleParticipantHandle>> activeHandles = new Object2ReferenceOpenHashMap<>();
         for (final ServerWorld world : entity.getServer().getWorlds()) {
             if (world instanceof final ServerBattleWorld battleWorld) {
                 final Set<BattleHandle> handles = battleWorld.battleManager().unresolvedBattles(entity.getUuid());
@@ -48,7 +50,7 @@ public final class Tbcexv4Api {
                         for (final BattleParticipantHandle pHandle : battle.state().participants()) {
                             final Optional<BattleParticipantPlayerControllerAttachmentView> attachmentView = battle.state().participant(pHandle).attachmentView(Tbcexv4Registries.BattleParticipantAttachmentTypes.PLAYER_CONTROLLED);
                             if (attachmentView.isPresent() && attachmentView.get().controllerId().equals(entity.getUuid())) {
-                                activeHandles.add(handle);
+                                activeHandles.computeIfAbsent(handle, k -> new ObjectOpenHashSet<>()).add(pHandle);
                                 break;
                             }
                         }

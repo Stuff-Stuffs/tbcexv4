@@ -25,14 +25,12 @@ import io.github.stuff_stuffs.tbcexv4.client.internal.ui.component.Tbcexv4UiComp
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachmentView;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4ClientDelegates;
@@ -63,16 +61,13 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 public class Tbcexv4Client implements ClientModInitializer {
     private static @Nullable BattleHandle WATCHING = null;
     private static @Nullable ClientBattleImpl WATCHED_BATTLE = null;
     private static @Nullable BattleParticipantHandle CONTROLLING = null;
-    private static final Set<BattleHandle> POSSIBLE_WATCHING = new ObjectOpenHashSet<>();
+    private static final Map<BattleHandle, Set<BattleParticipantHandle>> POSSIBLE_WATCHING = new Object2ReferenceOpenHashMap<>();
     private static final Map<UUID, DelayedResponse<Tbcexv4ClientApi.RequestResult>> ONGOING_RESULTS = new Object2ReferenceOpenHashMap<>();
 
     @Override
@@ -110,7 +105,7 @@ public class Tbcexv4Client implements ClientModInitializer {
         });
         ClientPlayNetworking.registerGlobalReceiver(Tbcexv4CommonNetwork.CONTROLLING_BATTLE_UPDATE_PACKET_TYPE, (packet, player, responseSender) -> {
             POSSIBLE_WATCHING.clear();
-            POSSIBLE_WATCHING.addAll(packet.handles());
+            POSSIBLE_WATCHING.putAll(packet.handles());
         });
         Tbcexv4ClientDelegates.SETUP_CLIENT_ENV_DELEGATE = (state, environment) -> {
             final int width = state.width();
@@ -277,7 +272,7 @@ public class Tbcexv4Client implements ClientModInitializer {
     }
 
     public static Set<BattleHandle> possibleWatching() {
-        return new ObjectOpenHashSet<>(POSSIBLE_WATCHING);
+        return new ObjectOpenHashSet<>(POSSIBLE_WATCHING.keySet());
     }
 
     public static @Nullable BattleHandle watching() {
@@ -317,20 +312,11 @@ public class Tbcexv4Client implements ClientModInitializer {
         return true;
     }
 
-    public static Set<BattleParticipantHandle> possibleControlling() {
-        if (WATCHED_BATTLE == null || WATCHED_BATTLE.phase() == BattlePhase.FINISHED) {
-            return Set.of();
+    public static Set<BattleParticipantHandle> possibleControlling(final BattleHandle handle) {
+        final Set<BattleParticipantHandle> handles = POSSIBLE_WATCHING.get(handle);
+        if (handles.isEmpty()) {
+            return Collections.emptySet();
         }
-        final BattleState state = WATCHED_BATTLE.state();
-        final Set<BattleParticipantHandle> handles = new ObjectOpenHashSet<>();
-        final UUID uuid = MinecraftClient.getInstance().player.getUuid();
-        for (final BattleParticipantHandle handle : state.participants()) {
-            final BattleParticipant participant = state.participant(handle);
-            final Optional<BattleParticipantPlayerControllerAttachmentView> attachment = participant.attachmentView(Tbcexv4Registries.BattleParticipantAttachmentTypes.PLAYER_CONTROLLED);
-            if (attachment.isPresent() && uuid.equals(attachment.get().controllerId())) {
-                handles.add(handle);
-            }
-        }
-        return handles;
+        return Collections.unmodifiableSet(handles);
     }
 }

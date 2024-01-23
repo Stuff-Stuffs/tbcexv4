@@ -17,6 +17,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAIControllerAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachment;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
@@ -102,6 +103,7 @@ public class PlayerJoinTestBattleAction implements BattleAction {
                 final BattleParticipant participant = state.participant(((Result.Success<BattleParticipantHandle, BattleState.AddParticipantError>) result).val());
                 participant.stats().addStatModifier(Tbcexv4Registries.Stats.MAX_HEALTH, (currentValue, context) -> currentValue + 10, Tbcexv4Registries.StatModificationPhases.BASE_STATS, transaction, span);
                 participant.heal(1000, transactionContext, span);
+                participant.inventory().give(new BattleItemStack(new TestBattleItem(), 10), transactionContext, span);
             }
             for (final Entry entry : entries) {
                 if (!join(state, entry.enemy ? enemyTeam : playerTeam, entry.pos, transaction, span, entry.enemy ? RenderDataParticipantAttachmentView.Type.SHEEP : RenderDataParticipantAttachmentView.Type.PIG)) {
@@ -116,7 +118,7 @@ public class PlayerJoinTestBattleAction implements BattleAction {
         }
     }
 
-    private boolean join(final BattleState state, final BattleParticipantTeam team, final BattlePos pos, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer, RenderDataParticipantAttachmentView.Type type) {
+    private boolean join(final BattleState state, final BattleParticipantTeam team, final BattlePos pos, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer, final RenderDataParticipantAttachmentView.Type type) {
         final Result<BattleParticipantHandle, BattleState.AddParticipantError> result = state.addParticipant(new BattleParticipantInitialState() {
             @Override
             public BattleParticipantBounds bounds() {
@@ -143,6 +145,7 @@ public class PlayerJoinTestBattleAction implements BattleAction {
             final BattleParticipant participant = state.participant(success.val());
             participant.stats().addStatModifier(Tbcexv4Registries.Stats.MAX_HEALTH, (currentValue, context) -> currentValue + 10, Tbcexv4Registries.StatModificationPhases.BASE_STATS, transactionContext, tracer);
             participant.heal(1000, transactionContext, tracer);
+            participant.inventory().give(new BattleItemStack(new TestBattleItem(), 2), transactionContext, tracer);
             return true;
         }
         return false;

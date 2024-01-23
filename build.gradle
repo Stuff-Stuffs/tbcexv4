@@ -52,6 +52,12 @@ allprojects {
 				source sourceSets.testmod
 			}
 		}
+
+		decompilers {
+			vineflower {
+				options.put("bsm", "1")
+			}
+		}
 	}
 
 	allprojects.each { p ->
