@@ -52,10 +52,11 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
 
     private void create(final ModelPartData data, final ModelRenderState state, final double time, final AnimationContext context, final Result.Folder<List<TimedEvent>, TimedEvent, Unit> folder, final boolean root) {
         if (root) {
-            folder.accept(state.getProperty(ModelRenderState.POSITION).setDefaultValue(new Vec3d(0, 1.501, 0), time, context));
+            folder.accept(state.getProperty(ModelRenderState.POSITION).setDefaultValue(new Vec3d(0, -1.501, 0), time, context));
+            folder.accept(state.getProperty(ModelRenderState.LAST_INVERSION).setDefaultValue(true, time, context));
         }
         int i = 0;
-        final ModelTransform rotationData = ((AccessorModelPartData) data).getRotationData();
+        final float inv = 1 / 16.0F;
         for (final ModelCuboidData cuboidData : ((AccessorModelPartData) data).getCuboidData()) {
             final String id = childId(i++);
             folder.accept(state.addChild(id, time, context));
@@ -65,16 +66,12 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
                 return;
             }
             final ModelRenderState childState = opt.get();
-            folder.accept(childState.getProperty(ModelRenderState.LAST_INVERSION).setDefaultValue(true, time, context));
             final AccessorModelCuboidData modelCuboidData = (AccessorModelCuboidData) (Object) cuboidData;
             final Vector3f size = modelCuboidData.getDimensions();
-            final float inv = 1 / 16.0F;
             final AccessorDilation extraSize = (AccessorDilation) modelCuboidData.getExtraSize();
             folder.accept(childState.getProperty(ModelRenderState.EXTENTS).setDefaultValue(new Vec3d((size.x + extraSize.getRadiusX() * 2) * inv, (size.y + extraSize.getRadiusY() * 2) * inv, (size.z + extraSize.getRadiusZ() * 2) * inv), time, context));
             final Vector3f pos = modelCuboidData.getOffset();
             folder.accept(childState.getProperty(ModelRenderState.OFFSET).setDefaultValue(new Vec3d((pos.x + size.x * 0.5) * inv, (pos.y + size.y * 0.5) * inv, (pos.z + size.z * 0.5) * inv), time, context));
-            folder.accept(childState.getProperty(ModelRenderState.POSITION).setDefaultValue(new Vec3d(rotationData.pivotX * inv, rotationData.pivotY * inv, rotationData.pivotZ * inv), time, context));
-            folder.accept(childState.getProperty(ModelRenderState.ROTATION).setDefaultValue(new Quaternionf().rotationZYX(rotationData.roll, rotationData.yaw, rotationData.pitch), time, context));
             final Vector2f uv = modelCuboidData.getTextureUV();
             final Vector2f scale = modelCuboidData.getTextureScale();
             final ModelRenderState.TextureData textureData = new ModelRenderState.TextureData(texture, size.x, size.y, size.z, (int) uv.getX(), (int) uv.getY(), textureWidth * scale.getX(), textureHeight * scale.getY(), transparent);
@@ -89,6 +86,9 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
                 return;
             }
             final ModelRenderState renderState = opt.get();
+            final ModelTransform rotationData = ((AccessorModelPartData) entry.getValue()).getRotationData();
+            folder.accept(renderState.getProperty(ModelRenderState.POSITION).setDefaultValue(new Vec3d(rotationData.pivotX * inv, rotationData.pivotY * inv, rotationData.pivotZ * inv), time, context));
+            folder.accept(renderState.getProperty(ModelRenderState.ROTATION).setDefaultValue(new Quaternionf().rotationZYX(rotationData.roll, rotationData.yaw, rotationData.pitch), time, context));
             create(entry.getValue(), renderState, time, context, folder, false);
         }
     }

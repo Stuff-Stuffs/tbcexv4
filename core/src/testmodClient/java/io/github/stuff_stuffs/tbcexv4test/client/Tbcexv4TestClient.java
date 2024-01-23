@@ -72,12 +72,12 @@ public class Tbcexv4TestClient implements ClientModInitializer {
                     final EntityModelLayer layer = switch (attachmentView.type()) {
                         case PLAYER -> EntityModelLayers.PLAYER;
                         case PIG -> EntityModelLayers.PIG;
-                        case SHEEP -> EntityModelLayers.SHEEP;
+                        case SHEEP -> EntityModelLayers.WARDEN;
                     };
                     final Identifier texture = switch (attachmentView.type()) {
                         case PLAYER -> new Identifier("textures/entity/player/wide/steve.png");
                         case PIG -> new Identifier("textures/entity/pig/pig.png");
-                        case SHEEP -> new Identifier("textures/entity/sheep/sheep.png");
+                        case SHEEP -> new Identifier("textures/entity/warden/warden.png");
                     };
                     final TexturedModelData data = ((AccessorEntityModelLoader) MinecraftClient.getInstance().getEntityModelLoader()).getModelParts().get(layer);
                     final ModelConverter model = new ModelConverter(data, texture, false);

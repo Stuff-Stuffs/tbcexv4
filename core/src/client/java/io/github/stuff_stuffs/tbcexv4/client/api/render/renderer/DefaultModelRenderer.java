@@ -25,8 +25,8 @@ public class DefaultModelRenderer implements ModelRenderer {
         if (extents.lengthSquared() > 0.001) {
             final int color = state.getProperty(ModelRenderState.COLOR).get();
             final MatrixStack matrices = context.parent().matrixStack();
-            matrices.push();
             final MatrixStack lightMatrices = context.lightMatrices();
+            matrices.push();
             lightMatrices.push();
             walkUp(matrices, lightMatrices, state, true);
             final Matrix4f pMat = matrices.peek().getPositionMatrix();
@@ -212,12 +212,12 @@ public class DefaultModelRenderer implements ModelRenderer {
             final Vec3d position = participant.getProperty(ParticipantRenderState.POSITION).get();
             matrices.translate(position.x, position.y, position.z);
             lightMatrices.translate(position.x, position.y, position.z);
+            if (state.getProperty(ModelRenderState.LAST_INVERSION).get()) {
+                matrices.scale(-1, -1, 1);
+                lightMatrices.scale(-1, -1, 1);
+            }
         } else if (parent instanceof final ModelRenderState next) {
             walkUp(matrices, lightMatrices, next, false);
-        }
-        if (root && state.getProperty(ModelRenderState.LAST_INVERSION).get()) {
-            matrices.scale(-1, -1, 1);
-            lightMatrices.scale(-1, -1, 1);
         }
         final Vec3d position = state.getProperty(ModelRenderState.POSITION).get();
         matrices.translate(position.x, position.y, position.z);
