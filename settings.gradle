@@ -8,3 +8,8 @@ pluginManagement {
 		gradlePluginPortal()
 	}
 }
+
+include(":core")
+project(":core").name = "tbcexv4core"
+include(":content:base")
+project(":content:base").name = "tbcexv4content_base"

@@ -1,24 +1,114 @@
 plugins {
 	id 'java'
-	id 'fabric-loom' version '1.4-SNAPSHOT' apply false
+	id 'fabric-loom' version '1.5.4' apply false
 	id 'maven-publish'
 }
 
 allprojects {
+	group = project.maven_group
+	version = project.mod_version
+
 	apply plugin: 'java'
 	apply plugin: 'fabric-loom'
+
+	repositories {
+		mavenLocal()
+		maven { url 'https://maven.wispforest.io' }
+	}
 
 	loom {
 		splitEnvironmentSourceSets()
 	}
 
+	sourceSets {
+		testmod {
+			compileClasspath += main.compileClasspath
+			runtimeClasspath += main.runtimeClasspath
+		}
+
+		testmodClient {
+			compileClasspath += main.compileClasspath
+			runtimeClasspath += main.runtimeClasspath
+			compileClasspath += client.compileClasspath
+			runtimeClasspath += client.runtimeClasspath
+
+			compileClasspath += testmod.compileClasspath
+			runtimeClasspath += testmod.runtimeClasspath
+		}
+	}
+
+	loom {
+		runs {
+			testmodClient {
+				client()
+				ideConfigGenerated project.rootProject == project
+				name = "Testmod Client"
+				source sourceSets.testmodClient
+			}
+			testmodServer {
+				server()
+				ideConfigGenerated project.rootProject == project
+				name = "Testmod Server"
+				source sourceSets.testmod
+			}
+		}
+	}
+
+	allprojects.each { p ->
+		loom.mods.register(p.name) {
+			sourceSet p.sourceSets.main
+			sourceSet p.sourceSets.client
+		}
+
+		loom.mods.register(p.name + "-testmod") {
+			sourceSet p.sourceSets.testmod
+			sourceSet p.sourceSets.testmodClient
+		}
+	}
+
+	loom {
+		runs {
+			// This adds a new gradle task that runs the datagen API: "gradlew runDatagen"
+			datagen {
+				inherit server
+				name "Data Generation"
+				vmArg "-Dfabric-api.datagen"
+				vmArg "-Dfabric-api.datagen.output-dir=${file("src/main/generated")}"
+				vmArg "-Dfabric-api.datagen.modid=tbcexv4"
+
+				runDir "build/datagen"
+			}
+			testmodClient {
+				client()
+				ideConfigGenerated project.rootProject == project
+				name = "Testmod Client"
+				source sourceSets.testmodClient
+			}
+			testmodServer {
+				server()
+				ideConfigGenerated project.rootProject == project
+				name = "Testmod Server"
+				source sourceSets.testmod
+			}
+		}
+	}
+
 	dependencies {
+		modImplementation "io.wispforest:owo-lib:${project.owo_version}"
+		annotationProcessor "io.wispforest:owo-lib:${project.owo_version}"
+		annotationProcessor "io.github.stuff_stuffs:EventGen:1.46-SNAPSHOT"
+		implementation "io.github.stuff_stuffs:EventGen:1.46-SNAPSHOT"
 		minecraft "com.mojang:minecraft:${project.minecraft_version}"
 		mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
 		modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
 		// Fabric API. This is technically optional, but you probably want it anyway.
 		modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+		testmodImplementation sourceSets.main.output
+		testmodClientImplementation sourceSets.main.output
+		testmodClientImplementation sourceSets.client.output
+		testmodClientImplementation sourceSets.testmod.output
 	}
 
 	tasks.withType(JavaCompile).configureEach {
@@ -34,103 +124,40 @@ allprojects {
 		sourceCompatibility = JavaVersion.VERSION_17
 		targetCompatibility = JavaVersion.VERSION_17
 	}
-}
 
-sourceSets {
-	testmod {
-		compileClasspath += main.compileClasspath
-		runtimeClasspath += main.runtimeClasspath
-	}
-
-	testmodClient {
-		compileClasspath += main.compileClasspath
-		runtimeClasspath += main.runtimeClasspath
-		compileClasspath += client.compileClasspath
-		runtimeClasspath += client.runtimeClasspath
-
-		compileClasspath += testmod.compileClasspath
-		runtimeClasspath += testmod.runtimeClasspath
-	}
-}
-
-
-loom {
-	accessWidenerPath = file("src/main/resources/tbcexv4.accesswidener")
-
-	mods {
-		"tbcexv4" {
-			sourceSet sourceSets.main
-			sourceSet sourceSets.client
+	sourceSets {
+		main {
+			resources {
+				srcDirs += [
+						'src/main/generated'
+				]
+			}
 		}
 	}
-	runs {
-		// This adds a new gradle task that runs the datagen API: "gradlew runDatagen"
-		datagen {
-			inherit server
-			name "Data Generation"
-			vmArg "-Dfabric-api.datagen"
-			vmArg "-Dfabric-api.datagen.output-dir=${file("src/main/generated")}"
-			vmArg "-Dfabric-api.datagen.modid=tbcexv4"
 
-			runDir "build/datagen"
-		}
-		testmodClient {
-			client()
-			ideConfigGenerated project.rootProject == project
-			name = "Testmod Client"
-			source sourceSets.testmodClient
-		}
-		testmodServer {
-			server()
-			ideConfigGenerated project.rootProject == project
-			name = "Testmod Server"
-			source sourceSets.testmod
+	processResources {
+		inputs.property "version", project.version
+
+		filesMatching("fabric.mod.json") {
+			expand "version": project.version
 		}
 	}
 }
-
-version = project.mod_version
-group = project.maven_group
 
 base {
 	archivesName = project.archives_base_name
 }
 
-repositories {
-	mavenLocal()
-	maven { url 'https://maven.wispforest.io' }
-}
-
-// Add the generated resources to the main source set
-sourceSets {
-	main {
-		resources {
-			srcDirs += [
-					'src/main/generated'
-			]
-		}
-	}
-}
-
 dependencies {
-	annotationProcessor "io.github.stuff_stuffs:EventGen:1.46-SNAPSHOT"
-	implementation "io.github.stuff_stuffs:EventGen:1.46-SNAPSHOT"
-	modImplementation "io.wispforest:owo-lib:${project.owo_version}"
-	annotationProcessor "io.wispforest:owo-lib:${project.owo_version}"
 	include "io.wispforest:owo-sentinel:${project.owo_version}"
+	subprojects.each {
+		api project(path: "${it.path}", configuration: "namedElements")
+		clientImplementation project("${it.path}:").sourceSets.client.output
 
-	testmodImplementation sourceSets.main.output
-	testmodClientImplementation sourceSets.main.output
-	testmodClientImplementation sourceSets.client.output
-	testmodClientImplementation sourceSets.testmod.output
-	testImplementation sourceSets.testmodClient.output
-}
+		testmodImplementation project("${it.path}:").sourceSets.testmod.output
+		testmodClientImplementation project("${it.path}:").sourceSets.testmodClient.output
 
-processResources {
-	inputs.property "version", project.version
-
-	filesMatching("fabric.mod.json") {
-		expand "version": project.version
+		include project(path: "${it.path}")
 	}
 }
 

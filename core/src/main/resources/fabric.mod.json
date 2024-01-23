@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "tbcexv4core",
+  "version": "${version}",
+  "name": "tbcexv4core",
+  "description": "This is an example description! Tell everyone what your mod is about!",
+  "authors": [
+    "Stuff-Stuffs"
+  ],
+  "contact": {
+  },
+  "license": "LGPL-3.0-only",
+  "icon": "assets/tbcexv4/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4"
+    ],
+    "client": [
+      "io.github.stuff_stuffs.tbcexv4.client.internal.Tbcexv4Client"
+    ],
+    "fabric-datagen": [
+      "io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4DataGenerator"
+    ]
+  },
+  "accessWidener": "tbcexv4.accesswidener",
+  "mixins": [
+    "tbcexv4.mixins.json",
+    {
+      "config": "tbcexv4.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+	  "fabricloader": ">=0.14.24",
+	  "minecraft": "~1.20.2",
+	  "java": ">=17",
+	  "fabric-api": "*"
+  }
+}

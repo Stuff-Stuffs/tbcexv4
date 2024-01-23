@@ -1,0 +1,5 @@
+archives_base_name="tbcexv4core"
+
+loom {
+    accessWidenerPath = file("src/main/resources/tbcexv4.accesswidener")
+}

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "tbcexv4",
+  "id": "tbcexv4content_base",
   "version": "${version}",
-  "name": "tbcexv4",
+  "name": "tbcexv4content_base",
   "description": "This is an example description! Tell everyone what your mod is about!",
   "authors": [
     "Stuff-Stuffs"
@@ -12,6 +12,14 @@
   "license": "LGPL-3.0-only",
   "icon": "assets/tbcexv4/icon.png",
   "environment": "*",
+  "entrypoints": {
+    "main": [
+      "io.github.stuff_stuffs.tbcexv4.content.base.common.internal.Tbcexv4ContentBase"
+    ],
+    "client": [
+      "io.github.stuff_stuffs.tbcexv4.content.base.client.internal.Tbcexv4ContentBaseClient"
+    ]
+  },
   "depends": {
     "fabricloader": ">=0.14.24",
     "minecraft": "~1.20.2",
