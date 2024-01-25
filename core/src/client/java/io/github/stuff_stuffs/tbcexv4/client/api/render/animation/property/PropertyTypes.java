@@ -50,6 +50,12 @@ public final class PropertyTypes {
             (start, end, time) -> time < 0.5 ? start : end,
             Optional::empty
     );
+    public static final PropertyType<Optional<ModelRenderState.ModelData>> MODEL_DATA = new PropertyType<>(
+            (Class<Optional<ModelRenderState.ModelData>>) (Object) Optional.class,
+            ModelRenderState.ModelData.CODEC.optionalFieldOf("model_data").codec(),
+            (start, end, time) -> time < 0.5 ? start : end,
+            Optional::empty
+            );
     public static final PropertyType<BattleEffectRenderer> BATTLE_EFFECT_RENDERER = new PropertyType<>(BattleEffectRenderer.class, BattleEffectRendererRegistry.CODEC, (start, end, time) -> time < 0.5 ? start : end, () -> BattleEffectRendererRegistry.NOOP_RENDERER);
     public static final PropertyType<Boolean> FLAG = new PropertyType<>(Boolean.class, Codec.BOOL, ((start, end, time) -> time < 0.5 ? start : end), () -> false);
 
@@ -60,6 +66,7 @@ public final class PropertyTypes {
         PropertyType.register(Tbcexv4.id("model_renderer"), MODEL_RENDERER);
         PropertyType.register(Tbcexv4.id("color"), COLOR);
         PropertyType.register(Tbcexv4.id("texture_data"), TEXTURE_DATA);
+        PropertyType.register(Tbcexv4.id("model_data"), MODEL_DATA);
         PropertyType.register(Tbcexv4.id("battle_effect_renderer"), BATTLE_EFFECT_RENDERER);
         PropertyType.register(Tbcexv4.id("flag"), FLAG);
     }

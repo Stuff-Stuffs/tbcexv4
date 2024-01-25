@@ -72,6 +72,23 @@ public class ModelRenderStateImpl extends RenderStateImpl implements ModelRender
     }
 
     @Override
+    public List<ModelRenderState> getChildren(String id, double time) {
+        List<ModelRenderState> list = new ArrayList<>();
+        for (String child : children(time)) {
+            Optional<ModelRenderState> opt = getChild(child, time);
+            if(opt.isEmpty()) {
+                continue;
+            }
+            ModelRenderState childState = opt.get();
+            if(child.equals(id)) {
+                list.add(childState);
+            }
+            list.addAll(childState.getChildren(id, time));
+        }
+        return list;
+    }
+
+    @Override
     public RenderState parent() {
         return parent;
     }

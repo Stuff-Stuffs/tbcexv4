@@ -21,7 +21,12 @@ public class DefaultModelRenderer implements ModelRenderer {
 
     @Override
     public void render(final BattleRenderContext context, final ModelRenderState state) {
-        final Vec3d extents = state.getProperty(ModelRenderState.EXTENTS).get();
+        Optional<ModelRenderState.ModelData> opt = state.getProperty(ModelRenderState.MODEL_DATA).get();
+        if(opt.isEmpty()) {
+            return;
+        }
+        ModelRenderState.ModelData modelData = opt.get();
+        final Vec3d extents = modelData.extents();
         if (extents.lengthSquared() > 0.001) {
             final int color = state.getProperty(ModelRenderState.COLOR).get();
             final MatrixStack matrices = context.parent().matrixStack();
@@ -219,14 +224,30 @@ public class DefaultModelRenderer implements ModelRenderer {
         } else if (parent instanceof final ModelRenderState next) {
             walkUp(matrices, lightMatrices, next, false);
         }
-        final Vec3d position = state.getProperty(ModelRenderState.POSITION).get();
-        matrices.translate(position.x, position.y, position.z);
-        lightMatrices.translate(position.x, position.y, position.z);
+        Optional<ModelRenderState.ModelData> opt = state.getProperty(ModelRenderState.MODEL_DATA).get();
+        if(opt.isPresent()) {
+            ModelRenderState.ModelData modelData = opt.get();
+            Vec3d position = modelData.position();
+            matrices.translate(position.x, position.y, position.z);
+            lightMatrices.translate(position.x, position.y, position.z);
+        }
+        Vec3d translation = state.getProperty(ModelRenderState.TRANSLATION).get();
+        matrices.translate(translation.x, translation.y, translation.z);
+        lightMatrices.translate(translation.x, translation.y, translation.z);
         final Quaternionfc rotation = state.getProperty(ModelRenderState.ROTATION).get();
-        matrices.multiply(rotation.get(SCRATCH_ROTATION));
-        lightMatrices.multiply(rotation.get(SCRATCH_ROTATION));
-        if (root) {
-            final Vec3d offset = state.getProperty(ModelRenderState.OFFSET).get();
+        rotation.get(SCRATCH_ROTATION);
+        if(opt.isPresent()) {
+            ModelRenderState.ModelData modelData = opt.get();
+            SCRATCH_ROTATION.mul(modelData.rotation());
+        }
+        matrices.multiply(SCRATCH_ROTATION);
+        lightMatrices.multiply(SCRATCH_ROTATION);
+        Vec3d scale = state.getProperty(ModelRenderState.SCALE).get();
+        matrices.scale((float)scale.x, (float)scale.y, (float)scale.z);
+        lightMatrices.scale((float)scale.x, (float)scale.y, (float)scale.z);
+        if (root && opt.isPresent()) {
+            ModelRenderState.ModelData modelData = opt.get();
+            final Vec3d offset = modelData.offset();
             matrices.translate(offset.x, offset.y, offset.z);
             lightMatrices.translate(offset.x, offset.y, offset.z);
         }

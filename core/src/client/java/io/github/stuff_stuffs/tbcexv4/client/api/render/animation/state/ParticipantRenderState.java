@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ParticipantRenderState extends RenderState {
-    PropertyKey<Vec3d> POSITION = ModelRenderState.POSITION;
+    PropertyKey<Vec3d> POSITION = ModelRenderState.TRANSLATION;
 
     ModelRenderState modelRoot();
 

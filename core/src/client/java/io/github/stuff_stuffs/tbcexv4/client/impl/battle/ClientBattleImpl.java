@@ -2,6 +2,7 @@ package io.github.stuff_stuffs.tbcexv4.client.impl.battle;
 
 import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationFactoryRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationQueue;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleRenderState;
@@ -199,7 +200,28 @@ public class ClientBattleImpl implements Battle {
 
     private double pushAnimation(final Animation<BattleRenderState> animation) {
         final double currentTime = time(0);
-        final double t = queue.enqueue(animation, currentTime, Double.POSITIVE_INFINITY);
+        final double t = queue.enqueue(new Animation<BattleRenderState>() {
+            @Override
+            public Result<List<TimedEvent>, Unit> animate(double time, BattleRenderState state, AnimationContext context) {
+                Result<List<TimedEvent>, Unit> result = animation.animate(time, state, context);
+                if(result instanceof Result.Success<List<TimedEvent>, Unit> success) {
+                    List<TimedEvent> list = success.val();
+                    double max = time;
+                    for (TimedEvent event : list) {
+                        max = Math.max(max, event.end());
+                    }
+                    Result<List<TimedEvent>, Unit> lockResult = state.completeLock(time, max, context);
+                    if(lockResult instanceof Result.Failure<List<TimedEvent>, Unit>) {
+                        return lockResult;
+                    }
+                    List<TimedEvent> events = new ArrayList<>(list.size() + 5);
+                    events.addAll(list);
+                    events.addAll(((Result.Success<List<TimedEvent>, Unit>)lockResult).val());
+                    return Result.success(events);
+                }
+                return result;
+            }
+        }, currentTime, Double.POSITIVE_INFINITY);
         if (Double.isNaN(t)) {
             Tbcexv4.LOGGER.error("Could not schedule animation!");
             return currentTime;

@@ -9,8 +9,10 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Prope
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyTypes;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRenderer;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
+import io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
+import org.joml.Quaternionf;
 import org.joml.Quaternionfc;
 
 import java.util.ArrayList;
@@ -20,9 +22,9 @@ import java.util.Set;
 
 public interface ModelRenderState extends RenderState {
     PropertyKey<Boolean> LAST_INVERSION = new PropertyKey<>("last_inversion", PropertyTypes.FLAG);
-    PropertyKey<Vec3d> OFFSET = new PropertyKey<>("offset", PropertyTypes.VEC3D);
-    PropertyKey<Vec3d> POSITION = new PropertyKey<>("position", PropertyTypes.VEC3D);
-    PropertyKey<Vec3d> EXTENTS = new PropertyKey<>("extents", PropertyTypes.VEC3D);
+    PropertyKey<Optional<ModelData>> MODEL_DATA = new PropertyKey<>("model_data", PropertyTypes.MODEL_DATA);
+    PropertyKey<Vec3d> SCALE = new PropertyKey<>("scale", PropertyTypes.VEC3D);
+    PropertyKey<Vec3d> TRANSLATION = new PropertyKey<>("translation", PropertyTypes.VEC3D);
     PropertyKey<Integer> COLOR = new PropertyKey<>("color", PropertyTypes.COLOR);
     PropertyKey<Quaternionfc> ROTATION = new PropertyKey<>("rotation", PropertyTypes.ROTATION);
     PropertyKey<ModelRenderer> RENDERER = new PropertyKey<>("model_renderer", PropertyTypes.MODEL_RENDERER);
@@ -35,6 +37,8 @@ public interface ModelRenderState extends RenderState {
     Result<Animation.TimedEvent, Unit> removeChild(String id, double time, AnimationContext context);
 
     Set<String> children(double time);
+
+    List<ModelRenderState> getChildren(String id, double time);
 
     @Override
     RenderState parent();
@@ -139,6 +143,20 @@ public interface ModelRenderState extends RenderState {
             this.descend = descend;
             this.accept = accept;
         }
+    }
+
+    record ModelData(
+            Vec3d extents,
+            Vec3d offset,
+            Vec3d position,
+            Quaternionfc rotation
+    ) {
+        public static final Codec<ModelData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Vec3d.CODEC.fieldOf("extents").forGetter(ModelData::extents),
+                Vec3d.CODEC.optionalFieldOf("offset", Vec3d.ZERO).forGetter(ModelData::offset),
+                Vec3d.CODEC.fieldOf("position").forGetter(ModelData::position),
+                Tbcexv4Util.ROTATION_CODEC.optionalFieldOf("rotation", new Quaternionf(0,0,0,1)).forGetter(ModelData::rotation)
+        ).apply(instance, ModelData::new));
     }
 
     record TextureData(

@@ -75,7 +75,6 @@ public class PropertyImpl<T> implements Property<T> {
         });
     }
 
-    @Override
     public void clearAll(final AnimationContext context) {
         final Set<DefaultValueEvent<T>> removed = valuesByContext.remove(context);
         if (removed != null) {

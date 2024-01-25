@@ -6,6 +6,7 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationFacto
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Property;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.model.AnimationConverter;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.model.ModelConverter;
 import io.github.stuff_stuffs.tbcexv4.client.mixin.AccessorEntityModelLoader;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
@@ -19,6 +20,7 @@ import io.github.stuff_stuffs.tbcexv4test.Tbcexv4Test;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.TexturedModelData;
+import net.minecraft.client.render.entity.animation.WardenAnimations;
 import net.minecraft.client.render.entity.model.EntityModelLayer;
 import net.minecraft.client.render.entity.model.EntityModelLayers;
 import net.minecraft.util.Identifier;
@@ -43,6 +45,15 @@ public class Tbcexv4TestClient implements ClientModInitializer {
                     final Vec3d vec = new Vec3d(pos.x() + 0.5, pos.y(), pos.z() + 0.5);
                     return state.getParticipant(setPos.handle(), time).map(participant -> participant.getProperty(ParticipantRenderState.POSITION).setDefaultValue(vec, time, context).mapSuccess(List::of)).orElseGet(() -> Result.failure(Unit.INSTANCE));
                 });
+            } else if(event instanceof CoreParticipantTraceEvents.DamageParticipant damageParticipant) {
+                return Optional.of(
+                        ParticipantRenderState.lift(
+                                ModelRenderState.lift(
+                                     new AnimationConverter(WardenAnimations.SNIFFING), List.of()
+                                ),
+                                damageParticipant.handle()
+                        )
+                );
             } else if (event instanceof final CoreParticipantTraceEvents.DamageParticipant damage) {
                 return Optional.of(
                         ParticipantRenderState.lift(

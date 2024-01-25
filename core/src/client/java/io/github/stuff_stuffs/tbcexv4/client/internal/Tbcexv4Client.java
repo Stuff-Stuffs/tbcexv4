@@ -314,7 +314,7 @@ public class Tbcexv4Client implements ClientModInitializer {
 
     public static Set<BattleParticipantHandle> possibleControlling(final BattleHandle handle) {
         final Set<BattleParticipantHandle> handles = POSSIBLE_WATCHING.get(handle);
-        if (handles.isEmpty()) {
+        if (handles==null || handles.isEmpty()) {
             return Collections.emptySet();
         }
         return Collections.unmodifiableSet(handles);

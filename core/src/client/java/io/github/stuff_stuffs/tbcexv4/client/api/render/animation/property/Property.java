@@ -13,8 +13,6 @@ public interface Property<T> {
 
     Result<Animation.TimedEvent, Unit> setDefaultValue(T val, double time, AnimationContext context);
 
-    void clearAll(AnimationContext context);
-
     T get();
 
     enum ReservationLevel {
