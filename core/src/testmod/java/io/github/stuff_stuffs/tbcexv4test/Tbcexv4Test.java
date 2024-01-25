@@ -168,8 +168,8 @@ public class Tbcexv4Test implements ModInitializer {
             final List<NeighbourFinder> finders = new ArrayList<>();
             NeighbourFinder.GATHER_EVENT.invoker().gather(participant, finders::add);
             if (!finders.isEmpty()) {
-                final Pather pather = Pather.create(finders.toArray(NeighbourFinder[]::new), Pather.PathNode::onFloor);
-                cache = pather.compute(new Pather.PathNode((Pather.PathNode) null, 0, 0, Movement.WALK, true, pos.x(), pos.y(), pos.z()), PatherOptions.NONE, participant);
+                final Pather pather = Pather.create(finders.toArray(NeighbourFinder[]::new), Pather.PathingNode::onFloor);
+                cache = pather.compute(new Pather.PathingNode((Pather.PathingNode) null, 0, 0, Movement.WALK, true, pos.x(), pos.y(), pos.z()), PatherOptions.NONE, participant);
             } else {
                 return;
             }
@@ -208,7 +208,7 @@ public class Tbcexv4Test implements ModInitializer {
             final Optional<Plan> plan = Plans.pathPrefix(battleState, cache, node -> {
                 Set<BattleParticipantHandle> attackable = null;
                 for (final BattleParticipantView target : targets) {
-                    final double distanced = BattleParticipantBounds.distance2(participant.bounds(), new BattlePos(node.x(), node.y(), node.z()), target.bounds(), target.pos());
+                    final double distanced = BattleParticipantBounds.distance2(participant.bounds(), node.pos(), target.bounds(), target.pos());
                     if (distanced < 3) {
                         if (attackable == null) {
                             attackable = new ObjectOpenHashSet<>(3);

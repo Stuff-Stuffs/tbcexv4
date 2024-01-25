@@ -136,13 +136,14 @@ public final class BasicTargetUi {
             while (all.hasNext()) {
                 final PathTarget target = all.next();
                 final Pather.PathNode node = target.node();
-                final int x = battle.worldX(node.x());
-                final int y = battle.worldY(node.y());
-                final int z = battle.worldZ(node.z());
+                BattlePos pos = node.pos();
+                final int x = battle.worldX(pos.x());
+                final int y = battle.worldY(pos.y());
+                final int z = battle.worldZ(pos.z());
                 final PathBox box = new PathBox(target, new Box(x + 0.25, y + 0.25, z + 0.25, x + 0.75, y + 0.75, z + 0.75));
                 boxes.add(box);
                 if (target.terminal()) {
-                    terminals.put(Pather.Paths.pack(node.x(), node.y(), node.z()), box);
+                    terminals.put(Pather.Paths.pack(pos.x(), pos.y(), pos.z()), box);
                 }
             }
             context.addRenderable(new TargetUi.WorldInteraction() {
@@ -166,12 +167,14 @@ public final class BasicTargetUi {
                         final Matrix3f nMat = matrices.peek().getNormalMatrix();
                         while (last.prev() != null) {
                             final Pather.PathNode prev = last.prev();
-                            final float x0 = battle.worldX(last.x()) + 0.5F;
-                            final float x1 = battle.worldX(prev.x()) + 0.5F;
-                            final float y0 = battle.worldY(last.y()) + 0.5F;
-                            final float y1 = battle.worldY(prev.y()) + 0.5F;
-                            final float z0 = battle.worldZ(last.z()) + 0.5F;
-                            final float z1 = battle.worldZ(prev.z()) + 0.5F;
+                            BattlePos lastPos = last.pos();
+                            BattlePos prevPos = prev.pos();
+                            final float x0 = battle.worldX(lastPos.x()) + 0.5F;
+                            final float x1 = battle.worldX(prevPos.x()) + 0.5F;
+                            final float y0 = battle.worldY(lastPos.y()) + 0.5F;
+                            final float y1 = battle.worldY(prevPos.y()) + 0.5F;
+                            final float z0 = battle.worldZ(lastPos.z()) + 0.5F;
+                            final float z1 = battle.worldZ(prevPos.z()) + 0.5F;
                             buffer.vertex(pMat, x0, y0, z0).color(0.0F, 1.0F, 0.0F, 1.0F).normal(nMat, 1.0F, 0.0F, 0.0F).next();
                             buffer.vertex(pMat, x1, y1, z1).color(0.0F, 1.0F, 0.0F, 1.0F).normal(nMat, 1.0F, 0.0F, 0.0F).next();
                             last = prev;

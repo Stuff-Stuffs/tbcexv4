@@ -299,7 +299,7 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
         try (final var preSpan = tracer.push(new CoreParticipantTraceEvents.PreMoveParticipant(handle(), node), transactionContext)) {
             //TODO checks and event
             delta(transactionContext, new PosDelta(pos));
-            pos = new BattlePos(node.x(), node.y(), node.z());
+            pos = new BattlePos(node.pos().x(), node.pos().y(), node.pos().z());
             try (final var span = preSpan.push(new CoreParticipantTraceEvents.PostMoveParticipant(handle(), node), transactionContext)) {
             }
             return new Result.Success<>(node);

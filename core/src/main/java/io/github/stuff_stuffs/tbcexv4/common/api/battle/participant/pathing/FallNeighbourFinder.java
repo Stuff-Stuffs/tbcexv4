@@ -35,7 +35,7 @@ public class FallNeighbourFinder implements NeighbourFinder {
         }
 
         @Override
-        public void find(final Pather.PathNode previous, final NeighbourData data, final Consumer<Pather.PathNode> consumer) {
+        public void find(final Pather.PathingNode previous, final NeighbourData data, final Consumer<Pather.PathingNode> consumer) {
             if (previous.onFloor()) {
                 return;
             }
@@ -45,13 +45,13 @@ public class FallNeighbourFinder implements NeighbourFinder {
             if (checker.check(x, y - 1, z, Double.NaN)) {
                 final boolean floor = checker.lastFloorHeight > 0 || checker.floorHeight(x, y - 2, z) > 0.0;
                 int fallDistance = 0;
-                Pather.PathNode cursor = previous;
+                Pather.PathingNode cursor = previous;
                 while (cursor != null && cursor.movement() == Movement.FALL) {
                     cursor = cursor.prev();
                     fallDistance++;
                 }
                 final double cost = fallDistance >= bigSize ? bigCost : smallCost;
-                consumer.accept(new Pather.PathNode(previous, previous.cost() + cost, previous.depth() + 1, Movement.FALL, floor, x, y - 1, z));
+                consumer.accept(new Pather.PathingNode(previous, previous.cost() + cost, previous.depth() + 1, Movement.FALL, floor, x, y - 1, z));
             }
         }
     }

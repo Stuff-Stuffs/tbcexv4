@@ -17,7 +17,7 @@ public interface NeighbourFinder {
     Instance apply(PatherOptions options, BattleParticipantView participant);
 
     interface Instance {
-        void find(Pather.PathNode previous, NeighbourData data, Consumer<Pather.PathNode> consumer);
+        void find(Pather.PathingNode previous, NeighbourData data, Consumer<Pather.PathingNode> consumer);
     }
 
     interface NeighbourData {

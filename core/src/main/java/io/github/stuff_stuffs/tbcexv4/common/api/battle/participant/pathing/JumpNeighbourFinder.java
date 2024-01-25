@@ -27,7 +27,7 @@ public class JumpNeighbourFinder implements NeighbourFinder {
         }
 
         @Override
-        public void find(final Pather.PathNode previous, final NeighbourData data, final Consumer<Pather.PathNode> consumer) {
+        public void find(final Pather.PathingNode previous, final NeighbourData data, final Consumer<Pather.PathingNode> consumer) {
             if (!previous.onFloor()) {
                 return;
             }
@@ -43,10 +43,10 @@ public class JumpNeighbourFinder implements NeighbourFinder {
             tryAdj(x, y + 1, z - 1, previous, data, consumer);
         }
 
-        protected void tryAdj(final int x, final int y, final int z, final Pather.PathNode previous, final NeighbourData data, final Consumer<Pather.PathNode> consumer) {
+        protected void tryAdj(final int x, final int y, final int z, final Pather.PathingNode previous, final NeighbourData data, final Consumer<Pather.PathingNode> consumer) {
             if (checker.check(x, y, z, Double.NaN)) {
                 final boolean floor = checker.lastFloorHeight > 0 || checker.floorHeight(x, y - 1, z) != 0;
-                consumer.accept(new Pather.PathNode(previous, previous.cost() + cost, previous.depth() + 1, Movement.JUMP, floor, x, y, z));
+                consumer.accept(new Pather.PathingNode(previous, previous.cost() + cost, previous.depth() + 1, Movement.JUMP, floor, x, y, z));
             }
         }
     }

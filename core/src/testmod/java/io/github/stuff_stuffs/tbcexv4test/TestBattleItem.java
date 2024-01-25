@@ -75,8 +75,8 @@ public class TestBattleItem implements BattleItem {
         final List<NeighbourFinder> finders = new ArrayList<>();
         NeighbourFinder.GATHER_EVENT.invoker().gather(participant, finders::add);
         if (!finders.isEmpty()) {
-            final Pather pather = Pather.create(finders.toArray(NeighbourFinder[]::new), Pather.PathNode::onFloor);
-            final Pather.Paths cache = pather.compute(new Pather.PathNode((Pather.PathNode) null, 0, 0, Movement.WALK, true, pos.x(), pos.y(), pos.z()), PatherOptions.NONE, participant);
+            final Pather pather = Pather.create(finders.toArray(NeighbourFinder[]::new), Pather.PathingNode::onFloor);
+            final Pather.Paths cache = pather.compute(new Pather.PathingNode((Pather.PathingNode) null, 0, 0, Movement.WALK, true, pos.x(), pos.y(), pos.z()), PatherOptions.NONE, participant);
             final List<BattleParticipantView> targets = new ArrayList<>();
             for (final BattleParticipantHandle pHandle : battleState.participants()) {
                 final BattleParticipantView p = battleState.participant(pHandle);
@@ -87,7 +87,8 @@ public class TestBattleItem implements BattleItem {
             final var plan = Plans.pathPrefix(battleState, cache, node -> {
                 Set<BattleParticipantHandle> attackable = null;
                 for (final BattleParticipantView target : targets) {
-                    final double distanced = BattleParticipantBounds.distance2(participant.bounds(), new BattlePos(node.x(), node.y(), node.z()), target.bounds(), target.pos());
+                    BattlePos battlePos = node.pos();
+                    final double distanced = BattleParticipantBounds.distance2(participant.bounds(), new BattlePos(battlePos.x(), battlePos.y(), battlePos.z()), target.bounds(), target.pos());
                     if (distanced < 2) {
                         if (attackable == null) {
                             attackable = new ObjectOpenHashSet<>(2);

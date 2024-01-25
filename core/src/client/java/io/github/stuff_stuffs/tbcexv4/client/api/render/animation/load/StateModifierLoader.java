@@ -7,6 +7,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyType;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.DualCodec;
+import io.github.stuff_stuffs.tbcexv4.common.api.util.BasicEasingFunction;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.EasingFunction;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 
@@ -64,7 +65,7 @@ public final class StateModifierLoader {
 
         @Override
         public T value(final double time) {
-            final Entry<T> search = new Entry<>(null, time - delay, EasingFunction.LINEAR);
+            final Entry<T> search = new Entry<>(null, time - delay, BasicEasingFunction.LINEAR);
             final int index = Collections.binarySearch(entries, search, Entry.COMPARATOR);
             if (index >= 0) {
                 return entries.get(index).value;

@@ -1,6 +1,7 @@
 package io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.Pather;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.AbstractTargetChooser;
@@ -42,14 +43,16 @@ public class Plans {
             final Pather.PathNode next = iterator.next();
             final Set<O> set = acceptablePositions.apply(next);
             if (set != null && !set.isEmpty()) {
-                map.put(Pather.Paths.pack(next.x(), next.y(), next.z()), set);
+                BattlePos pos = next.pos();
+                map.put(Pather.Paths.pack(pos.x(), pos.y(), pos.z()), set);
             }
         }
         final IntSet terminals = new IntOpenHashSet(map.size() / 4 + 4);
         final Iterator<? extends Pather.PathNode> tIterator = cache.terminal().iterator();
         while (tIterator.hasNext()) {
             final Pather.PathNode next = tIterator.next();
-            final int key = Pather.Paths.pack(next.x(), next.y(), next.z());
+            BattlePos pos = next.pos();
+            final int key = Pather.Paths.pack(pos.x(), pos.y(), pos.z());
             if (map.containsKey(key)) {
                 terminals.add(key);
             }
@@ -76,7 +79,8 @@ public class Plans {
 
             @Override
             protected double weight0(final Pather.PathNode obj, final double temperature, final Random random, final BattleTransactionContext context) {
-                final int key = Pather.Paths.pack(obj.x(), obj.y(), obj.z());
+                BattlePos pos = obj.pos();
+                final int key = Pather.Paths.pack(pos.x(), pos.y(), pos.z());
                 final Set<O> set = map.get(key);
                 if (set == null || set.isEmpty()) {
                     return 0;
@@ -90,16 +94,17 @@ public class Plans {
 
             @Override
             protected PathTarget create(final Pather.PathNode obj) {
-                final int key = Pather.Paths.pack(obj.x(), obj.y(), obj.z());
+                BattlePos pos = obj.pos();
+                final int key = Pather.Paths.pack(pos.x(), pos.y(), pos.z());
                 return new PathTarget(obj, terminals.contains(key));
             }
         }, target -> {
-            final Pather.PathNode pos = target.node();
+            final BattlePos pos = target.node().pos();
             final Set<O> set = map.get(Pather.Paths.pack(pos.x(), pos.y(), pos.z()));
             if (set == null || set.isEmpty()) {
                 throw new RuntimeException();
             }
-            return factory.apply(pos, set);
+            return factory.apply(target.node(), set);
         }, type));
     }
 }
