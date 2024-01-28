@@ -3,29 +3,45 @@ package io.github.stuff_stuffs.tbcexv4.common.impl.battle.transaction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransaction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionManager;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 public class BattleTransactionManagerImpl implements BattleTransactionManager {
-    private final AtomicBoolean open = new AtomicBoolean(false);
-    private final List<BattleTransactionImpl> stack = new ArrayList<>();
+
+    private final AtomicStack stack;
+
+    public BattleTransactionManagerImpl() {
+        stack = new AtomicStack();
+    }
 
     @Override
     public BattleTransaction open() {
-        if (open.compareAndExchange(false, true)) {
+        final BattleTransactionImpl transaction = new BattleTransactionImpl(this, 0);
+        final int depth = stack.depth.getAcquire();
+        if (depth != 0) {
             throw new RuntimeException();
         }
-        final BattleTransactionImpl transaction = new BattleTransactionImpl(this, 0);
-        stack.add(transaction);
+        final BattleTransactionImpl old = stack.stack.compareAndExchangeRelease(0, null, transaction);
+        if (old != null) {
+            throw new RuntimeException();
+        }
+        final int oldDepth = stack.depth.compareAndExchangeRelease(0, 1);
+        if (oldDepth != 0) {
+            throw new RuntimeException();
+        }
         return transaction;
     }
 
     public void pop(final int depth) {
-        if (stack.size() == depth + 1) {
-            stack.remove(depth);
-            if (stack.isEmpty()) {
-                open.setRelease(false);
+        final int stackDepth = stack.depth.getAcquire();
+        if (stackDepth == depth + 1) {
+            final BattleTransactionImpl old = stack.stack.getAndSet(depth, null);
+            if (old == null) {
+                throw new RuntimeException();
+            }
+            final int oldDepth = stack.depth.compareAndExchange(stackDepth, stackDepth - 1);
+            if (oldDepth != stackDepth) {
+                throw new RuntimeException();
             }
         } else {
             throw new RuntimeException();
@@ -34,19 +50,33 @@ public class BattleTransactionManagerImpl implements BattleTransactionManager {
 
     @Override
     public boolean isOpen() {
-        return open.getAcquire();
+        return stack.depth.getAcquire() != 0;
     }
 
     public BattleTransaction openNested(final BattleTransactionImpl transaction) {
-        if (stack.isEmpty() || stack.get(stack.size() - 1) != transaction) {
-            throw new RuntimeException();
-        }
-        final BattleTransactionImpl next = new BattleTransactionImpl(this, transaction.depth() + 1);
-        stack.add(next);
+        int depth;
+        BattleTransactionImpl next;
+        do {
+            depth = stack.depth.getAcquire();
+            if (depth == 0 || stack.stack.getAcquire(depth) != transaction) {
+                throw new RuntimeException();
+            }
+            next = new BattleTransactionImpl(this, depth + 1);
+        } while (stack.stack.compareAndExchange(depth, null, next) != null);
         return next;
     }
 
     public BattleTransactionImpl atDepth(final int depth) {
-        return stack.get(depth);
+        return stack.stack.getAcquire(depth);
+    }
+
+    private static final class AtomicStack {
+        private final AtomicReferenceArray<BattleTransactionImpl> stack;
+        private final AtomicInteger depth;
+
+        private AtomicStack() {
+            stack = new AtomicReferenceArray<>(8192);
+            depth = new AtomicInteger(0);
+        }
     }
 }
