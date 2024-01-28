@@ -78,17 +78,17 @@ public class CollisionChecker {
         final int lowestZ = MathHelper.floor(z + lowerWidth);
         final int highestZ = MathHelper.ceil(z + upperWidth);
         final Box box = new Box(x + lowerWidth, y + floorHeight, z + lowerWidth, x + upperWidth, y + floorHeight + height, z + upperWidth);
-        for (int i = lowestX; i <= highestX; i++) {
-            for (int j = lowestZ; j <= highestZ; j++) {
-                for (int k = lowestY; k <= highestY; k++) {
-                    final BlockState state = environment.getBlockState(mut.set(i, y, j));
+        for (int xOff = lowestX; xOff <= highestX; xOff++) {
+            for (int zOff = lowestZ; zOff <= highestZ; zOff++) {
+                for (int yOff = lowestY; yOff <= highestY; yOff++) {
+                    final BlockState state = environment.getBlockState(mut.set(xOff, yOff, zOff));
                     final VoxelShape shape = state.getCollisionShape(environment, mut);
                     if (shape == VoxelShapes.fullCube()) {
-                        if (box.intersects(i, k, j, i + 1, k + 1, j + 1)) {
+                        if (box.intersects(xOff, yOff, zOff, xOff + 1, yOff + 1, zOff + 1)) {
                             return false;
                         }
                     } else if (!(shape == VoxelShapes.empty() || shape.isEmpty())) {
-                        if (VoxelShapes.matchesAnywhere(boxShape, shape.offset(-i, -k, -j), BooleanBiFunction.AND)) {
+                        if (VoxelShapes.matchesAnywhere(boxShape, shape.offset(-xOff, -yOff, -zOff), BooleanBiFunction.AND)) {
                             return false;
                         }
                     }
