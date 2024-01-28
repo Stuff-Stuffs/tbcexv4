@@ -297,10 +297,26 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
     public Result<Pather.PathNode, MoveError> move(final Pather.PathNode node, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         battleState.ensureBattleOngoing();
         try (final var preSpan = tracer.push(new PreMoveParticipantTrace(handle(), node), transactionContext)) {
-            //TODO checks and event
+            final Optional<Pather.PathNode> event = events.invoker(BasicParticipantEvents.PRE_MOVE_EVENT_KEY, transactionContext).onPreMoveEvent(this, Optional.of(node), transactionContext, preSpan);
+            if (event.isEmpty()) {
+                return Result.failure(MoveError.EVENT);
+            }
+            final Pather.PathNode pathNode = event.get();
+            Pather.PathNode cursor = pathNode;
+            while (cursor != null) {
+                final BattlePos battlePos = cursor.pos();
+                if (cachedCollisionChecker.inBounds(battlePos.x(), battlePos.y(), battlePos.z())) {
+                    return Result.failure(MoveError.OUTSIDE_BATTLE);
+                }
+                if (cachedCollisionChecker.check(battlePos.x(), battlePos.y(), battlePos.z(), Double.NaN)) {
+                    return Result.failure(MoveError.ENV_COLLISION);
+                }
+                cursor = cursor.prev();
+            }
             delta(transactionContext, new PosDelta(pos));
             pos = new BattlePos(node.pos().x(), node.pos().y(), node.pos().z());
             try (final var span = preSpan.push(new MoveParticipantTrace(handle(), node), transactionContext)) {
+                events.invoker(BasicParticipantEvents.MOVE_EVENT_KEY, transactionContext).onMoveEvent(this, pathNode, transactionContext, span);
             }
             return new Result.Success<>(node);
         }

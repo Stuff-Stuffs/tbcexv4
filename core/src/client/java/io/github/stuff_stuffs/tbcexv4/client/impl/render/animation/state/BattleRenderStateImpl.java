@@ -25,8 +25,8 @@ public class BattleRenderStateImpl extends RenderStateImpl implements BattleRend
     private final List<BattleEffectRenderState> cachedEffects;
 
     public BattleRenderStateImpl() {
-        participantContainer = new TimedContainer<>(k -> new ParticipantRenderStateImpl(this));
-        effectContainer = new TimedContainer<>(k -> new BattleEffectRenderStateImpl(this));
+        participantContainer = new TimedContainer<>(k -> new ParticipantRenderStateImpl(k, this));
+        effectContainer = new TimedContainer<>(k -> new BattleEffectRenderStateImpl(k, this));
         cachedParticipants = new ArrayList<>();
         cachedEffects = new ArrayList<>();
     }

@@ -30,6 +30,8 @@ public interface ModelRenderState extends RenderState {
     PropertyKey<ModelRenderer> RENDERER = new PropertyKey<>("model_renderer", PropertyTypes.MODEL_RENDERER);
     PropertyKey<Optional<TextureData>> TEXTURE_DATA = new PropertyKey<>("texture_data", PropertyTypes.TEXTURE_DATA);
 
+    String id();
+
     Optional<ModelRenderState> getChild(String id, double time);
 
     Result<Animation.TimedEvent, Unit> addChild(String id, double time, AnimationContext context);

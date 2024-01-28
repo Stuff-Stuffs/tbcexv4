@@ -3,8 +3,8 @@ package io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state;
 import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Property;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.RenderState;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 
@@ -14,13 +14,15 @@ import java.util.Optional;
 import java.util.Set;
 
 public class ModelRenderStateImpl extends RenderStateImpl implements ModelRenderState {
+    private final String id;
     private final TimedContainer<String, ModelRenderStateImpl> timedContainer;
     private final RenderState parent;
     private final List<ModelRenderState> cached;
 
-    public ModelRenderStateImpl(final RenderState parent) {
+    public ModelRenderStateImpl(final String id, final RenderState parent) {
+        this.id = id;
         this.parent = parent;
-        timedContainer = new TimedContainer<>(k -> new ModelRenderStateImpl(this));
+        timedContainer = new TimedContainer<>(k -> new ModelRenderStateImpl(k, this));
         cached = new ArrayList<>();
     }
 
@@ -42,6 +44,11 @@ public class ModelRenderStateImpl extends RenderStateImpl implements ModelRender
 
     public List<ModelRenderState> cached() {
         return cached;
+    }
+
+    @Override
+    public String id() {
+        return id;
     }
 
     @Override
@@ -72,15 +79,15 @@ public class ModelRenderStateImpl extends RenderStateImpl implements ModelRender
     }
 
     @Override
-    public List<ModelRenderState> getChildren(String id, double time) {
-        List<ModelRenderState> list = new ArrayList<>();
-        for (String child : children(time)) {
-            Optional<ModelRenderState> opt = getChild(child, time);
-            if(opt.isEmpty()) {
+    public List<ModelRenderState> getChildren(final String id, final double time) {
+        final List<ModelRenderState> list = new ArrayList<>();
+        for (final String child : children(time)) {
+            final Optional<ModelRenderState> opt = getChild(child, time);
+            if (opt.isEmpty()) {
                 continue;
             }
-            ModelRenderState childState = opt.get();
-            if(child.equals(id)) {
+            final ModelRenderState childState = opt.get();
+            if (child.equals(id)) {
                 list.add(childState);
             }
             list.addAll(childState.getChildren(id, time));

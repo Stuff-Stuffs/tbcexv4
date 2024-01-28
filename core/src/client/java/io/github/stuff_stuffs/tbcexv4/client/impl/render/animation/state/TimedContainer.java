@@ -4,7 +4,6 @@ import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
-import it.unimi.dsi.fastutil.Function;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceMap;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceMaps;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
@@ -12,11 +11,12 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.Function;
 
 public class TimedContainer<K, V extends RenderStateImpl> {
     public static final int INVALID_SERIAL_NUMBER = -1;
     private final Object2ReferenceMap<K, Container> containers;
-    private final Map<Key<K>, V> values;
+    private final Object2ReferenceMap<Key<K>, V> values;
     private final Function<K, V> factory;
 
     public TimedContainer(final Function<K, V> factory) {

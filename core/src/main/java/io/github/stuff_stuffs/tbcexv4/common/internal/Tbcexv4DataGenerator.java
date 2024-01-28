@@ -128,6 +128,12 @@ public class Tbcexv4DataGenerator implements DataGeneratorEntrypoint {
 
         @EventInfo()
         public abstract void PostSetHealthEvent(BattleParticipant participant, double oldHealth, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+
+        @EventInfo(defaultValue = "node", combiner = "io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util.selectSecond")
+        public abstract Optional<Pather.PathNode> PreMoveEvent(BattleParticipant participant, Optional<Pather.PathNode> node, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
+
+        @EventInfo()
+        public abstract void MoveEvent(BattleParticipant participant, Pather.PathNode node, BattleTransactionContext transactionContext, BattleTracer.Span<?> trace);
     }
 
     @EventKeyLocation(location = "io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.ParticipantInventoryEvents")

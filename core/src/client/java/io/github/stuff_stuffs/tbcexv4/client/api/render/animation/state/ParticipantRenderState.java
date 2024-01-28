@@ -14,6 +14,8 @@ import java.util.Optional;
 public interface ParticipantRenderState extends RenderState {
     PropertyKey<Vec3d> POSITION = ModelRenderState.TRANSLATION;
 
+    BattleParticipantHandle id();
+
     ModelRenderState modelRoot();
 
     @Override
