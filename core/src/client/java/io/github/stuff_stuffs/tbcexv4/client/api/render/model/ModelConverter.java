@@ -8,11 +8,13 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.Particip
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.mixin.*;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
-import net.minecraft.client.model.*;
+import net.minecraft.client.model.ModelCuboidData;
+import net.minecraft.client.model.ModelPartData;
+import net.minecraft.client.model.ModelTransform;
+import net.minecraft.client.model.TexturedModelData;
 import net.minecraft.client.util.math.Vector2f;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
-import org.jetbrains.annotations.NotNull;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -49,10 +51,8 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
     }
 
     private void create(final ModelPartData data, final ModelRenderState state, final double time, final AnimationContext context, final Result.Folder<List<TimedEvent>, TimedEvent, Unit> folder, final boolean root) {
-        folder.accept(state.getProperty(ModelRenderState.SCALE).setDefaultValue(new Vec3d(1,1,1), time, context));
         if (root) {
             folder.accept(state.getProperty(ModelRenderState.TRANSLATION).setDefaultValue(new Vec3d(0, -1.501, 0), time, context));
-            folder.accept(state.getProperty(ModelRenderState.LAST_INVERSION).setDefaultValue(true, time, context));
         }
         int i = 0;
         final float inv = 1 / 16.0F;
@@ -66,9 +66,9 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
                 return;
             }
             final ModelRenderState childState = opt.get();
-            folder.accept(childState.getProperty(ModelRenderState.SCALE).setDefaultValue(new Vec3d(1,1,1), time, context));
+            folder.accept(childState.getProperty(ModelRenderState.LAST_INVERSION).setDefaultValue(true, time, context));
             final Vector3f size = modelCuboidData.getDimensions();
-            ModelRenderState.ModelData modelData = computeModelData(modelCuboidData, size, inv);
+            final ModelRenderState.ModelData modelData = computeModelData(modelCuboidData, size, inv);
             folder.accept(childState.getProperty(ModelRenderState.MODEL_DATA).setDefaultValue(Optional.of(modelData), time, context));
             final Vector2f uv = modelCuboidData.getTextureUV();
             final Vector2f scale = modelCuboidData.getTextureScale();
@@ -90,13 +90,11 @@ public class ModelConverter implements Animation<ParticipantRenderState> {
         }
     }
 
-    @NotNull
-    private static ModelRenderState.ModelData computeModelData(AccessorModelCuboidData modelCuboidData, Vector3f size, float inv) {
+    private static ModelRenderState.ModelData computeModelData(final AccessorModelCuboidData modelCuboidData, final Vector3f size, final float inv) {
         final AccessorDilation extraSize = (AccessorDilation) modelCuboidData.getExtraSize();
-        Vec3d extents = new Vec3d((size.x + extraSize.getRadiusX() * 2) * inv, (size.y + extraSize.getRadiusY() * 2) * inv, (size.z + extraSize.getRadiusZ() * 2) * inv);
+        final Vec3d extents = new Vec3d((size.x + extraSize.getRadiusX() * 2) * inv, (size.y + extraSize.getRadiusY() * 2) * inv, (size.z + extraSize.getRadiusZ() * 2) * inv);
         final Vector3f pos = modelCuboidData.getOffset();
-        Vec3d offset = new Vec3d((pos.x + size.x * 0.5) * inv, (pos.y + size.y * 0.5) * inv, (pos.z + size.z * 0.5) * inv);
-        ModelRenderState.ModelData modelData = new ModelRenderState.ModelData(extents, offset, Vec3d.ZERO, new Quaternionf(0,0,0,1));
-        return modelData;
+        final Vec3d offset = new Vec3d((pos.x + size.x * 0.5) * inv, (pos.y + size.y * 0.5) * inv, (pos.z + size.z * 0.5) * inv);
+        return new ModelRenderState.ModelData(extents, offset, Vec3d.ZERO, new Quaternionf(0, 0, 0, 1));
     }
 }

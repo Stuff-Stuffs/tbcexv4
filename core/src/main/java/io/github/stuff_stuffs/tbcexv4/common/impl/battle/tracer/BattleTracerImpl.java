@@ -1,8 +1,8 @@
 package io.github.stuff_stuffs.tbcexv4.common.impl.battle.tracer;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracerView;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.BattleTraceEvent;
+import io.github.stuff_stuffs.tbcexv4util.trace.BattleTracerView;
+import io.github.stuff_stuffs.tbcexv4util.trace.BattleTraceEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapshotParticipant;
 import it.unimi.dsi.fastutil.objects.Object2ObjectAVLTreeMap;
@@ -311,7 +311,7 @@ public class BattleTracerImpl extends DeltaSnapshotParticipant<BattleTracerImpl.
         }
 
         @Override
-        public Timestamp timeStamp() {
+        public Timestamp timestamp() {
             return handle.timestamp;
         }
     }

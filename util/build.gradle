@@ -1,0 +1,8 @@
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation "org.jetbrains:annotations:24.1.0"
+    implementation group: 'com.squareup', name: 'javapoet', version: '1.13.0'
+}

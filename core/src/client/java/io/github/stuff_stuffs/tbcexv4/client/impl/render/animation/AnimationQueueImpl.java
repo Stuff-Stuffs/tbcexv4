@@ -24,6 +24,11 @@ public class AnimationQueueImpl implements AnimationQueue {
     }
 
     @Override
+    public void update(double time) {
+        state.update(time);
+    }
+
+    @Override
     public double enqueue(final Animation<BattleRenderState> animation, final double minTime, final double cutoff) {
         final DoubleSortedSet tailSet = events.tailSet(minTime);
         final AnimationContext context = new AnimationContextImpl(nextId++, cutoff);

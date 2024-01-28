@@ -8,7 +8,6 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.BattleItemRendererRegist
 import io.github.stuff_stuffs.tbcexv4.client.api.render.BattleRenderContext;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyTypes;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleEffectRenderState;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.BattleEffectRendererRegistry;
@@ -177,12 +176,6 @@ public class Tbcexv4Client implements ClientModInitializer {
                 WATCHED_BATTLE.tick();
             }
         });
-        WorldRenderEvents.BEFORE_ENTITIES.register(context -> {
-            if (WATCHED_BATTLE != null) {
-                final BattleRenderState state = WATCHED_BATTLE.animationQueue().state();
-                ((BattleRenderStateImpl) state).update(WATCHED_BATTLE.time(context.tickDelta()));
-            }
-        });
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
             if (WATCHED_BATTLE == null) {
                 return;
@@ -191,6 +184,7 @@ public class Tbcexv4Client implements ClientModInitializer {
                 final BattleDebugRenderer renderer = BattleDebugRendererRegistry.get(s);
                 renderer.render(context, WATCHED_BATTLE);
             }
+            WATCHED_BATTLE.animationQueue().update(WATCHED_BATTLE.time(context.tickDelta()));
             final BattleRenderContext renderContext = new BattleRenderContextImpl(context, WATCHED_BATTLE);
             final MatrixStack matrices = context.matrixStack();
             matrices.push();
@@ -207,35 +201,37 @@ public class Tbcexv4Client implements ClientModInitializer {
             matrices.pop();
         });
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
-                ClientCommandManager.literal("tbcexv4ClientDebug")
-                        .then(
-                                ClientCommandManager.literal("enable")
-                                        .then(
-                                                ClientCommandManager.argument(
-                                                                "renderer",
-                                                                new BattleDebugRendererRegistry.DebugRendererArgumentType()
-                                                        )
-                                                        .executes(context -> {
-                                                            final String id = context.getArgument("renderer", String.class);
-                                                            BattleDebugRendererRegistry.enable(id);
-                                                            return 0;
-                                                        })
-                                        )
+                ClientCommandManager.literal(
+                        "tbcexv4ClientDebug"
+                ).then(
+                        ClientCommandManager.literal(
+                                "enable"
                         ).then(
-                                ClientCommandManager.literal("disable")
-                                        .then(
-                                                ClientCommandManager.argument(
-                                                                "renderer",
-                                                                new BattleDebugRendererRegistry.DebugRendererArgumentType()
-                                                        )
-                                                        .executes(context -> {
-                                                                    final String id = context.getArgument("renderer", String.class);
-                                                                    BattleDebugRendererRegistry.disable(id);
-                                                                    return 0;
-                                                                }
-                                                        )
-                                        )
+                                ClientCommandManager.argument(
+                                        "renderer",
+                                        new BattleDebugRendererRegistry.DebugRendererArgumentType()
+                                ).executes(context -> {
+                                            final String id = context.getArgument("renderer", String.class);
+                                            BattleDebugRendererRegistry.enable(id);
+                                            return 0;
+                                        }
+                                )
                         )
+                ).then(
+                        ClientCommandManager.literal(
+                                "disable"
+                        ).then(
+                                ClientCommandManager.argument(
+                                        "renderer",
+                                        new BattleDebugRendererRegistry.DebugRendererArgumentType()
+                                ).executes(context -> {
+                                            final String id = context.getArgument("renderer", String.class);
+                                            BattleDebugRendererRegistry.disable(id);
+                                            return 0;
+                                        }
+                                )
+                        )
+                )
         ));
         BattleTargetingMenu.initClient();
         BasicTargetUi.init();
@@ -314,7 +310,7 @@ public class Tbcexv4Client implements ClientModInitializer {
 
     public static Set<BattleParticipantHandle> possibleControlling(final BattleHandle handle) {
         final Set<BattleParticipantHandle> handles = POSSIBLE_WATCHING.get(handle);
-        if (handles==null || handles.isEmpty()) {
+        if (handles == null || handles.isEmpty()) {
             return Collections.emptySet();
         }
         return Collections.unmodifiableSet(handles);

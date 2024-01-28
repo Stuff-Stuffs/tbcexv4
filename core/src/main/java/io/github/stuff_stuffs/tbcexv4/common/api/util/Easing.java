@@ -15,17 +15,17 @@ public interface Easing {
 
     final class SimpleEasing implements Easing {
         public static final Codec<SimpleEasing> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-                BasicEasingFunction.CODEC.fieldOf("ease").forGetter(o -> o.ease),
+                EasingFunction.CODEC.fieldOf("ease").forGetter(o -> o.ease),
                 Codec.DOUBLE.fieldOf("start").forGetter(o -> o.start),
                 Codec.DOUBLE.fieldOf("end").forGetter(o -> o.end),
                 Codec.BOOL.optionalFieldOf("reversed", false).forGetter(o -> o.reversed)
         ).apply(instance, SimpleEasing::new));
-        private final BasicEasingFunction ease;
+        private final EasingFunction ease;
         private final double start;
         private final double end;
         private final boolean reversed;
 
-        public SimpleEasing(final BasicEasingFunction ease, final double start, final double end, final boolean reversed) {
+        public SimpleEasing(final EasingFunction ease, final double start, final double end, final boolean reversed) {
             this.ease = ease;
             this.start = start;
             this.end = end;

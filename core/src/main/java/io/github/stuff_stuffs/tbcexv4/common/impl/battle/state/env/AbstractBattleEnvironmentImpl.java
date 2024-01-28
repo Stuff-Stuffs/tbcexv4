@@ -1,18 +1,21 @@
 package io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.env;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.Battle;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.Pather;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapshotParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.env.BasicEnvEvents;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.PreSetBiomeTrace;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.PreSetBlockStateTrace;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.SetBiomeTrace;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.SetBlockStateTrace;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.BattleParticipantImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.participant.pather.CollisionChecker;
-import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BlockEntity;
@@ -35,14 +38,15 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
 
     @Override
     public boolean setBlockState(final int x, final int y, final int z, final BlockState state, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
-        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreSetBlockState(x, y, z, state), transactionContext)) {
-            if (x < 0 || y < 0 || z < 0 || x >= battle.xSize() || y >= battle.ySize() || z >= battle.zSize()) {
-                return false;
-            }
-            final BlockState oldState = getBlockState0(x, y, z);
-            if (oldState == state) {
-                return true;
-            }
+        if (x < 0 || y < 0 || z < 0 || x >= battle.xSize() || y >= battle.ySize() || z >= battle.zSize()) {
+            return false;
+        }
+        final BlockState oldState = getBlockState0(x, y, z);
+        if (oldState == state) {
+            return true;
+        }
+        final BattlePos pos = new BattlePos(x, y, z);
+        try (final var preSpan = tracer.push(new PreSetBlockStateTrace(pos, state), transactionContext)) {
             final BattleState battleState = battle.state();
             if (!battleState.events().invoker(BasicEnvEvents.PRE_SET_BLOCK_STATE_EVENT_KEY, transactionContext).onPreSetBlockStateEvent(battleState, x, y, z, state, transactionContext, preSpan)) {
                 return false;
@@ -57,7 +61,7 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
             }
             delta(transactionContext, new BlockDelta(x, y, z, oldState, cached));
             cached = null;
-            try (final var span = preSpan.push(new CoreBattleTraceEvents.SetBlockState(x, y, z, oldState, state), transactionContext)) {
+            try (final var span = preSpan.push(new SetBlockStateTrace(pos, oldState, state), transactionContext)) {
                 battleState.events().invoker(BasicEnvEvents.POST_SET_BLOCK_STATE_EVENT_KEY, transactionContext).onPostSetBlockStateEvent(battleState, x, y, z, oldState, transactionContext, span);
             }
             return true;
@@ -85,20 +89,21 @@ public abstract class AbstractBattleEnvironmentImpl extends DeltaSnapshotPartici
 
     @Override
     public boolean setBiome(final int x, final int y, final int z, final RegistryEntry<Biome> biome, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
-        try (final var preSpan = tracer.push(new CoreBattleTraceEvents.PreSetBiome(x, y, z, biome), transactionContext)) {
-            if (x < 0 || y < 0 || z < 0 || x >= battle.xSize() || y >= battle.ySize() || z >= battle.zSize()) {
-                return false;
-            }
-            final RegistryEntry<Biome> current = getBiome0(x, y, z);
-            if (current.equals(biome)) {
-                return true;
-            }
+        if (x < 0 || y < 0 || z < 0 || x >= battle.xSize() || y >= battle.ySize() || z >= battle.zSize()) {
+            return false;
+        }
+        final RegistryEntry<Biome> current = getBiome0(x, y, z);
+        if (current.equals(biome)) {
+            return true;
+        }
+        final BattlePos pos = new BattlePos(x, y, z);
+        try (final var preSpan = tracer.push(new PreSetBiomeTrace(pos, biome), transactionContext)) {
             if (!battle.state().events().invoker(BasicEnvEvents.PRE_SET_BIOME_KEY, transactionContext).onPreSetBiome(battle.state(), x, y, z, current, biome, transactionContext, preSpan)) {
                 return false;
             }
             setBiome0(x, y, z, biome);
             delta(transactionContext, new BiomeDelta(x, y, z, current));
-            try (final var span = preSpan.push(new CoreBattleTraceEvents.SetBiome(x, y, z, current, biome), transactionContext)) {
+            try (final var span = preSpan.push(new SetBiomeTrace(pos, current, biome), transactionContext)) {
                 battle.state().events().invoker(BasicEnvEvents.POST_SET_BIOME_KEY, transactionContext).onPostSetBiome(battle.state(), x, y, z, current, biome, transactionContext, span);
             }
             return true;

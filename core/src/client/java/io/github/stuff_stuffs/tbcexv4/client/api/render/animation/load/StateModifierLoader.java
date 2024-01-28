@@ -6,8 +6,8 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyType;
-import io.github.stuff_stuffs.tbcexv4.common.api.util.DualCodec;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.BasicEasingFunction;
+import io.github.stuff_stuffs.tbcexv4.common.api.util.DualCodec;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.EasingFunction;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 
@@ -49,6 +49,8 @@ public final class StateModifierLoader {
         private final List<Entry<T>> entries;
         private final PropertyType.Interpolator<T> interpolator;
         private final double delay;
+        private final double offset;
+        private final double length;
 
         private SimpleStateModifier(final List<Entry<T>> entries, final PropertyType.Interpolator<T> interpolator, final double delay) {
             this.entries = new ArrayList<>(entries);
@@ -61,6 +63,16 @@ public final class StateModifierLoader {
             if (entries.get(0).time < 0) {
                 throw new RuntimeException();
             }
+            offset = delay + entries.get(0).time;
+            length = (entries.get(entries.size() - 1).time + delay) - offset;
+        }
+
+        public double offset() {
+            return offset;
+        }
+
+        public double length() {
+            return length;
         }
 
         @Override

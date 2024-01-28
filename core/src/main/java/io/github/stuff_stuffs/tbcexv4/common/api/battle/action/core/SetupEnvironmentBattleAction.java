@@ -5,7 +5,6 @@ import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleCodecContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
@@ -13,7 +12,6 @@ import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.env.ServerBattleEnvironmentImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4ClientDelegates;
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattleEnvironmentInitialState;
-import net.minecraft.text.Text;
 import net.minecraft.util.math.ChunkSectionPos;
 
 import java.util.function.Function;
@@ -32,7 +30,7 @@ public class SetupEnvironmentBattleAction implements BattleAction {
     }
 
     @Override
-    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer, BattleLogContext logContext) {
+    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> span) {
         //INTERNALS AHEAD
         if (state.environment() instanceof final ServerBattleEnvironmentImpl environment && environment.battle() instanceof final ServerBattleImpl server) {
             server.world().runAction(world -> {
@@ -46,9 +44,6 @@ public class SetupEnvironmentBattleAction implements BattleAction {
                 throw new RuntimeException("Tried to revert a setup action, this should be impossible!");
             }
         });
-        if(logContext.enabled()) {
-            logContext.accept(Text.of("Set up arena!"));
-        }
         return true;
     }
 }

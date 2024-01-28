@@ -1,7 +1,7 @@
 package io.github.stuff_stuffs.tbcexv4.client.api.render.animation;
 
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleRenderState;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.BattleTraceEvent;
+import io.github.stuff_stuffs.tbcexv4util.trace.BattleTraceEvent;
 
 import java.util.ArrayList;
 import java.util.List;

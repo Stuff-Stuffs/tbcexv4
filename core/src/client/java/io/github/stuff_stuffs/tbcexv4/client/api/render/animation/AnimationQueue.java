@@ -6,4 +6,6 @@ public interface AnimationQueue {
     double enqueue(Animation<BattleRenderState> animation, double minTime, double cutoff);
 
     BattleRenderState state();
+
+    void update(double time);
 }

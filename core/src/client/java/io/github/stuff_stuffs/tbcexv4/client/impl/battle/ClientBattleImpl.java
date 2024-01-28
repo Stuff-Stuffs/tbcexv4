@@ -18,15 +18,21 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateEventInitEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracerView;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
-import io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util;
-import io.github.stuff_stuffs.tbcexv4.common.impl.battle.log.BattleLogContextImpl;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.ActionRootTrace;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.RootTrace;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.TurnManagerSetupTrace;
+import io.github.stuff_stuffs.tbcexv4.common.impl.BattleLogContextImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
+import io.github.stuff_stuffs.tbcexv4util.log.BattleLogLevel;
+import io.github.stuff_stuffs.tbcexv4util.trace.BattleTracerView;
+import it.unimi.dsi.fastutil.doubles.Double2ObjectAVLTreeMap;
+import it.unimi.dsi.fastutil.doubles.Double2ObjectMap;
+import it.unimi.dsi.fastutil.doubles.Double2ObjectSortedMap;
+import it.unimi.dsi.fastutil.doubles.Double2ObjectSortedMaps;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.registry.RegistryKey;
@@ -34,7 +40,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 public class ClientBattleImpl implements Battle {
@@ -52,7 +60,8 @@ public class ClientBattleImpl implements Battle {
     private BattleTracer tracer;
     private AnimationQueueImpl queue;
     private double time = 0;
-    private final Queue<BattleLogContextImpl> logs;
+    private final Double2ObjectSortedMap<List<BattleTracerView.Timestamp>> timestamps;
+    private BattleLogContextImpl context;
 
     public ClientBattleImpl(final ClientWorld world, final BattleHandle handle, final RegistryKey<World> sourceWorld, final BlockPos min, final int xSize, final int ySize, final int zSize, final Supplier<TurnManager> factory) {
         turnManagerFactory = factory;
@@ -68,27 +77,39 @@ public class ClientBattleImpl implements Battle {
         this.xSize = xSize;
         this.ySize = ySize;
         this.zSize = zSize;
-        logs = new ArrayDeque<>();
+        timestamps = new Double2ObjectAVLTreeMap<>();
         initialize();
     }
 
     public void tick() {
-        time = time + 1;
-        while (!logs.isEmpty() && logs.peek().time < time) {
-            MinecraftClient.getInstance().player.sendMessage(Tbcexv4Util.concat(logs.poll().collect().toArray(new Text[0])));
+        for (final Double2ObjectMap.Entry<List<BattleTracerView.Timestamp>> entry : Double2ObjectSortedMaps.fastIterable(timestamps.tailMap(time))) {
+            if (entry.getDoubleKey() < time + 1) {
+                for (final BattleTracerView.Timestamp timestamp : entry.getValue()) {
+                    final Text message = context.at(timestamp);
+                    if (message != null) {
+                        MinecraftClient.getInstance().player.sendMessage(message, false);
+                    }
+                }
+            }
         }
+        time = time + 1;
     }
 
     private void initialize() {
+        timestamps.clear();
+        context = new BattleLogContextImpl(BattleLogLevel.DEBUG);
         turnManager = turnManagerFactory.get();
         state = new BattleStateImpl(this, createEnv(), sourceWorld, builder, participantEventBuilder);
-        tracer = BattleTracer.create(new CoreBattleTraceEvents.Root());
+        tracer = BattleTracer.create(new RootTrace());
         queue = new AnimationQueueImpl();
-        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.TurnManagerSetup(), transaction)) {
+        final BattleTracerView.Handle<?> h;
+        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new TurnManagerSetupTrace(), transaction)) {
             turnManager.setup(state, transaction, span);
             transaction.commit();
+            h = span.node().handle();
         }
-        tracer.all().forEach(node -> AnimationFactoryRegistry.create(node.event()).ifPresent(this::pushAnimation));
+        tracer.byHandle(h).event().log(tracer, h, context);
+        tracer.all().forEach(node -> AnimationFactoryRegistry.create(node.event()).map(this::pushAnimation).ifPresent(t -> timestamps.computeIfAbsent(t, l -> new ArrayList<>()).add(node.timestamp())));
     }
 
     public AnimationQueue animationQueue() {
@@ -182,41 +203,38 @@ public class ClientBattleImpl implements Battle {
     @Override
     public void pushAction(final BattleAction action) {
         actions.add(action);
-        final BattleTracerView.Node<?> latest = tracer.latest();
         final Optional<ActionSource> actionSource = action.source();
-        final BattleLogContextImpl logContext = new BattleLogContextImpl();
-        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.ActionRoot(actionSource.map(ActionSource::actor)), transaction)) {
-            action.apply(state, transaction, tracer, logContext);
+        final BattleTracerView.Handle<?> h;
+        final BattleTracerView.Node<?> latest = tracer.latest();
+        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new ActionRootTrace(actionSource.map(ActionSource::actor)), transaction)) {
+            action.apply(state, transaction, span);
             actionSource.ifPresent(source -> turnManager.onAction(source.energy(), source.actor(), state, transaction, span));
             transaction.commit();
+            h = span.node().handle();
         }
-        final OptionalDouble logTime = tracer.after(latest.timeStamp()).mapToDouble(node -> AnimationFactoryRegistry.create(node.event()).map(this::pushAnimation).orElse(0.0)).min();
-        if (logTime.isEmpty()) {
-            throw new RuntimeException();
-        }
-        logContext.time = logTime.getAsDouble();
-        logs.add(logContext);
+        tracer.byHandle(h).event().log(tracer, h, context);
+        tracer.after(latest.timestamp()).forEach(node -> AnimationFactoryRegistry.create(node.event()).map(this::pushAnimation).ifPresent(t -> timestamps.computeIfAbsent(t, l -> new ArrayList<>()).add(node.timestamp())));
     }
 
     private double pushAnimation(final Animation<BattleRenderState> animation) {
         final double currentTime = time(0);
         final double t = queue.enqueue(new Animation<BattleRenderState>() {
             @Override
-            public Result<List<TimedEvent>, Unit> animate(double time, BattleRenderState state, AnimationContext context) {
-                Result<List<TimedEvent>, Unit> result = animation.animate(time, state, context);
-                if(result instanceof Result.Success<List<TimedEvent>, Unit> success) {
-                    List<TimedEvent> list = success.val();
+            public Result<List<TimedEvent>, Unit> animate(final double time, final BattleRenderState state, final AnimationContext context) {
+                final Result<List<TimedEvent>, Unit> result = animation.animate(time, state, context);
+                if (result instanceof final Result.Success<List<TimedEvent>, Unit> success) {
+                    final List<TimedEvent> list = success.val();
                     double max = time;
-                    for (TimedEvent event : list) {
+                    for (final TimedEvent event : list) {
                         max = Math.max(max, event.end());
                     }
-                    Result<List<TimedEvent>, Unit> lockResult = state.completeLock(time, max, context);
-                    if(lockResult instanceof Result.Failure<List<TimedEvent>, Unit>) {
+                    final Result<List<TimedEvent>, Unit> lockResult = state.completeLock(time, max, context);
+                    if (lockResult instanceof Result.Failure<List<TimedEvent>, Unit>) {
                         return lockResult;
                     }
-                    List<TimedEvent> events = new ArrayList<>(list.size() + 5);
+                    final List<TimedEvent> events = new ArrayList<>(list.size() + 5);
                     events.addAll(list);
-                    events.addAll(((Result.Success<List<TimedEvent>, Unit>)lockResult).val());
+                    events.addAll(((Result.Success<List<TimedEvent>, Unit>) lockResult).val());
                     return Result.success(events);
                 }
                 return result;

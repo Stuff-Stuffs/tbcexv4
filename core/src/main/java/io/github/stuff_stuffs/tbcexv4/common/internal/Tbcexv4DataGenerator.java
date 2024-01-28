@@ -11,24 +11,31 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantBounds;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantInitialState;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.DamageType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.InventoryHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.Equipment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.EquipmentSlot;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItem;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.Pather;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.Stat;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.StatModificationPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.attachment.BattleAttachmentType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
+import io.github.stuff_stuffs.tbcexv4util.gen.GenTraceEvent;
+import io.github.stuff_stuffs.tbcexv4util.gen.TracePackage;
+import io.github.stuff_stuffs.tbcexv4util.log.BattleLogLevel;
 import net.fabricmc.fabric.api.datagen.v1.DataGeneratorEntrypoint;
 import net.fabricmc.fabric.api.datagen.v1.FabricDataGenerator;
 import net.minecraft.block.BlockState;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.world.biome.Biome;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
 
@@ -149,5 +156,114 @@ public class Tbcexv4DataGenerator implements DataGeneratorEntrypoint {
 
         @EventInfo()
         public abstract void PostEquip(BattleParticipant participant, Equipment equipment, BattleItem item, EquipmentSlot slot, BattleTransactionContext transactionContext, BattleTracer.Span<?> span);
+    }
+
+    @TracePackage(value = "io.github.stuff_stuffs.tbcexv4.common.generated_traces")
+    public static abstract class CoreTraces {
+        @GenTraceEvent(format = "Setting attachment type: {type}")
+        public abstract void SetAttachmentTrace(BattleAttachmentType<?, ?> type);
+
+        @GenTraceEvent(format = "", level = BattleLogLevel.NONE)
+        public abstract void RootTrace();
+
+        @GenTraceEvent(format = "", level = BattleLogLevel.NONE)
+        public abstract void TurnManagerSetupTrace();
+
+        @GenTraceEvent(format = "Trying to set bounds from {currentBounds} to {attemptedBounds}", level = BattleLogLevel.DEBUG)
+        public abstract void PreSetBoundsTrace(BattleBounds currentBounds, BattleBounds attemptedBounds);
+
+        @GenTraceEvent(format = "Setting bounds from {currentBounds} to {attemptedBounds}", level = BattleLogLevel.NORMAL)
+        public abstract void SetBoundsTrace(BattleBounds currentBounds, BattleBounds attemptedBounds);
+
+        @GenTraceEvent(format = "Trying to set blockState at {pos} to {attemptedState}", level = BattleLogLevel.DEBUG)
+        public abstract void PreSetBlockStateTrace(BattlePos pos, BlockState attemptedState);
+
+        @GenTraceEvent(format = "Setting blockState at {pos} from {oldState} to {newState}", level = BattleLogLevel.NORMAL)
+        public abstract void SetBlockStateTrace(BattlePos pos, BlockState oldState, BlockState newState);
+
+        @GenTraceEvent(format = "Trying to set team relation between {first} and {second} to {relation}", level = BattleLogLevel.DEBUG)
+        public abstract void PreSetTeamRelationTrace(BattleParticipantTeam first, BattleParticipantTeam second, BattleParticipantTeamRelation relation);
+
+        @GenTraceEvent(format = "Setting team relation between {first} and {second} from {oldRelation} to {newRelation}", level = BattleLogLevel.NORMAL)
+        public abstract void SetTeamRelationTrace(BattleParticipantTeam first, BattleParticipantTeam second, BattleParticipantTeamRelation oldRelation, BattleParticipantTeamRelation newRelation);
+
+        @GenTraceEvent(format = "Trying to set biome at {pos} to {biome}", level = BattleLogLevel.DEBUG)
+        public abstract void PreSetBiomeTrace(BattlePos pos, RegistryEntry<Biome> biome);
+
+        @GenTraceEvent(format = "Setting biome at {pos} from {oldBiome} to {newBiome}", level = BattleLogLevel.INFO)
+        public abstract void SetBiomeTrace(BattlePos pos, RegistryEntry<Biome> oldBiome, RegistryEntry<Biome> newBiome);
+
+        @GenTraceEvent(format = "Action root of {source}", level = BattleLogLevel.NORMAL)
+        public abstract void ActionRootTrace(Optional<BattleParticipantHandle> source);
+    }
+
+    @TracePackage(value = "io.github.stuff_stuffs.tbcexv4.common.generated_traces.participant")
+    public static abstract class ParticipantTraces {
+        @GenTraceEvent(format = "Setting participant {handle}'s attachment {type}", level = BattleLogLevel.DEBUG)
+        public abstract void SetParticipantAttachmentTrace(BattleParticipantHandle handle, BattleParticipantAttachmentType<?, ?> type, @Nullable Object snapshot);
+
+        @GenTraceEvent(format = "Removing participant {handle}, cause {reason}", level = BattleLogLevel.NORMAL)
+        public abstract void RemoveParticipantTrace(BattleParticipantHandle handle, BattleState.RemoveParticipantReason reason);
+
+        @GenTraceEvent(format = "Trying to remove participant {handle}, cause {attemptedReason}", level = BattleLogLevel.DEBUG)
+        public abstract void PreRemoveParticipantTrace(BattleParticipantHandle handle, BattleState.RemoveParticipantReason attemptedReason);
+
+        @GenTraceEvent(format = "Setting stack in slot {handle} from {oldStack} to {newStack}", level = BattleLogLevel.INFO)
+        public abstract void ParticipantSetStackTrace(InventoryHandle handle, Optional<BattleItemStack> oldStack, Optional<BattleItemStack> newStack);
+
+        @GenTraceEvent(format = "Setting participant {handle}'s team from {oldTeam} to {newTeam}", level = BattleLogLevel.NORMAL)
+        public abstract void ParticipantSetTeamTrace(BattleParticipantHandle handle, Optional<BattleParticipantTeam> oldTeam, BattleParticipantTeam newTeam);
+
+        @GenTraceEvent(format = "Trying to set stack in slot {handle} to {attemptedStack}", level = BattleLogLevel.INFO)
+        public abstract void PreParticipantSetStackTrace(InventoryHandle handle, Optional<BattleItemStack> attemptedStack);
+
+        @GenTraceEvent(format = "Trying to set participant {handle}'s health to {attemptedHealth}", level = BattleLogLevel.INFO)
+        public abstract void PreParticipantSetHealthTrace(BattleParticipantHandle handle, double attemptedHealth);
+
+        @GenTraceEvent(format = "Setting participant {handle}'s health from {oldHealth} from {newHealth}", level = BattleLogLevel.NORMAL)
+        public abstract void ParticipantSetHealthTrace(BattleParticipantHandle handle, double oldHealth, double newHealth);
+
+        @GenTraceEvent(format = "Trying to apply {amount} damage to {handle}", level = BattleLogLevel.DEBUG)
+        public abstract void PreDamageParticipantTrace(BattleParticipantHandle handle, double amount);
+
+        @GenTraceEvent(format = "{handle} is taking {amount} damage", level = BattleLogLevel.NORMAL)
+        public abstract void DamageParticipantTrace(BattleParticipantHandle handle, double amount);
+
+        @GenTraceEvent(format = "Trying to add modifier for stat {stat} to participant {handle}")
+        public abstract void PreAddParticipantStateModifierTrace(BattleParticipantHandle handle, Stat<?> stat);
+
+        @GenTraceEvent(format = "Adding modifier for stat {stat} to participant {handle}", level = BattleLogLevel.DEBUG)
+        public abstract void AddParticipantStateModifierTrace(BattleParticipantHandle handle, Stat<?> stat);
+
+        @GenTraceEvent(format = "Trying to add participant with handle {handle}", level = BattleLogLevel.DEBUG)
+        public abstract void PreAddParticipantTrace(BattleParticipantHandle handle);
+
+        @GenTraceEvent(format = "Adding participant with handle {handle}", level = BattleLogLevel.NORMAL)
+        public abstract void AddParticipantTrace(BattleParticipantHandle handle);
+
+        @GenTraceEvent(format = "Trying to move participant {handle} along {path}", level = BattleLogLevel.DEBUG)
+        public abstract void PreMoveParticipantTrace(BattleParticipantHandle handle, Pather.PathNode path);
+
+        @GenTraceEvent(format = "Moved participant {handle} along {path}", level = BattleLogLevel.NORMAL)
+        public abstract void MoveParticipantTrace(BattleParticipantHandle handle, Pather.PathNode path);
+
+        @GenTraceEvent(format = "Trying to set {handle}'s pos to {pos}", level = BattleLogLevel.DEBUG)
+        public abstract void PreSetParticipantPosTrace(BattleParticipantHandle handle, BattlePos pos);
+
+        @GenTraceEvent(format = "Setting {handle}'s pos to {pos}", level = BattleLogLevel.NORMAL)
+        public abstract void SetParticipantPosTrace(BattleParticipantHandle handle, BattlePos pos);
+
+        @GenTraceEvent(format = "Trying to set participant {handle}'s bounds to {attemptedBounds}", level = BattleLogLevel.DEBUG)
+        public abstract void PreSetParticipantBoundsTrace(BattleParticipantHandle handle, BattleParticipantBounds attemptedBounds);
+
+        @GenTraceEvent(format = "Setting participant {handle}'s bounds from {oldBounds} to {newBounds}", level = BattleLogLevel.NORMAL)
+        public abstract void SetParticipantBoundsTrace(BattleParticipantHandle handle, BattleParticipantBounds oldBounds, BattleParticipantBounds newBounds);
+
+        @GenTraceEvent(format = "Trying to heal {handle} {amount}", level = BattleLogLevel.INFO)
+        public abstract void PreHealParticipantTrace(BattleParticipantHandle handle, double amount);
+
+        @GenTraceEvent(format = "Heal {handle} {amount} with {overflow} overflow", level = BattleLogLevel.NORMAL)
+        public abstract void HealParticipantTrace(BattleParticipantHandle handle, double amount, double overflow);
+
     }
 }

@@ -7,10 +7,11 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.Damag
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.DamageTypeGraph;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.*;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreParticipantTraceEvents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.DeltaSnapshotParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.generated_events.participant.BasicParticipantEvents;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.participant.AddParticipantStateModifierTrace;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.participant.PreAddParticipantStateModifierTrace;
 import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -34,13 +35,13 @@ public class StatContainerImpl extends DeltaSnapshotParticipant<StatContainerImp
         if (participant.phase() == BattleParticipantPhase.FINISHED) {
             throw new RuntimeException();
         }
-        try (final var preSpan = tracer.push(new CoreParticipantTraceEvents.PreAddParticipantStateModifier(participant.handle(), stat), transactionContext)) {
+        try (final var preSpan = tracer.push(new PreAddParticipantStateModifierTrace(participant.handle(), stat), transactionContext)) {
             final T oldVal = get(stat);
             //noinspection unchecked
             final ModifierHandle handle = ((SingleContainer<T>) containers.computeIfAbsent(stat, SingleContainer::new)).addModifier(modifier, phase);
             final T newVal = get(stat);
             delta(transactionContext, new Delta(handle));
-            try (final var span = preSpan.push(new CoreParticipantTraceEvents.AddParticipantStateModifier(participant.handle(), stat), transactionContext)) {
+            try (final var span = preSpan.push(new AddParticipantStateModifierTrace(participant.handle(), stat), transactionContext)) {
                 participant.events().invoker(BasicParticipantEvents.POST_ADD_MODIFIER_EVENT_KEY, transactionContext).onPostAddModifierEvent(participant, stat, phase, oldVal, newVal, transactionContext, span);
             }
             return handle;

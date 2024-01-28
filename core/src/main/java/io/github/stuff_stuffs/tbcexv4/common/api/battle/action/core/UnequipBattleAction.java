@@ -5,7 +5,6 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.Inventory;
@@ -13,13 +12,8 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.In
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.equipment.EquipmentSlot;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
-import io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util;
-import net.minecraft.text.Text;
-
-import java.util.Optional;
 
 public class UnequipBattleAction implements BattleAction {
     public static final Codec<UnequipBattleAction> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -40,31 +34,16 @@ public class UnequipBattleAction implements BattleAction {
     }
 
     @Override
-    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer, final BattleLogContext logContext) {
-        final boolean logEnabled = logContext.enabled();
-        try (final var span = tracer.push(new CoreBattleTraceEvents.ActionRoot(Optional.of(actor)), transactionContext)) {
-            try (final var nested = transactionContext.openNested()) {
-                final BattleParticipant participant = state.participant(actor);
-                final Result<InventoryHandle, Inventory.UnequipError> result = participant.inventory().unequip(slot, nested, span);
-                if (logEnabled) {
-                    logContext.accept(Tbcexv4Util.concat(Text.of(actor + " trying to unequip slot "), Text.of(Tbcexv4Registries.EquipmentSlots.REGISTRY.getId(slot))));
-                    logContext.pushIndent();
-                }
-                if (result instanceof Result.Failure<InventoryHandle, Inventory.UnequipError>) {
-                    if (logEnabled) {
-                        logContext.accept(Text.of("Failed!"));
-                        logContext.popIndent();
-                    }
-                    nested.abort();
-                    return false;
-                }
-                if (logEnabled) {
-                    logContext.accept(Text.of("Success!"));
-                    logContext.popIndent();
-                }
-                nested.commit();
-                return true;
+    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> span) {
+        try (final var nested = transactionContext.openNested()) {
+            final BattleParticipant participant = state.participant(actor);
+            final Result<InventoryHandle, Inventory.UnequipError> result = participant.inventory().unequip(slot, nested, span);
+            if (result instanceof Result.Failure<InventoryHandle, Inventory.UnequipError>) {
+                nested.abort();
+                return false;
             }
+            nested.commit();
+            return true;
         }
     }
 }

@@ -1,7 +1,7 @@
 package io.github.stuff_stuffs.tbcexv4.common.api.ai;
 
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateView;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracerView;
+import io.github.stuff_stuffs.tbcexv4util.trace.BattleTracerView;
 
 import java.util.function.DoubleUnaryOperator;
 

@@ -1,6 +1,5 @@
-package io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer;
+package io.github.stuff_stuffs.tbcexv4util.trace;
 
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.BattleTraceEvent;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
@@ -49,7 +48,7 @@ public interface BattleTracerView {
 
         Set<? extends Handle<?>> children();
 
-        Timestamp timeStamp();
+        Timestamp timestamp();
     }
 
     interface SpanView<T extends BattleTraceEvent> {

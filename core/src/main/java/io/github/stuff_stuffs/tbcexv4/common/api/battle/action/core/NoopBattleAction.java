@@ -6,12 +6,10 @@ import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.ActionSource;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
-import net.minecraft.text.Text;
 
 import java.util.Optional;
 
@@ -34,14 +32,7 @@ public class NoopBattleAction implements BattleAction {
     }
 
     @Override
-    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer, final BattleLogContext logContext) {
-        if (logContext.enabled()) {
-            if (source.isEmpty()) {
-                logContext.accept(Text.of("Noop"));
-            } else {
-                logContext.accept(Text.of(source.get() + " passes with noop!"));
-            }
-        }
+    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> tracer) {
         return true;
     }
 

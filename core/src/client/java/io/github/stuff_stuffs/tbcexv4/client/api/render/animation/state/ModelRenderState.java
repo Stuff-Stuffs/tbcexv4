@@ -23,7 +23,7 @@ import java.util.Set;
 public interface ModelRenderState extends RenderState {
     PropertyKey<Boolean> LAST_INVERSION = new PropertyKey<>("last_inversion", PropertyTypes.FLAG);
     PropertyKey<Optional<ModelData>> MODEL_DATA = new PropertyKey<>("model_data", PropertyTypes.MODEL_DATA);
-    PropertyKey<Vec3d> SCALE = new PropertyKey<>("scale", PropertyTypes.VEC3D);
+    PropertyKey<Vec3d> SCALE = new PropertyKey<>("scale", PropertyTypes.SCALE);
     PropertyKey<Vec3d> TRANSLATION = new PropertyKey<>("translation", PropertyTypes.VEC3D);
     PropertyKey<Integer> COLOR = new PropertyKey<>("color", PropertyTypes.COLOR);
     PropertyKey<Quaternionfc> ROTATION = new PropertyKey<>("rotation", PropertyTypes.ROTATION);
@@ -155,7 +155,7 @@ public interface ModelRenderState extends RenderState {
                 Vec3d.CODEC.fieldOf("extents").forGetter(ModelData::extents),
                 Vec3d.CODEC.optionalFieldOf("offset", Vec3d.ZERO).forGetter(ModelData::offset),
                 Vec3d.CODEC.fieldOf("position").forGetter(ModelData::position),
-                Tbcexv4Util.ROTATION_CODEC.optionalFieldOf("rotation", new Quaternionf(0,0,0,1)).forGetter(ModelData::rotation)
+                Tbcexv4Util.ROTATION_CODEC.optionalFieldOf("rotation", new Quaternionf(0, 0, 0, 1)).forGetter(ModelData::rotation)
         ).apply(instance, ModelData::new));
     }
 

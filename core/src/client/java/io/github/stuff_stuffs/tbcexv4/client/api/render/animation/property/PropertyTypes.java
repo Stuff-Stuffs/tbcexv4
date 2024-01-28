@@ -18,6 +18,7 @@ import java.util.Optional;
 
 public final class PropertyTypes {
     public static final PropertyType<Vec3d> VEC3D = new PropertyType<>(Vec3d.class, Vec3d.CODEC, (start, end, time) -> start.multiply(1 - time).add(end.multiply(time)), () -> Vec3d.ZERO);
+    public static final PropertyType<Vec3d> SCALE = new PropertyType<>(Vec3d.class, Vec3d.CODEC, (start, end, time) -> start.multiply(1 - time).add(end.multiply(time)), () -> new Vec3d(1, 1, 1));
     public static final PropertyType<Quaternionfc> ROTATION = new PropertyType<>(Quaternionfc.class, RecordCodecBuilder.create(instance -> instance.group(
             Codec.FLOAT.fieldOf("x").forGetter(quat -> quat.x()),
             Codec.FLOAT.fieldOf("y").forGetter(quat -> quat.y()),
@@ -55,7 +56,7 @@ public final class PropertyTypes {
             ModelRenderState.ModelData.CODEC.optionalFieldOf("model_data").codec(),
             (start, end, time) -> time < 0.5 ? start : end,
             Optional::empty
-            );
+    );
     public static final PropertyType<BattleEffectRenderer> BATTLE_EFFECT_RENDERER = new PropertyType<>(BattleEffectRenderer.class, BattleEffectRendererRegistry.CODEC, (start, end, time) -> time < 0.5 ? start : end, () -> BattleEffectRendererRegistry.NOOP_RENDERER);
     public static final PropertyType<Boolean> FLAG = new PropertyType<>(Boolean.class, Codec.BOOL, ((start, end, time) -> time < 0.5 ? start : end), () -> false);
 

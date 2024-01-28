@@ -12,7 +12,6 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.ActionSource;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.core.EndBattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantEventInitEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
@@ -24,12 +23,14 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateEventInitEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.env.BattleEnvironment;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransaction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManagerType;
 import io.github.stuff_stuffs.tbcexv4.common.api.event.EventMap;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.ActionRootTrace;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.RootTrace;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.TurnManagerSetupTrace;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.BattleStateImpl;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.state.env.ServerBattleEnvironmentImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
@@ -81,9 +82,9 @@ public class ServerBattleImpl implements Battle {
         this.ySize = ySize;
         this.zSize = zSize;
         state = new BattleStateImpl(this, createEnv(), sourceWorld, builder, participantEventBuilder);
-        tracer = BattleTracer.create(new CoreBattleTraceEvents.Root());
+        tracer = BattleTracer.create(new RootTrace());
         turnManager = turnManagerContainer.create(BattleCodecContext.create(world.getRegistryManager()));
-        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.TurnManagerSetup(), transaction)) {
+        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new TurnManagerSetupTrace(), transaction)) {
             turnManager.setup(state, transaction, span);
             transaction.commit();
         }
@@ -148,8 +149,8 @@ public class ServerBattleImpl implements Battle {
         aiController.cancel();
         actions.add(action);
         final Optional<ActionSource> actionSource = action.source();
-        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new CoreBattleTraceEvents.ActionRoot(actionSource.map(ActionSource::actor)), transaction)) {
-            action.apply(state, transaction, tracer, BattleLogContext.DISABLED);
+        try (final var transaction = state.transactionManager().open(); final var span = tracer.push(new ActionRootTrace(actionSource.map(ActionSource::actor)), transaction)) {
+            action.apply(state, transaction, span);
             actionSource.ifPresent(source -> turnManager.onAction(source.energy(), source.actor(), state, transaction, span));
             transaction.commit();
         }

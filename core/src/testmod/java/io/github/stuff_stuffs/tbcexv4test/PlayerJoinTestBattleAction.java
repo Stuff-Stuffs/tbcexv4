@@ -9,7 +9,6 @@ import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorers;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePos;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantBounds;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
@@ -22,7 +21,6 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleP
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.BattleTraceEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import net.minecraft.util.Uuids;
@@ -61,10 +59,8 @@ public class PlayerJoinTestBattleAction implements BattleAction {
     }
 
     @Override
-    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer, final BattleLogContext logContext) {
+    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> span) {
         try (final var transaction = transactionContext.openNested()) {
-            final BattleTracer.Span<BattleTraceEvent> span = tracer.push(new BattleTraceEvent() {
-            }, transaction);
             final BattleParticipantTeam playerTeam = new BattleParticipantTeam(playerId);
             final Random random = new Xoroshiro128PlusPlusRandom(playerId.getLeastSignificantBits(), playerId.getMostSignificantBits());
             final BattleParticipantTeam enemyTeam = new BattleParticipantTeam(new UUID(random.nextLong(), random.nextLong()));

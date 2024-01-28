@@ -3,17 +3,15 @@ package io.github.stuff_stuffs.tbcexv4test.client;
 import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationFactoryRegistry;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Property;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Property;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.model.AnimationConverter;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.model.ModelConverter;
 import io.github.stuff_stuffs.tbcexv4.client.mixin.AccessorEntityModelLoader;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.Pather;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreParticipantTraceEvents;
-import io.github.stuff_stuffs.tbcexv4.common.api.util.Easing;
-import io.github.stuff_stuffs.tbcexv4.common.api.util.BasicEasingFunction;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.participant.*;
 import io.github.stuff_stuffs.tbcexv4test.RenderDataParticipantAttachmentView;
 import io.github.stuff_stuffs.tbcexv4test.Tbcexv4Test;
 import net.fabricmc.api.ClientModInitializer;
@@ -34,50 +32,26 @@ public class Tbcexv4TestClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         AnimationFactoryRegistry.register(event -> {
-            if (event instanceof final CoreParticipantTraceEvents.AddParticipant add) {
-                return Optional.of((time, state, context) -> state.addParticipant(add.handle(), time, context).mapSuccess(List::of));
-            } else if (event instanceof final CoreParticipantTraceEvents.RemoveParticipant remove) {
-                return Optional.of((time, state, context) -> state.removeParticipant(remove.handle(), time, context).mapSuccess(List::of));
-            } else if (event instanceof final CoreParticipantTraceEvents.SetParticipantPos setPos) {
+            if (event instanceof final AddParticipantTrace add) {
+                return Optional.of((time, state, context) -> state.addParticipant(add.handle, time, context).mapSuccess(List::of));
+            } else if (event instanceof final RemoveParticipantTrace remove) {
+                return Optional.of((time, state, context) -> state.removeParticipant(remove.handle, time, context).mapSuccess(List::of));
+            } else if (event instanceof final SetParticipantPosTrace setPos) {
                 return Optional.of((time, state, context) -> {
-                    final Vec3d vec = setPos.newPos().bottomCenter();
-                    return state.getParticipant(setPos.handle(), time).map(participant -> participant.getProperty(ParticipantRenderState.POSITION).setDefaultValue(vec, time, context).mapSuccess(List::of)).orElseGet(() -> Result.failure(Unit.INSTANCE));
+                    final Vec3d vec = setPos.pos.bottomCenter();
+                    return state.getParticipant(setPos.handle, time).map(participant -> participant.getProperty(ParticipantRenderState.POSITION).setDefaultValue(vec, time, context).mapSuccess(List::of)).orElseGet(() -> Result.failure(Unit.INSTANCE));
                 });
-            } else if(event instanceof CoreParticipantTraceEvents.DamageParticipant damageParticipant) {
+            } else if (event instanceof final DamageParticipantTrace damageParticipant) {
                 return Optional.of(
                         ParticipantRenderState.lift(
                                 ModelRenderState.lift(
-                                     new AnimationConverter(WardenAnimations.SNIFFING), List.of()
+                                        new AnimationConverter(WardenAnimations.SNIFFING, true), List.of()
                                 ),
-                                damageParticipant.handle()
+                                damageParticipant.handle
                         )
                 );
-            } else if (event instanceof final CoreParticipantTraceEvents.DamageParticipant damage) {
-                return Optional.of(
-                        ParticipantRenderState.lift(
-                                ModelRenderState.lift(
-                                        (time, state, context) -> state
-                                                .getProperty(
-                                                        ModelRenderState.COLOR
-                                                )
-                                                .reserve(
-                                                        t -> 0xFFFF0000,
-                                                        time,
-                                                        time + 20,
-                                                        Easing.in(BasicEasingFunction.LINEAR, time, time + 20),
-                                                        context,
-                                                        Property.ReservationLevel.ACTION
-                                                ).mapSuccess(
-                                                        List::of
-                                                ),
-                                        (state, path, context) -> ModelRenderState.VisitPathResult.DESCEND_ACCEPT,
-                                        false
-                                ),
-                                damage.handle()
-                        )
-                );
-            } else if (event instanceof final CoreParticipantTraceEvents.SetParticipantAttachment attachment) {
-                if (attachment.type() == Tbcexv4Test.RENDER_DATA_ATTACHMENT && attachment.snapshot() instanceof final RenderDataParticipantAttachmentView attachmentView) {
+            } else if (event instanceof final SetParticipantAttachmentTrace attachment) {
+                if (attachment.type == Tbcexv4Test.RENDER_DATA_ATTACHMENT && attachment.snapshot instanceof final RenderDataParticipantAttachmentView attachmentView) {
                     final EntityModelLayer layer = switch (attachmentView.type()) {
                         case PLAYER -> EntityModelLayers.PLAYER;
                         case PIG -> EntityModelLayers.PIG;
@@ -90,12 +64,12 @@ public class Tbcexv4TestClient implements ClientModInitializer {
                     };
                     final TexturedModelData data = ((AccessorEntityModelLoader) MinecraftClient.getInstance().getEntityModelLoader()).getModelParts().get(layer);
                     final ModelConverter model = new ModelConverter(data, texture, false);
-                    return Optional.of(ParticipantRenderState.lift(model, attachment.handle()));
+                    return Optional.of(ParticipantRenderState.lift(model, attachment.handle));
                 }
-            } else if (event instanceof final CoreParticipantTraceEvents.PostMoveParticipant move) {
+            } else if (event instanceof final MoveParticipantTrace move) {
                 final List<Pather.PathNode> flattened = new ArrayList<>(64);
-                Pather.PathNode node = move.pathNode();
-                while (node!=null) {
+                Pather.PathNode node = move.path;
+                while (node != null) {
                     flattened.add(0, node);
                     node = node.prev();
                 }
@@ -117,7 +91,7 @@ public class Tbcexv4TestClient implements ClientModInitializer {
                         return first.multiply(1 - v).add(second.multiply(v));
                     }, time, time + flattened.size(), t -> 1, context, Property.ReservationLevel.ACTION);
                     return folder.accept(reserved).get();
-                }, move.handle()));
+                }, move.handle));
             }
             return Optional.empty();
         });

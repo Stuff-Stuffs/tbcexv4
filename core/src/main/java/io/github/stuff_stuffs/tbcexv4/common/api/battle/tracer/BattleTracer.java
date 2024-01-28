@@ -1,9 +1,10 @@
 package io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer;
 
 import io.github.stuff_stuffs.event_gen.api.event.gen.EventViewable;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.BattleTraceEvent;
+import io.github.stuff_stuffs.tbcexv4util.trace.BattleTraceEvent;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.tracer.BattleTracerImpl;
+import io.github.stuff_stuffs.tbcexv4util.trace.BattleTracerView;
 
 @EventViewable(viewClass = BattleTracerView.class)
 public interface BattleTracer extends BattleTracerView {

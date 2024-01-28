@@ -6,7 +6,6 @@ import io.github.stuff_stuffs.tbcexv4.common.api.ai.ActionSearchStrategy;
 import io.github.stuff_stuffs.tbcexv4.common.api.ai.Scorer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattlePhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantPhase;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.InventoryView;
@@ -21,6 +20,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransaction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.turn.TurnManager;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.ActionRootTrace;
 import it.unimi.dsi.fastutil.HashCommon;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.util.math.random.Xoroshiro128PlusPlusRandom;
@@ -47,66 +47,68 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
             cancellationFuture.complete(Unit.INSTANCE);
             return Optional.empty();
         }
-        final BattleState state = participant.battleState();
-        final double base = scorer.score(participant.battleState(), tracer);
-        final Random random = new Xoroshiro128PlusPlusRandom(seed, HashCommon.murmurHash3(seed + HashCommon.murmurHash3(seed + 1)));
-        final List<BattleAction>[] actions = iter0(participant, scorer, random, state, context, tracer, base);
-        List<BattleAction> chosen = null;
-        double wSum = 0;
-        for (final List<BattleAction> list : actions) {
-            if (!turnManager.checkAi(list)) {
-                continue;
-            }
-            try (final BattleTransaction transaction = context.openNested()) {
-                boolean failed = false;
-                for (final BattleAction action : list) {
-                    if (!action.apply(state, transaction, tracer, BattleLogContext.DISABLED)) {
-                        failed = true;
-                        break;
-                    }
-                }
-                if (failed) {
+        try (final var transactionContext = context.openNested(); final var span = tracer.push(new ActionRootTrace(Optional.empty()), transactionContext)) {
+            final BattleState state = participant.battleState();
+            final double base = scorer.score(participant.battleState(), tracer);
+            final Random random = new Xoroshiro128PlusPlusRandom(seed, HashCommon.murmurHash3(seed + HashCommon.murmurHash3(seed + 1)));
+            final List<BattleAction>[] actions = iter0(participant, scorer, random, state, transactionContext, tracer, span, base);
+            List<BattleAction> chosen = null;
+            double wSum = 0;
+            for (final List<BattleAction> list : actions) {
+                if (!turnManager.checkAi(list)) {
                     continue;
                 }
-                final double score = iter(participant, scorer, random, state, transaction, tracer, base, 1, cancellation);
-                cancellationFuture = cancellation.getNow(null);
-                if (cancellationFuture != null) {
-                    transaction.close();
-                    cancellationFuture.complete(Unit.INSTANCE);
-                    return Optional.empty();
-                }
-                transaction.abort();
-                final double weight = Math.exp(score / temperature) + EPS;
-                if (chosen == null) {
-                    chosen = list;
-                    wSum = weight;
-                } else {
-                    wSum = wSum + weight;
-                    final double fraction = weight / wSum;
-                    if (random.nextDouble() <= fraction) {
+                try (final BattleTransaction transaction = transactionContext.openNested()) {
+                    boolean failed = false;
+                    for (final BattleAction action : list) {
+                        if (!action.apply(state, transaction, span)) {
+                            failed = true;
+                            break;
+                        }
+                    }
+                    if (failed) {
+                        continue;
+                    }
+                    final double score = iter(participant, scorer, random, state, transaction, tracer, span, base, 1, cancellation);
+                    cancellationFuture = cancellation.getNow(null);
+                    if (cancellationFuture != null) {
+                        transaction.close();
+                        cancellationFuture.complete(Unit.INSTANCE);
+                        return Optional.empty();
+                    }
+                    transaction.abort();
+                    final double weight = Math.exp(score / temperature) + EPS;
+                    if (chosen == null) {
                         chosen = list;
+                        wSum = weight;
+                    } else {
+                        wSum = wSum + weight;
+                        final double fraction = weight / wSum;
+                        if (random.nextDouble() <= fraction) {
+                            chosen = list;
+                        }
                     }
                 }
-            }
 
+            }
+            return Optional.ofNullable(chosen);
         }
-        return Optional.ofNullable(chosen);
     }
 
-    private double iter(final BattleParticipant participant, final Scorer scorer, final Random random, final BattleState state, final BattleTransactionContext context, final BattleTracer tracer, final double baseScore, final int depth, final CompletableFuture<CompletableFuture<Unit>> cancellation) {
+    private double iter(final BattleParticipant participant, final Scorer scorer, final Random random, final BattleState state, final BattleTransactionContext context, final BattleTracer tracer, final BattleTracer.Span<?> span, final double baseScore, final int depth, final CompletableFuture<CompletableFuture<Unit>> cancellation) {
         if (depth >= MAX_DEPTH) {
             return baseScore;
         }
         if (cancellation.isDone()) {
             return 0;
         }
-        final List<BattleAction>[] requests = iter0(participant, scorer, random, state, context, tracer, baseScore);
+        final List<BattleAction>[] requests = iter0(participant, scorer, random, state, context, tracer, span, baseScore);
         double best = 0;
         for (final List<BattleAction> list : requests) {
             try (final BattleTransaction transaction = context.openNested()) {
                 boolean failed = false;
                 for (final BattleAction action : list) {
-                    if (!action.apply(state, transaction, tracer, BattleLogContext.DISABLED)) {
+                    if (!action.apply(state, transaction, span)) {
                         failed = true;
                         break;
                     }
@@ -115,14 +117,14 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
                     continue;
                 }
                 final double score = scorer.score(state, tracer);
-                best = Math.max(best, iter(participant, scorer, random, state, transaction, tracer, score, depth + 1, cancellation));
+                best = Math.max(best, iter(participant, scorer, random, state, transaction, tracer, span, score, depth + 1, cancellation));
                 transaction.abort();
             }
         }
         return best;
     }
 
-    private List<BattleAction>[] iter0(final BattleParticipant participant, final Scorer scorer, final Random random, final BattleState state, final BattleTransactionContext context, final BattleTracer tracer, final double baseScore) {
+    private List<BattleAction>[] iter0(final BattleParticipant participant, final Scorer scorer, final Random random, final BattleState state, final BattleTransactionContext context, final BattleTracer tracer, final BattleTracer.Span<?> span, final double baseScore) {
         if (participant.phase() == BattleParticipantPhase.FINISHED || participant.battleState().phase() == BattlePhase.FINISHED) {
             return new List[0];
         }
@@ -188,7 +190,7 @@ public class BasicActionSearchStrategyImpl implements ActionSearchStrategy {
                 final List<BattleAction> actions = requests.get(i);
                 boolean failed = false;
                 for (final BattleAction extracted : actions) {
-                    if (!extracted.apply(state, transaction, tracer, BattleLogContext.DISABLED)) {
+                    if (!extracted.apply(state, transaction, span)) {
                         failed = true;
                         break;
                     }

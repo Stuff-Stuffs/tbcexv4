@@ -15,37 +15,39 @@ import org.joml.Quaternionf;
 import org.joml.Quaternionfc;
 
 import java.util.*;
-import java.util.function.DoubleFunction;
-import java.util.function.Function;
-import java.util.function.ToDoubleFunction;
 
 public class AnimationConverter implements Animation<ModelRenderState> {
     private final net.minecraft.client.render.entity.animation.Animation delegate;
+    private final boolean soft;
 
-    public AnimationConverter(net.minecraft.client.render.entity.animation.Animation delegate) {
+    public AnimationConverter(final net.minecraft.client.render.entity.animation.Animation delegate, final boolean soft) {
         this.delegate = delegate;
+        this.soft = soft;
     }
 
     @Override
-    public Result<List<TimedEvent>, Unit> animate(double time, ModelRenderState state, AnimationContext context) {
-        var folder = Result.<TimedEvent>mutableFold();
-        for (Map.Entry<String, List<Transformation>> entry : delegate.boneAnimations().entrySet()) {
-            List<ModelRenderState> children = state.getChildren(entry.getKey(), time);
+    public Result<List<TimedEvent>, Unit> animate(final double time, final ModelRenderState state, final AnimationContext context) {
+        final var folder = Result.<TimedEvent>mutableFold();
+        for (final Map.Entry<String, List<Transformation>> entry : delegate.boneAnimations().entrySet()) {
+            final List<ModelRenderState> children = state.getChildren(entry.getKey(), time);
             if (children.isEmpty()) {
-                //return Result.failure(Unit.INSTANCE);
-                continue;
+                if (soft) {
+                    continue;
+                } else {
+                    return Result.failure(Unit.INSTANCE);
+                }
             }
-            Sorted sort = sort(entry.getValue());
+            final Sorted sort = sort(entry.getValue());
             if (!sort.translation.keyframes.isEmpty()) {
-                StateModifier<Vec3d> modifier = StateModifier.split(
+                final StateModifier<Vec3d> modifier = StateModifier.split(
                         sort.translation.keyframes,
                         value -> new Keyframe((float) value, null, null),
                         Keyframe::timestamp,
                         keyframe -> new Vec3d(keyframe.target()),
                         PropertyTypes.VEC3D.interpolator(),
                         SEARCH_COMPARATOR
-                ).stretch(1/20.0).delay(time);
-                for (ModelRenderState child : children) {
+                ).stretch(1 / 20.0).delay(time);
+                for (final ModelRenderState child : children) {
                     folder.accept(child.getProperty(ModelRenderState.TRANSLATION).reserve(
                                     modifier, time,
                                     time + delegate.lengthInSeconds() * 20,
@@ -55,16 +57,16 @@ public class AnimationConverter implements Animation<ModelRenderState> {
                     );
                 }
             }
-            if(!sort.scaling.keyframes.isEmpty()) {
-                StateModifier<Vec3d> modifier = StateModifier.split(
+            if (!sort.scaling.keyframes.isEmpty()) {
+                final StateModifier<Vec3d> modifier = StateModifier.split(
                         sort.scaling.keyframes,
                         value -> new Keyframe((float) value, null, null),
                         Keyframe::timestamp,
                         keyframe -> new Vec3d(keyframe.target()),
                         PropertyTypes.VEC3D.interpolator(),
                         SEARCH_COMPARATOR
-                ).stretch(1/20.0).delay(time);
-                for (ModelRenderState child : children) {
+                ).stretch(1 / 20.0).delay(time);
+                for (final ModelRenderState child : children) {
                     folder.accept(child.getProperty(ModelRenderState.SCALE).reserve(
                                     modifier, time,
                                     time + delegate.lengthInSeconds() * 20,
@@ -74,16 +76,16 @@ public class AnimationConverter implements Animation<ModelRenderState> {
                     );
                 }
             }
-            if(!sort.rotation.keyframes.isEmpty()) {
-                StateModifier<Quaternionfc> modifier = StateModifier.split(
+            if (!sort.rotation.keyframes.isEmpty()) {
+                final StateModifier<Quaternionfc> modifier = StateModifier.split(
                         sort.rotation.keyframes,
                         value -> new Keyframe((float) value, null, null),
                         Keyframe::timestamp,
                         keyframe -> new Vec3d(keyframe.target()),
                         PropertyTypes.VEC3D.interpolator(),
                         SEARCH_COMPARATOR
-                ).<Quaternionfc>map(vec -> new Quaternionf().rotateZYX((float)vec.x, (float)vec.y, (float)vec.z)).stretch(1/20.0).delay(time);
-                for (ModelRenderState child : children) {
+                ).<Quaternionfc>map(vec -> new Quaternionf().rotateZYX((float) vec.x, (float) vec.y, (float) vec.z)).stretch(1 / 20.0).delay(time);
+                for (final ModelRenderState child : children) {
                     folder.accept(child.getProperty(ModelRenderState.ROTATION).reserve(
                                     modifier, time,
                                     time + delegate.lengthInSeconds() * 20,
@@ -97,11 +99,11 @@ public class AnimationConverter implements Animation<ModelRenderState> {
         return folder.get();
     }
 
-    private Sorted sort(List<Transformation> transformations) {
-        List<Keyframe> translation = new ArrayList<>();
-        List<Keyframe> rotation = new ArrayList<>();
-        List<Keyframe> scaling = new ArrayList<>();
-        for (Transformation transformation : transformations) {
+    private Sorted sort(final List<Transformation> transformations) {
+        final List<Keyframe> translation = new ArrayList<>();
+        final List<Keyframe> rotation = new ArrayList<>();
+        final List<Keyframe> scaling = new ArrayList<>();
+        for (final Transformation transformation : transformations) {
             if (transformation.target() == Transformation.Targets.TRANSLATE) {
                 translation.addAll(Arrays.asList(transformation.keyframes()));
             } else if (transformation.target() == Transformation.Targets.ROTATE) {
@@ -116,7 +118,7 @@ public class AnimationConverter implements Animation<ModelRenderState> {
         return new Sorted(createEntry(translation), createEntry(rotation), createEntry(scaling));
     }
 
-    private SortedEntry createEntry(List<Keyframe> keyframes) {
+    private SortedEntry createEntry(final List<Keyframe> keyframes) {
         if (keyframes.isEmpty()) {
             return new SortedEntry(keyframes, -1, -1);
         }

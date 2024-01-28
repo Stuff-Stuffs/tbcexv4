@@ -5,8 +5,8 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeam;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.team.BattleParticipantTeamRelation;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracerView;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreParticipantTraceEvents;
+import io.github.stuff_stuffs.tbcexv4.common.generated_traces.participant.ParticipantSetTeamTrace;
+import io.github.stuff_stuffs.tbcexv4util.trace.BattleTracerView;
 
 import java.util.Optional;
 import java.util.Set;
@@ -44,11 +44,11 @@ public final class Scorers {
             final BattleParticipantView exemplar = state.participant(handle);
             final BattleParticipantTeam team;
             if (exemplar == null) {
-                final Optional<BattleTracerView.Node<CoreParticipantTraceEvents.ParticipantSetTeam>> teamNode = tracer.mostRecent(node -> node.event().handle().equals(handle), CoreParticipantTraceEvents.ParticipantSetTeam.class);
+                final Optional<BattleTracerView.Node<ParticipantSetTeamTrace>> teamNode = tracer.mostRecent(node -> node.event().handle.equals(handle), ParticipantSetTeamTrace.class);
                 if (teamNode.isEmpty()) {
                     return 0;
                 }
-                team = teamNode.get().event().newTeam();
+                team = teamNode.get().event().newTeam;
             } else {
                 team = exemplar.team();
             }
@@ -71,11 +71,11 @@ public final class Scorers {
             final BattleParticipantView exemplar = state.participant(handle);
             final BattleParticipantTeam team;
             if (exemplar == null) {
-                final Optional<BattleTracerView.Node<CoreParticipantTraceEvents.ParticipantSetTeam>> teamNode = tracer.mostRecent(node -> node.event().handle().equals(handle), CoreParticipantTraceEvents.ParticipantSetTeam.class);
+                final Optional<BattleTracerView.Node<ParticipantSetTeamTrace>> teamNode = tracer.mostRecent(node -> node.event().handle.equals(handle), ParticipantSetTeamTrace.class);
                 if (teamNode.isEmpty()) {
                     return 0;
                 }
-                team = teamNode.get().event().newTeam();
+                team = teamNode.get().event().newTeam;
             } else {
                 team = exemplar.team();
             }

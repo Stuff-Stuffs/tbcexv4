@@ -6,16 +6,12 @@ import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.ActionSource;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleAction;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.action.BattleActionType;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.log.BattleLogContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipant;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantBounds;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.BattleTracer;
-import io.github.stuff_stuffs.tbcexv4.common.api.battle.tracer.event.CoreBattleTraceEvents;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
-import io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util;
-import net.minecraft.text.Text;
 
 import java.util.Optional;
 
@@ -38,26 +34,21 @@ public class AttackBattleAction implements BattleAction {
     }
 
     @Override
-    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer tracer, final BattleLogContext logContext) {
-        try (final var span = tracer.push(new CoreBattleTraceEvents.ActionRoot(Optional.of(actor)), transactionContext)) {
-            try (final var nested = transactionContext.openNested()) {
-                final BattleParticipant participant = state.participant(actor);
-                final BattleParticipant targetParticipant = state.participant(target);
-                if (BattleParticipantBounds.distance2(participant.bounds(), participant.pos(), targetParticipant.bounds(), targetParticipant.pos()) > 3) {
-                    nested.abort();
-                    return false;
-                }
-                final double damage = targetParticipant.damage(1, Tbcexv4Registries.DamageTypes.ROOT, nested, span);
-                if (damage <= 0.0) {
-                    nested.abort();
-                    return false;
-                }
-                if (logContext.enabled()) {
-                    logContext.accept(Tbcexv4Util.concat(Text.of(actor.id()), Text.of(" attacks "), Text.of(target.id()), Text.of(" for " + damage + "damage!")));
-                }
-                nested.commit();
-                return true;
+    public boolean apply(final BattleState state, final BattleTransactionContext transactionContext, final BattleTracer.Span<?> span) {
+        try (final var nested = transactionContext.openNested()) {
+            final BattleParticipant participant = state.participant(actor);
+            final BattleParticipant targetParticipant = state.participant(target);
+            if (BattleParticipantBounds.distance2(participant.bounds(), participant.pos(), targetParticipant.bounds(), targetParticipant.pos()) > 3) {
+                nested.abort();
+                return false;
             }
+            final double damage = targetParticipant.damage(1, Tbcexv4Registries.DamageTypes.ROOT, nested, span);
+            if (damage <= 0.0) {
+                nested.abort();
+                return false;
+            }
+            nested.commit();
+            return true;
         }
     }
 

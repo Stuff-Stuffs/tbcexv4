@@ -1,192 +1,208 @@
 plugins {
-	id 'java'
-	id 'fabric-loom' version '1.5.4' apply false
-	id 'maven-publish'
+    id 'java'
+    id 'fabric-loom' version '1.5.4' apply false
+    id 'maven-publish'
 }
 
+def utilProjectPrefix = ":util"
+
 allprojects {
-	group = project.maven_group
-	version = project.mod_version
+    group = project.maven_group
+    version = project.mod_version
 
-	apply plugin: 'java'
-	apply plugin: 'fabric-loom'
+    apply plugin: 'java'
 
-	repositories {
-		mavenLocal()
-		maven { url 'https://maven.wispforest.io' }
-	}
+    tasks.withType(JavaCompile).configureEach {
+        it.options.release = 17
+    }
 
-	loom {
-		splitEnvironmentSourceSets()
-	}
+    java {
+        // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+        // if it is present.
+        // If you remove this line, sources will not be generated.
+        withSourcesJar()
 
-	sourceSets {
-		testmod {
-			compileClasspath += main.compileClasspath
-			runtimeClasspath += main.runtimeClasspath
-		}
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
 
-		testmodClient {
-			compileClasspath += main.compileClasspath
-			runtimeClasspath += main.runtimeClasspath
-			compileClasspath += client.compileClasspath
-			runtimeClasspath += client.runtimeClasspath
+    if (project.path.startsWith(utilProjectPrefix)) {
+        return
+    }
+    apply plugin: 'fabric-loom'
 
-			compileClasspath += testmod.compileClasspath
-			runtimeClasspath += testmod.runtimeClasspath
-		}
-	}
+    repositories {
+        mavenLocal()
+        maven { url 'https://maven.wispforest.io' }
+    }
 
-	loom {
-		runs {
-			testmodClient {
-				client()
-				ideConfigGenerated project.rootProject == project
-				name = "Testmod Client"
-				source sourceSets.testmodClient
-			}
-			testmodServer {
-				server()
-				ideConfigGenerated project.rootProject == project
-				name = "Testmod Server"
-				source sourceSets.testmod
-			}
-		}
+    loom {
+        splitEnvironmentSourceSets()
+    }
 
-		decompilers {
-			vineflower {
-				options.put("bsm", "1")
-			}
-		}
-	}
+    sourceSets {
+        testmod {
+            compileClasspath += main.compileClasspath
+            runtimeClasspath += main.runtimeClasspath
+        }
 
-	allprojects.each { p ->
-		loom.mods.register(p.name) {
-			sourceSet p.sourceSets.main
-			sourceSet p.sourceSets.client
-		}
+        testmodClient {
+            compileClasspath += main.compileClasspath
+            runtimeClasspath += main.runtimeClasspath
+            compileClasspath += client.compileClasspath
+            runtimeClasspath += client.runtimeClasspath
 
-		loom.mods.register(p.name + "-testmod") {
-			sourceSet p.sourceSets.testmod
-			sourceSet p.sourceSets.testmodClient
-		}
-	}
+            compileClasspath += testmod.compileClasspath
+            runtimeClasspath += testmod.runtimeClasspath
+        }
+    }
 
-	loom {
-		runs {
-			// This adds a new gradle task that runs the datagen API: "gradlew runDatagen"
-			datagen {
-				inherit server
-				name "Data Generation"
-				vmArg "-Dfabric-api.datagen"
-				vmArg "-Dfabric-api.datagen.output-dir=${file("src/main/generated")}"
-				vmArg "-Dfabric-api.datagen.modid=tbcexv4"
+    loom {
+        runs {
+            testmodClient {
+                client()
+                ideConfigGenerated project.rootProject == project
+                name = "Testmod Client"
+                source sourceSets.testmodClient
+            }
+            testmodServer {
+                server()
+                ideConfigGenerated project.rootProject == project
+                name = "Testmod Server"
+                source sourceSets.testmod
+            }
+        }
 
-				runDir "build/datagen"
-			}
-			testmodClient {
-				client()
-				ideConfigGenerated project.rootProject == project
-				name = "Testmod Client"
-				source sourceSets.testmodClient
-			}
-			testmodServer {
-				server()
-				ideConfigGenerated project.rootProject == project
-				name = "Testmod Server"
-				source sourceSets.testmod
-			}
-		}
-	}
+        decompilers {
+            vineflower {
+                options.put("bsm", "1")
+            }
+        }
+    }
 
-	dependencies {
-		modImplementation "io.wispforest:owo-lib:${project.owo_version}"
-		annotationProcessor "io.wispforest:owo-lib:${project.owo_version}"
-		annotationProcessor "io.github.stuff_stuffs:EventGen:1.46-SNAPSHOT"
-		implementation "io.github.stuff_stuffs:EventGen:1.46-SNAPSHOT"
-		minecraft "com.mojang:minecraft:${project.minecraft_version}"
-		mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-		modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    allprojects.each { p ->
+        if (p.path.startsWith(utilProjectPrefix)) {
+            return
+        }
+        loom.mods.register(p.name) {
+            sourceSet p.sourceSets.main
+            sourceSet p.sourceSets.client
+        }
 
-		// Fabric API. This is technically optional, but you probably want it anyway.
-		modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+        loom.mods.register(p.name + "-testmod") {
+            sourceSet p.sourceSets.testmod
+            sourceSet p.sourceSets.testmodClient
+        }
+    }
 
-		testmodImplementation sourceSets.main.output
-		testmodClientImplementation sourceSets.main.output
-		testmodClientImplementation sourceSets.client.output
-		testmodClientImplementation sourceSets.testmod.output
-	}
+    loom {
+        runs {
+            // This adds a new gradle task that runs the datagen API: "gradlew runDatagen"
+            datagen {
+                inherit server
+                name "Data Generation"
+                vmArg "-Dfabric-api.datagen"
+                vmArg "-Dfabric-api.datagen.output-dir=${file("src/main/generated")}"
+                vmArg "-Dfabric-api.datagen.modid=tbcexv4"
 
-	tasks.withType(JavaCompile).configureEach {
-		it.options.release = 17
-	}
+                runDir "build/datagen"
+            }
+            testmodClient {
+                client()
+                ideConfigGenerated project.rootProject == project
+                name = "Testmod Client"
+                source sourceSets.testmodClient
+            }
+            testmodServer {
+                server()
+                ideConfigGenerated project.rootProject == project
+                name = "Testmod Server"
+                source sourceSets.testmod
+            }
+        }
+    }
 
-	java {
-		// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-		// if it is present.
-		// If you remove this line, sources will not be generated.
-		withSourcesJar()
+    dependencies {
+        implementation "org.jetbrains:annotations:24.1.0"
+        modImplementation "io.wispforest:owo-lib:${project.owo_version}"
+        annotationProcessor "io.wispforest:owo-lib:${project.owo_version}"
+        annotationProcessor "io.github.stuff_stuffs:EventGen:1.46-SNAPSHOT"
+        api project(":util")
+        annotationProcessor project(":util")
+        implementation "io.github.stuff_stuffs:EventGen:1.46-SNAPSHOT"
+        minecraft "com.mojang:minecraft:${project.minecraft_version}"
+        mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+        modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-		sourceCompatibility = JavaVersion.VERSION_17
-		targetCompatibility = JavaVersion.VERSION_17
-	}
+        // Fabric API. This is technically optional, but you probably want it anyway.
+        modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-	sourceSets {
-		main {
-			resources {
-				srcDirs += [
-						'src/main/generated'
-				]
-			}
-		}
-	}
+        testmodImplementation sourceSets.main.output
+        testmodClientImplementation sourceSets.main.output
+        testmodClientImplementation sourceSets.client.output
+        testmodClientImplementation sourceSets.testmod.output
+    }
 
-	processResources {
-		inputs.property "version", project.version
+    sourceSets {
+        main {
+            resources {
+                srcDirs += [
+                        'src/main/generated'
+                ]
+            }
+        }
+    }
 
-		filesMatching("fabric.mod.json") {
-			expand "version": project.version
-		}
-	}
+    processResources {
+        inputs.property "version", project.version
+
+        filesMatching("fabric.mod.json") {
+            expand "version": project.version
+        }
+    }
 }
 
 base {
-	archivesName = project.archives_base_name
+    archivesName = project.archives_base_name
 }
 
 dependencies {
-	include "io.wispforest:owo-sentinel:${project.owo_version}"
-	subprojects.each {
-		api project(path: "${it.path}", configuration: "namedElements")
-		clientImplementation project("${it.path}:").sourceSets.client.output
+    include "io.wispforest:owo-sentinel:${project.owo_version}"
+    subprojects.each {
+        if (!it.path.startsWith(utilProjectPrefix)) {
+            api project(path: "${it.path}", configuration: "namedElements")
+            clientImplementation project("${it.path}:").sourceSets.client.output
 
-		testmodImplementation project("${it.path}:").sourceSets.testmod.output
-		testmodClientImplementation project("${it.path}:").sourceSets.testmodClient.output
+            testmodImplementation project("${it.path}:").sourceSets.testmod.output
+            testmodClientImplementation project("${it.path}:").sourceSets.testmodClient.output
+        } else {
+            api project(path: "${it.path}")
+        }
 
-		include project(path: "${it.path}")
-	}
+        include project(path: "${it.path}")
+    }
 }
 
 jar {
-	from("LICENSE") {
-		rename { "${it}_${project.base.archivesName.get()}"}
-	}
+    from("LICENSE") {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
 }
 
 tasks.register("runAnnotationProcessors", JavaCompile) { task ->
-	task.options.compilerArgs << '-proc:only'
+    task.options.compilerArgs << '-proc:only'
 }
 
 // configure the maven publication
 publishing {
-	publications {
-		mavenJava(MavenPublication) {
-			from components.java
-		}
-	}
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
 
-	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
-	repositories {
-		mavenLocal()
-	}
+    // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+    repositories {
+        mavenLocal()
+    }
 }
