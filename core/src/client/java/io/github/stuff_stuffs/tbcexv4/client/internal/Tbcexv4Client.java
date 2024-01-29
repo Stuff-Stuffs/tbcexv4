@@ -12,6 +12,7 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRen
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.BattleEffectRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRendererRegistry;
+import io.github.stuff_stuffs.tbcexv4.client.api.ui.Tbcexv4UiRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.ClientBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.state.env.ClientBattleEnvironmentImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.render.BattleRenderContextImpl;
@@ -30,6 +31,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantPlayerControllerAttachmentView;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.stat.DamageResistanceStat;
 import io.github.stuff_stuffs.tbcexv4.common.impl.battle.ServerBattleImpl;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4;
 import io.github.stuff_stuffs.tbcexv4.common.internal.Tbcexv4ClientDelegates;
@@ -47,6 +49,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.event.registry.RegistryEntryAddedCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.render.LightmapTextureManager;
@@ -238,6 +241,11 @@ public class Tbcexv4Client implements ClientModInitializer {
         PropertyTypes.init();
         ModelRendererRegistry.init();
         BattleEffectRendererRegistry.init();
+        Tbcexv4UiRegistry.register(Tbcexv4Registries.Stats.MAX_HEALTH, Tbcexv4UiRegistry.basic(Tbcexv4Registries.Stats.MAX_HEALTH, i -> true));
+        RegistryEntryAddedCallback.event(Tbcexv4Registries.DamageTypes.REGISTRY).register((rawId, id, object) -> {
+            final DamageResistanceStat stat = DamageResistanceStat.of(object);
+            Tbcexv4UiRegistry.register(stat, Tbcexv4UiRegistry.basic(stat, i -> true));
+        });
     }
 
     private void renderModel(final ModelRenderState state, final BattleRenderContext context) {

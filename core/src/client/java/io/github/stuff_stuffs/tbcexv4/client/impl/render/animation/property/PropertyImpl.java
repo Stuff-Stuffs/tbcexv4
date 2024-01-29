@@ -5,6 +5,7 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Property;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyType;
+import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state.TimedContainer;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Easing;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
@@ -86,13 +87,25 @@ public class PropertyImpl<T> implements Property<T> {
     }
 
     public void compute(final double time) {
-        final DefaultValueEvent<T> event = new DefaultValueEvent<>(time, null, Long.MAX_VALUE);
-        final int index = Collections.binarySearch(defaultValues, event);
+        final int size = defaultValues.size();
+        int index = size - 1;
+        if (size < 8) {
+            for (int i = 0; i < size; i++) {
+                final DefaultValueEvent<T> event = defaultValues.get(i);
+                if (event.time > time) {
+                    index = i - 1;
+                    break;
+                }
+            }
+        } else {
+            final DefaultValueEvent<T> event = new DefaultValueEvent<>(time, null, Long.MAX_VALUE);
+            index = Collections.binarySearch(defaultValues, event);
+        }
         final int rIndex;
         if (index >= 0) {
             rIndex = index;
         } else {
-            rIndex = Math.max(Math.min(defaultValues.size() - 1, -index - 2), 0);
+            rIndex = Math.max(Math.min(size - 1, -index - 2), 0);
         }
         T val = defaultValues.get(rIndex).val;
         for (final ReservationLevel level : LEVELS) {
@@ -175,8 +188,31 @@ public class PropertyImpl<T> implements Property<T> {
         }
 
         private T compute(final T lower, final double time) {
-            final Interval interval = new Interval(time, 0, null, Long.MAX_VALUE);
-            final int index = Collections.binarySearch(intervals, interval);
+            if (intervals.isEmpty()) {
+                return lower;
+            }
+            final int index;
+            outer:
+            {
+                int low = 0;
+                int high = intervals.size() - 1;
+
+                while (low <= high) {
+                    final int mid = (low + high) >>> 1;
+                    final Interval midVal = intervals.get(mid);
+                    final int cmp = Double.compare(midVal.start, time);
+
+                    if (cmp < 0) {
+                        low = mid + 1;
+                    } else if (cmp > 0) {
+                        high = mid - 1;
+                    } else {
+                        index = mid;
+                        break outer;
+                    }
+                }
+                index = -(low + 1);
+            }
             final TimedEventImpl<T> modifier;
             if (index >= 0) {
                 modifier = modifiers.get(index);

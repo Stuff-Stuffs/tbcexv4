@@ -4,10 +4,7 @@ import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
-import it.unimi.dsi.fastutil.objects.Object2ReferenceMap;
-import it.unimi.dsi.fastutil.objects.Object2ReferenceMaps;
-import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -21,7 +18,7 @@ public class TimedContainer<K, V extends RenderStateImpl> {
 
     public TimedContainer(final Function<K, V> factory) {
         this.factory = factory;
-        containers = new Object2ReferenceOpenHashMap<>();
+        containers = new Object2ReferenceLinkedOpenHashMap<>();
         values = new Object2ReferenceOpenHashMap<>();
     }
 
@@ -30,7 +27,14 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         if (serialNumber == INVALID_SERIAL_NUMBER) {
             return null;
         }
-        return values.computeIfAbsent(new Key<>(k, serialNumber), i -> factory.apply(k));
+        final Key<K> key = new Key<>(k, serialNumber);
+        V value = values.get(key);
+        if(value!=null) {
+            return value;
+        }
+        value = factory.apply(k);
+        values.put(key, value);
+        return value;
     }
 
     public Set<K> children(final double time) {
@@ -111,8 +115,28 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         }
 
         private int serialNumber(final double time) {
-            final Entry k = new Entry(time, true, Long.MAX_VALUE);
-            final int index = Collections.binarySearch(entries, k);
+            int index;
+            outer:
+            {
+                int low = 0;
+                int high = entries.size() - 1;
+
+                while (low <= high) {
+                    final int mid = (low + high) >>> 1;
+                    final Entry midVal = entries.get(mid);
+                    final int cmp = Double.compare(midVal.time, time);
+
+                    if (cmp < 0) {
+                        low = mid + 1;
+                    } else if (cmp > 0) {
+                        high = mid - 1;
+                    } else {
+                        index = mid;
+                        break outer;
+                    }
+                }
+                index = -(low + 1);
+            }
             if (index >= 0) {
                 final int advancedIndex = advance(index, time);
                 final Entry entry = entries.get(advancedIndex);

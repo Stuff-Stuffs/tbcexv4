@@ -18,6 +18,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattlePartic
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.attachment.BattleParticipantAttachmentType;
+import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.damage.DamageType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemStack;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.inventory.item.BattleItemType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.pathing.*;
@@ -241,5 +242,6 @@ public class Tbcexv4Test implements ModInitializer {
                 consumer.accept(new SingleTargetPlan<>(chooser.get(), (FunctionType<ParticipantTarget, List<BattleAction>>) participantTarget -> List.of(new AttackBattleAction(participant.handle(), participantTarget.participant())), PLAN_TYPE));
             }
         });
+        Registry.register(Tbcexv4Registries.DamageTypes.REGISTRY, Tbcexv4.id("physical"), new DamageType(Text.of("physical"), Text.of("todo"), Set.of(Tbcexv4.id("root")), Set.of()));
     }
 }

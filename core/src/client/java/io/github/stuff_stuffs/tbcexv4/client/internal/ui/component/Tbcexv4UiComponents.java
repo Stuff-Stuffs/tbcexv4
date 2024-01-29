@@ -1,6 +1,7 @@
 package io.github.stuff_stuffs.tbcexv4.client.internal.ui.component;
 
 import io.github.stuff_stuffs.tbcexv4.client.api.Tbcexv4ClientApi;
+import io.github.stuff_stuffs.tbcexv4.client.api.ui.Tbcexv4UiRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.internal.ui.BattleTargetingMenu;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.BattleHandle;
@@ -53,20 +54,26 @@ public final class Tbcexv4UiComponents {
         component.surface(Surface.PANEL);
     }
 
-    public static StatefulWrappingComponent<SelectedState, GridLayout> createInventoryEntry(final BattleItemStack item, final int color, final PositionedConsumer<Component> select) {
-        final StatefulWrappingComponent<SelectedState, GridLayout> grid = new StatefulWrappingComponent<>(Sizing.fill(), Sizing.content(), Containers.grid(Sizing.fill(), Sizing.content(), 1, 3), new SelectedState(Surface.flat(color), Surface.flat(0xFF000000 | color), false));
+    public static StatefulWrappingComponent<SelectedState, ?> createInventoryEntry(final BattleItemStack item, final int color, final PositionedConsumer<Component> select) {
+        final MaxSizeComponent<GridLayout> maxSizeComponent = new MaxSizeComponent<>(Sizing.content(), Sizing.content(), Containers.grid(Sizing.fill(), Sizing.content(), 1, 3));
+        maxSizeComponent.minVerticalSize(10);
+        final StatefulWrappingComponent<SelectedState, MaxSizeComponent<GridLayout>> grid = new StatefulWrappingComponent<>(Sizing.fill(), Sizing.content(), maxSizeComponent, new SelectedState(Surface.flat(color), Surface.flat(0xFF000000 | color), false));
         grid.child().surface(Surface.flat(color));
         final LabelComponent nameLabel = Components.label(item.item().name());
         nameLabel.horizontalTextAlignment(HorizontalAlignment.CENTER);
         nameLabel.verticalTextAlignment(VerticalAlignment.CENTER);
         nameLabel.sizing(Sizing.fill(40), Sizing.content());
-        grid.child().child(nameLabel, 0, 0);
+        grid.child().child().child(nameLabel, 0, 0);
         final LabelComponent countLabel = Components.label(Text.of(String.valueOf(item.count())));
-        countLabel.sizing(Sizing.fill(30), Sizing.fixed(40));
-        grid.child().child(countLabel, 0, 1);
+        countLabel.sizing(Sizing.fill(30), Sizing.content());
+        countLabel.horizontalTextAlignment(HorizontalAlignment.CENTER);
+        countLabel.verticalTextAlignment(VerticalAlignment.CENTER);
+        grid.child().child().child(countLabel, 0, 1);
         final LabelComponent rarity = Components.label(item.item().rarity().asText());
         rarity.sizing(Sizing.fill(30), Sizing.content());
-        grid.child().child(rarity, 0, 2);
+        rarity.horizontalTextAlignment(HorizontalAlignment.CENTER);
+        rarity.verticalTextAlignment(VerticalAlignment.CENTER);
+        grid.child().child().child(rarity, 0, 2);
         grid.child().mouseDown().subscribe((mouseX, mouseY, button) -> {
             select.accept(grid, (int) mouseX, (int) mouseY);
             return true;
@@ -93,11 +100,10 @@ public final class Tbcexv4UiComponents {
             if (item.isPresent() && last.getValue().equals(handle)) {
                 final Optional<Component> itemActions = itemActions(participant, handle.get());
                 if (itemActions.isPresent()) {
-                    final OverlayContainer<Component> overlay = Containers.overlay(itemActions.get());
-                    overlay.surface(Surface.BLANK);
-                    overlay.positioning(Positioning.absolute(x, y));
-                    overlay.id(itemActionsId);
-                    stack.child(overlay);
+                    final Component actions = itemActions.get();
+                    actions.positioning(Positioning.absolute(x, y));
+                    actions.id(itemActionsId);
+                    stack.child(actions);
                 }
             }
             last.setValue(handle);
@@ -113,11 +119,24 @@ public final class Tbcexv4UiComponents {
         Tbcexv4Registries.DefaultPlans.forEach(participant, plans::add);
         final FlowLayout list = Containers.verticalFlow(Sizing.fill(), Sizing.content());
         list.gap(4);
-        final ScrollContainer<FlowLayout> scroll = Containers.verticalScroll(Sizing.content(), Sizing.fill(80), list);
-        for (final Plan plan : plans) {
-            final PlanType type = plan.type();
-            final ButtonComponent component = Components.button(type.name(), b -> BattleTargetingMenu.openRoot(plan));
-            component.tooltip(type.description());
+        final MinSizeComponent<FlowLayout> maxSizeComponent = new MinSizeComponent<>(Sizing.content(), Sizing.content(), list);
+        maxSizeComponent.maxVerticalSize(75);
+        final ScrollContainer<MinSizeComponent<FlowLayout>> scroll = Containers.verticalScroll(Sizing.content(), Sizing.fill(), maxSizeComponent);
+        list.positioning(Positioning.relative(50, 50));
+        setupPanel(scroll);
+        scroll.padding(Insets.of(4));
+        if (!plans.isEmpty()) {
+            for (final Plan plan : plans) {
+                final PlanType type = plan.type();
+                final ButtonComponent component = Components.button(type.name(), b -> BattleTargetingMenu.openRoot(plan));
+                component.tooltip(type.description());
+                list.child(component);
+            }
+        } else {
+            final ButtonComponent component = Components.button(Text.of("No actions available!"), b -> {
+
+            });
+            component.active = false;
             list.child(component);
         }
         return scroll;
@@ -152,7 +171,7 @@ public final class Tbcexv4UiComponents {
     }
 
     public static Component createInventoryItemDisplay(final Consumer<Consumer<Optional<BattleItem>>> itemUpdater) {
-        final GridLayout layout = Containers.grid(Sizing.fill(60), Sizing.fill(), 2, 1);
+        final GridLayout layout = Containers.grid(Sizing.fill(40), Sizing.fill(), 2, 1);
         final BattleItemDisplayComponent displayComponent = new BattleItemDisplayComponent();
         displayComponent.sizing(Sizing.fill(), Sizing.fill(65));
         layout.child(displayComponent, 0, 0);
@@ -188,20 +207,24 @@ public final class Tbcexv4UiComponents {
 
     public static Component createInventoryList(final BattleParticipantView participant, final PositionedConsumer<Optional<InventoryHandle>> actionDisplay) {
         final FlowLayout list = Containers.verticalFlow(Sizing.fill(), Sizing.content());
-        final ScrollContainer<FlowLayout> scroll = Containers.verticalScroll(Sizing.content(), Sizing.fill(80), list);
-        final GridLayout header = Containers.grid(Sizing.content(), Sizing.content(), 1, 3);
+        final ScrollContainer<FlowLayout> scroll = Containers.verticalScroll(Sizing.content(), Sizing.fill(), list);
+        final GridLayout header = Containers.grid(Sizing.content(), Sizing.fill(7), 1, 3);
         final LabelComponent nameLabel = Components.label(Text.of("Name"));
         nameLabel.horizontalTextAlignment(HorizontalAlignment.CENTER);
-        nameLabel.verticalTextAlignment(VerticalAlignment.CENTER);
+        nameLabel.verticalTextAlignment(VerticalAlignment.BOTTOM);
         nameLabel.sizing(Sizing.fill(40), Sizing.content());
         header.child(nameLabel, 0, 0);
         final LabelComponent countLabel = Components.label(Text.of("Count"));
-        countLabel.sizing(Sizing.fill(30), Sizing.fixed(20));
+        countLabel.sizing(Sizing.fill(30), Sizing.content());
+        countLabel.horizontalTextAlignment(HorizontalAlignment.CENTER);
+        countLabel.verticalTextAlignment(VerticalAlignment.BOTTOM);
         header.child(countLabel, 0, 1);
         final LabelComponent rarity = Components.label(Text.of("Rarity"));
         rarity.sizing(Sizing.fill(30), Sizing.content());
+        rarity.horizontalTextAlignment(HorizontalAlignment.CENTER);
+        rarity.verticalTextAlignment(VerticalAlignment.BOTTOM);
         header.child(rarity, 0, 2);
-        final FlowLayout withHeader = Containers.verticalFlow(Sizing.fill(40), Sizing.content());
+        final FlowLayout withHeader = Containers.verticalFlow(Sizing.fill(60), Sizing.fill());
         withHeader.child(header);
         withHeader.child(scroll);
         boolean even = false;
@@ -225,15 +248,15 @@ public final class Tbcexv4UiComponents {
             if (stack.isPresent()) {
                 final int color = even ? 0x7F8F8F8F : 0x7FAFAFAF;
                 final InventoryHandle inventoryHandle = view.handle();
-                final StatefulWrappingComponent<SelectedState, GridLayout> entry = createInventoryEntry(stack.get(), color, (comp, x, y) -> {
+                final StatefulWrappingComponent<SelectedState, ?> entry = createInventoryEntry(stack.get(), color, (comp, x, y) -> {
                     final InventoryHandle h = handle.getValue();
                     if (h != null) {
-                        final StatefulWrappingComponent<SelectedState, GridLayout> layout = list.childById(StatefulWrappingComponent.class, h.toString());
+                        final StatefulWrappingComponent<SelectedState, ?> layout = list.childById(StatefulWrappingComponent.class, h.toString());
                         final SelectedState data = layout.data();
                         layout.surface(data.normal);
                         layout.data(new SelectedState(data.normal, data.selectedSurface, false));
                     }
-                    final StatefulWrappingComponent<SelectedState, GridLayout> layout = list.childById(StatefulWrappingComponent.class, inventoryHandle.toString());
+                    final StatefulWrappingComponent<SelectedState, ?> layout = list.childById(StatefulWrappingComponent.class, inventoryHandle.toString());
                     final SelectedState data = layout.data();
                     layout.surface(data.selectedSurface);
                     layout.data(new SelectedState(data.normal, data.selectedSurface, true));
@@ -325,6 +348,32 @@ public final class Tbcexv4UiComponents {
 
     public interface PositionedConsumer<T> {
         void accept(T val, int x, int y);
+    }
+
+    private static Component stats(final BattleParticipantView view) {
+        final GridLayout witHeader = Containers.grid(Sizing.fill(50), Sizing.fill(50), 2, 1);
+        final LabelComponent label = Components.label(Text.of("Stats"));
+        label.horizontalTextAlignment(HorizontalAlignment.CENTER);
+        label.lineHeight(label.lineHeight() * 2);
+        witHeader.child(label, 0, 0);
+        final ScrollContainer<FlowLayout> scrollContainer = Containers.verticalScroll(Sizing.fill(), Sizing.fill(), Containers.verticalFlow(Sizing.fill(), Sizing.content()));
+        scrollContainer.child().gap(2);
+        final List<Component> components = Tbcexv4UiRegistry.render(view);
+        for (final Component component : components) {
+            scrollContainer.child().child(component);
+        }
+        witHeader.child(scrollContainer, 1, 0);
+        return witHeader;
+    }
+
+    private static Component effects(final BattleParticipantView view) {
+        return Containers.grid(Sizing.fill(50), Sizing.fill(50), 2, 1);
+    }
+
+    public static Component character(final BattleParticipantView view) {
+        final GridLayout grid = Containers.grid(Sizing.fill(65), Sizing.fill(75), 2, 2);
+        grid.child(stats(view), 1, 1);
+        return grid;
     }
 
     private Tbcexv4UiComponents() {

@@ -39,7 +39,7 @@ public final class ServerBattleWorld extends ServerWorld {
         battleManager = new BattleManager(this, directory.resolve("battles"), directory.resolve("data"));
     }
 
-    private void setModifiable(final boolean modifiable) {
+    public void setModifiable(final boolean modifiable) {
         this.modifiable = modifiable;
     }
 

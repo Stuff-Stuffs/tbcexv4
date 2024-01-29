@@ -90,7 +90,7 @@ public class Tbcexv4TestClient implements ClientModInitializer {
                         final double v = MathHelper.fractionalPart(t);
                         return first.multiply(1 - v).add(second.multiply(v));
                     }, time, time + flattened.size(), t -> 1, context, Property.ReservationLevel.ACTION);
-                    return folder.accept(reserved).get();
+                    return folder.get();
                 }, move.handle));
             }
             return Optional.empty();

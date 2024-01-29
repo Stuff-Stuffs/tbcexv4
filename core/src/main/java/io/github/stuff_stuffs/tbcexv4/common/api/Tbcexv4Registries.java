@@ -176,7 +176,7 @@ public final class Tbcexv4Registries {
         public static final DamageType ROOT = new DamageType(Text.of("root"), Text.of("Pure damage"), Set.of(), Set.of());
 
         public static void init() {
-            Registry.register(REGISTRY, Tbcexv4.id("basic"), ROOT);
+            Registry.register(REGISTRY, Tbcexv4.id("root"), ROOT);
         }
     }
 

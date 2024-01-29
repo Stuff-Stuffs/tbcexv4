@@ -88,7 +88,7 @@ public class TestBattleItem implements BattleItem {
                 Set<BattleParticipantHandle> attackable = null;
                 for (final BattleParticipantView target : targets) {
                     BattlePos battlePos = node.pos();
-                    final double distanced = BattleParticipantBounds.distance2(participant.bounds(), new BattlePos(battlePos.x(), battlePos.y(), battlePos.z()), target.bounds(), target.pos());
+                    final double distanced = BattleParticipantBounds.distance2(participant.bounds(), battlePos, target.bounds(), target.pos());
                     if (distanced < 2) {
                         if (attackable == null) {
                             attackable = new ObjectOpenHashSet<>(2);

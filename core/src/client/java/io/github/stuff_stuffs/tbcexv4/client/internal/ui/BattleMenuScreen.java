@@ -50,6 +50,8 @@ public class BattleMenuScreen extends BaseOwoScreen<TopmostLayout> {
             centerPanel.child(buttonComponent);
             final Component actionsComponent = actionsButton(topmostLayout::push);
             centerPanel.child(actionsComponent);
+            final Component characterComponent = characterButton(topmostLayout::push);
+            centerPanel.child(characterComponent);
             layout.child(centerPanel);
             topmostLayout.keyPress().subscribe((keyCode, scanCode, modifiers) -> {
                 if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
@@ -83,6 +85,7 @@ public class BattleMenuScreen extends BaseOwoScreen<TopmostLayout> {
 
     private Component inventoryButton(final Consumer<Component> consumer) {
         final ButtonComponent button = Components.button(Text.of("Inventory"), b -> inventoryInner(b, consumer));
+        button.active(Tbcexv4ClientApi.controlling().isPresent());
         final Tbcexv4ClientApi.BattleWatchEvent listener = (battleHandle, participantHandle) -> button.active(participantHandle != null);
         Tbcexv4ClientApi.BATTLE_WATCH_EVENT.registerWeak(listener);
         return new StatefulWrappingComponent<>(Sizing.content(), Sizing.content(), button, listener);
@@ -106,6 +109,30 @@ public class BattleMenuScreen extends BaseOwoScreen<TopmostLayout> {
 
     private Component actionsButton(final Consumer<Component> consumer) {
         final ButtonComponent button = Components.button(Text.of("Actions"), b -> actionsInner(b, consumer));
+        button.active(Tbcexv4ClientApi.controlling().isPresent());
+        final Tbcexv4ClientApi.BattleWatchEvent listener = (battleHandle, participantHandle) -> button.active(participantHandle != null);
+        Tbcexv4ClientApi.BATTLE_WATCH_EVENT.registerWeak(listener);
+        return new StatefulWrappingComponent<>(Sizing.content(), Sizing.content(), button, listener);
+    }
+
+    private void characterInner(final ButtonComponent b, final Consumer<Component> consumer) {
+        final Optional<BattleView> watched = Tbcexv4ClientApi.watched();
+        if (watched.isEmpty()) {
+            close();
+        } else {
+            final Optional<BattleParticipantHandle> controlling = Tbcexv4ClientApi.controlling();
+            if (controlling.isPresent()) {
+                final BattleParticipantView participant = watched.get().state().participant(controlling.get());
+                if (participant != null) {
+                    consumer.accept(Tbcexv4UiComponents.character(participant));
+                }
+            }
+        }
+    }
+
+    private Component characterButton(final Consumer<Component> consumer) {
+        final ButtonComponent button = Components.button(Text.of("Character"), b -> characterInner(b, consumer));
+        button.active(Tbcexv4ClientApi.controlling().isPresent());
         final Tbcexv4ClientApi.BattleWatchEvent listener = (battleHandle, participantHandle) -> button.active(participantHandle != null);
         Tbcexv4ClientApi.BATTLE_WATCH_EVENT.registerWeak(listener);
         return new StatefulWrappingComponent<>(Sizing.content(), Sizing.content(), button, listener);

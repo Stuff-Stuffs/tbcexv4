@@ -58,11 +58,12 @@ public class BattleTransactionManagerImpl implements BattleTransactionManager {
         BattleTransactionImpl next;
         do {
             depth = stack.depth.getAcquire();
-            if (depth == 0 || stack.stack.getAcquire(depth) != transaction) {
+            if (depth != transaction.depth() + 1) {
                 throw new RuntimeException();
             }
-            next = new BattleTransactionImpl(this, depth + 1);
+            next = new BattleTransactionImpl(this, depth);
         } while (stack.stack.compareAndExchange(depth, null, next) != null);
+        stack.depth.setRelease(depth + 1);
         return next;
     }
 

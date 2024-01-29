@@ -88,17 +88,25 @@ public class PatherImpl implements Pather {
                 convert(processedNodes, node);
             }
         }
+        final Int2ObjectMap<IntSet> adjacencies = new Int2ObjectOpenHashMap<>();
         for (final Int2ObjectMap.Entry<IntSet> entry : Int2ObjectMaps.fastIterable(longerAdjacency)) {
             final IntIterator iterator = entry.getValue().iterator();
             boolean anyAdjValid = false;
+            final int key = entry.getIntKey();
             while (iterator.hasNext()) {
-                if (processedNodes.containsKey(iterator.nextInt())) {
+                final int adj = iterator.nextInt();
+                if (adj < key) {
+                    adjacencies.computeIfAbsent(adj, k -> new IntOpenHashSet(8)).add(key);
+                } else {
+                    adjacencies.computeIfAbsent(key, k -> new IntOpenHashSet(8)).add(adj);
+                }
+                if (processedNodes.containsKey(adj)) {
                     anyAdjValid = true;
                     break;
                 }
             }
             if (anyAdjValid) {
-                terminalSet.remove(entry.getIntKey());
+                terminalSet.remove(key);
             }
         }
         final IntIterator iterator = terminalSet.iterator();
@@ -110,22 +118,22 @@ public class PatherImpl implements Pather {
                 terminals.add(node);
             }
         }
-        return new PathsImpl(processedNodes, terminals);
+        return new PathsImpl(processedNodes, terminals, adjacencies);
     }
 
-    private PathNode convert(Int2ObjectMap<PathNode> processedNodes, PathingNode node) {
-        int key = Paths.pack(node.x(), node.y(), node.z());
-        PathNode cursor = processedNodes.get(key);
-        if(cursor!=null) {
+    private PathNode convert(final Int2ObjectMap<PathNode> processedNodes, final PathingNode node) {
+        final int key = Paths.pack(node.x(), node.y(), node.z());
+        final PathNode cursor = processedNodes.get(key);
+        if (cursor != null) {
             return cursor;
         }
-        if(node.prev()==null) {
-            PathNode pathNode = new PathNode(null, node.movement(), new BattlePos(node.x(), node.y(), node.z()));
+        if (node.prev() == null) {
+            final PathNode pathNode = new PathNode(null, node.movement(), new BattlePos(node.x(), node.y(), node.z()));
             processedNodes.put(key, pathNode);
             return pathNode;
         }
-        PathNode prev = convert(processedNodes, node.prev());
-        PathNode pathNode = new PathNode(prev, node.movement(), new BattlePos(node.x(), node.y(), node.z()));
+        final PathNode prev = convert(processedNodes, node.prev());
+        final PathNode pathNode = new PathNode(prev, node.movement(), new BattlePos(node.x(), node.y(), node.z()));
         processedNodes.put(key, pathNode);
         return pathNode;
     }
@@ -134,13 +142,15 @@ public class PatherImpl implements Pather {
         private final Int2ObjectMap<PathNode> nodes;
         private final IntSet terminalKeys;
         private final List<PathNode> terminals;
+        private final Int2ObjectMap<IntSet> adjacencies;
 
-        private PathsImpl(final Int2ObjectMap<PathNode> nodes, final List<PathNode> terminals) {
+        private PathsImpl(final Int2ObjectMap<PathNode> nodes, final List<PathNode> terminals, final Int2ObjectMap<IntSet> adjacencies) {
             this.nodes = nodes;
             this.terminals = terminals;
             terminalKeys = new IntOpenHashSet(terminals.size());
+            this.adjacencies = adjacencies;
             for (final PathNode terminal : terminals) {
-                BattlePos pos = terminal.pos();
+                final BattlePos pos = terminal.pos();
                 terminalKeys.add(Paths.pack(pos.x(), pos.y(), pos.z()));
             }
         }
@@ -157,6 +167,17 @@ public class PatherImpl implements Pather {
         }
 
         @Override
+        public boolean adjacent(final int x0, final int y0, final int z0, final int x1, final int y1, final int z1) {
+            final int key0 = Paths.pack(x0, y0, z0);
+            final int key1 = Paths.pack(x0, y0, z0);
+            final IntSet set = adjacencies.get(Math.min(key0, key1));
+            if (set == null) {
+                return false;
+            }
+            return set.contains(Math.max(key0, key1));
+        }
+
+        @Override
         public Stream<? extends PathNode> terminal() {
             return terminals.stream();
         }
@@ -168,7 +189,7 @@ public class PatherImpl implements Pather {
 
         @Override
         public boolean isTerminal(final PathNode node) {
-            BattlePos pos = node.pos();
+            final BattlePos pos = node.pos();
             return terminalKeys.contains(Paths.pack(pos.x(), pos.y(), pos.z()));
         }
     }

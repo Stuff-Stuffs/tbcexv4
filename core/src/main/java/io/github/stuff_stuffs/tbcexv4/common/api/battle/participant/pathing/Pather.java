@@ -29,6 +29,8 @@ public interface Pather {
 
         boolean canCache();
 
+        boolean adjacent(int x0, int y0, int z0, int x1, int y1, int z1);
+
         Stream<? extends PathNode> terminal();
 
         Stream<? extends PathNode> all();
@@ -55,60 +57,60 @@ public interface Pather {
     record PathNode(@Nullable PathNode prev, Movement movement, BattlePos pos) {
         public static final Codec<PathNode> CODEC = new Codec<>() {
             @Override
-            public <T> DataResult<Pair<PathNode, T>> decode(DynamicOps<T> ops, T input) {
-                Optional<MapLike<T>> opt = ops.getMap(input).result();
+            public <T> DataResult<Pair<PathNode, T>> decode(final DynamicOps<T> ops, final T input) {
+                final Optional<MapLike<T>> opt = ops.getMap(input).result();
                 if (opt.isEmpty()) {
                     return DataResult.error(() -> "Expected a map!");
                 }
-                MapLike<T> mapLike = opt.get();
-                Optional<Number> optSize = ops.getNumberValue(mapLike.get("size")).result();
-                if(optSize.isEmpty()) {
+                final MapLike<T> mapLike = opt.get();
+                final Optional<Number> optSize = ops.getNumberValue(mapLike.get("size")).result();
+                if (optSize.isEmpty()) {
                     return DataResult.error(() -> "Not a number");
                 }
-                int size = optSize.get().intValue();
-                if(size<=0) {
+                final int size = optSize.get().intValue();
+                if (size <= 0) {
                     return DataResult.error(() -> "Size must be positive!");
                 }
-                List<Movement> movements = new ArrayList<>(size);
-                Optional<Consumer<Consumer<T>>> optMovement = ops.getList(mapLike.get("movement")).result();
-                if(optMovement.isEmpty()) {
+                final List<Movement> movements = new ArrayList<>(size);
+                final Optional<Consumer<Consumer<T>>> optMovement = ops.getList(mapLike.get("movement")).result();
+                if (optMovement.isEmpty()) {
                     return DataResult.error(() -> "Not a list!");
                 }
                 optMovement.get().accept(mov -> {
-                    Optional<Movement> decoded = Movement.CODEC.parse(ops, mov).result();
+                    final Optional<Movement> decoded = Movement.CODEC.parse(ops, mov).result();
                     decoded.ifPresent(movements::add);
                 });
-                if(movements.size()!= size) {
+                if (movements.size() != size) {
                     return DataResult.error(() -> "Error during movement decode!");
                 }
-                List<BattlePos> positions = new ArrayList<>(size);
-                Optional<Consumer<Consumer<T>>> optPosition = ops.getList(mapLike.get("position")).result();
-                if(optPosition.isEmpty()) {
+                final List<BattlePos> positions = new ArrayList<>(size);
+                final Optional<Consumer<Consumer<T>>> optPosition = ops.getList(mapLike.get("position")).result();
+                if (optPosition.isEmpty()) {
                     return DataResult.error(() -> "Not a list!");
                 }
                 optPosition.get().accept(mov -> {
-                    Optional<BattlePos> decoded = BattlePos.CODEC.parse(ops, mov).result();
+                    final Optional<BattlePos> decoded = BattlePos.CODEC.parse(ops, mov).result();
                     decoded.ifPresent(positions::add);
                 });
-                if(positions.size()!= size) {
+                if (positions.size() != size) {
                     return DataResult.error(() -> "Error during position decode!");
                 }
                 PathNode prev = null;
-                for (int i = 0; i < size; i++) {
-                    PathNode next = new PathNode(prev, movements.get(i), positions.get(i));
+                for (int i = size - 1; i >= 0; i--) {
+                    final PathNode next = new PathNode(prev, movements.get(i), positions.get(i));
                     prev = next;
                 }
                 return DataResult.success(Pair.of(prev, ops.empty()));
             }
 
             @Override
-            public <T> DataResult<T> encode(PathNode input, DynamicOps<T> ops, T prefix) {
-                List<T> movements = new ArrayList<>();
-                List<T> positions = new ArrayList<>();
+            public <T> DataResult<T> encode(PathNode input, final DynamicOps<T> ops, final T prefix) {
+                final List<T> movements = new ArrayList<>();
+                final List<T> positions = new ArrayList<>();
                 while (input != null) {
                     {
-                        DataResult<T> encoded = Movement.CODEC.encode(input.movement, ops, prefix);
-                        Optional<T> result = encoded.result();
+                        final DataResult<T> encoded = Movement.CODEC.encode(input.movement, ops, prefix);
+                        final Optional<T> result = encoded.result();
                         if (result.isPresent()) {
                             movements.add(result.get());
                         } else {
@@ -116,8 +118,8 @@ public interface Pather {
                         }
                     }
                     {
-                        DataResult<T> encoded = BattlePos.CODEC.encode(input.pos, ops, prefix);
-                        Optional<T> result = encoded.result();
+                        final DataResult<T> encoded = BattlePos.CODEC.encode(input.pos, ops, prefix);
+                        final Optional<T> result = encoded.result();
                         if (result.isPresent()) {
                             positions.add(result.get());
                         } else {

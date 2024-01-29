@@ -9,10 +9,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.plan.target.TargetType;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.state.BattleStateView;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.transaction.BattleTransactionContext;
-import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.ints.*;
 import net.minecraft.util.math.random.Random;
 
 import java.util.Iterator;
@@ -43,21 +40,28 @@ public class Plans {
             final Pather.PathNode next = iterator.next();
             final Set<O> set = acceptablePositions.apply(next);
             if (set != null && !set.isEmpty()) {
-                BattlePos pos = next.pos();
-                map.put(Pather.Paths.pack(pos.x(), pos.y(), pos.z()), set);
+                final BattlePos pos = next.pos();
+                final int key = Pather.Paths.pack(pos.x(), pos.y(), pos.z());
+                map.put(key, set);
             }
         }
         final IntSet terminals = new IntOpenHashSet(map.size() / 4 + 4);
-        final Iterator<? extends Pather.PathNode> tIterator = cache.terminal().iterator();
-        while (tIterator.hasNext()) {
-            final Pather.PathNode next = tIterator.next();
-            BattlePos pos = next.pos();
-            final int key = Pather.Paths.pack(pos.x(), pos.y(), pos.z());
-            if (map.containsKey(key)) {
-                terminals.add(key);
+        final IntSet unseen = new IntOpenHashSet(map.keySet());
+        final IntIterator iter0 = map.keySet().iterator();
+        while (iter0.hasNext()) {
+            final int cursor = iter0.nextInt();
+            final Pather.PathNode node = cache.get(Pather.Paths.unpackX(cursor), Pather.Paths.unpackY(cursor), Pather.Paths.unpackZ(cursor));
+            if (node.prev() != null) {
+                final BattlePos prevPos = node.prev().pos();
+                final int prevKey = Pather.Paths.pack(prevPos.x(), prevPos.y(), prevPos.z());
+                if (!map.containsKey(prevKey)) {
+                    terminals.add(cursor);
+                } else {
+                    unseen.remove(prevKey);
+                }
             }
         }
-
+        terminals.addAll(unseen);
         if (map.isEmpty()) {
             return Optional.empty();
         }
@@ -79,7 +83,7 @@ public class Plans {
 
             @Override
             protected double weight0(final Pather.PathNode obj, final double temperature, final Random random, final BattleTransactionContext context) {
-                BattlePos pos = obj.pos();
+                final BattlePos pos = obj.pos();
                 final int key = Pather.Paths.pack(pos.x(), pos.y(), pos.z());
                 final Set<O> set = map.get(key);
                 if (set == null || set.isEmpty()) {
@@ -94,7 +98,7 @@ public class Plans {
 
             @Override
             protected PathTarget create(final Pather.PathNode obj) {
-                BattlePos pos = obj.pos();
+                final BattlePos pos = obj.pos();
                 final int key = Pather.Paths.pack(pos.x(), pos.y(), pos.z());
                 return new PathTarget(obj, terminals.contains(key));
             }

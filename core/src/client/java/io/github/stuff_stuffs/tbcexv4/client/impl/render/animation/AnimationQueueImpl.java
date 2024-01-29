@@ -23,8 +23,13 @@ public class AnimationQueueImpl implements AnimationQueue {
         events = new DoubleAVLTreeSet();
     }
 
+    public void checkpoint(final double time) {
+        events.headSet(time).clear();
+        events.add(time);
+    }
+
     @Override
-    public void update(double time) {
+    public void update(final double time) {
         state.update(time);
     }
 

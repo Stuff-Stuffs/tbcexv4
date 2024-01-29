@@ -43,6 +43,7 @@ public class TopmostLayout extends BaseParentComponent {
 
     @Override
     public void layout(final Size space) {
+        top().dismount(DismountReason.LAYOUT_INFLATION);
         top().inflate(calculateChildSpace(space));
         top().mount(this, childMountX(), childMountY());
     }
@@ -70,6 +71,7 @@ public class TopmostLayout extends BaseParentComponent {
 
     public void push(final Component component) {
         stack.add(component);
+        component.mount(this, 0, 0);
         if (stack.size() == 1) {
             base.dismount(DismountReason.REMOVED);
         } else {

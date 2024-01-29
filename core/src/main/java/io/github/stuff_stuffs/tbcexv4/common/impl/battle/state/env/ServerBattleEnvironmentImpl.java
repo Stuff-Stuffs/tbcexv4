@@ -39,7 +39,10 @@ public class ServerBattleEnvironmentImpl extends AbstractBattleEnvironmentImpl {
     protected void setBlockState0(final int x, final int y, final int z, final BlockState state) {
         ((BattleStateImpl) battle.state()).ensureBattleOngoing();
         scratch.set(battle.worldX(x), battle.worldY(y), battle.worldZ(z));
-        ((ServerBattleImpl) battle).world().runAction(world -> world.setBlockState(scratch, state));
+        final ServerBattleWorld battleWorld = ((ServerBattleImpl) battle).world();
+        battleWorld.setModifiable(true);
+        battleWorld.setBlockState(scratch, state);
+        battleWorld.setModifiable(false);
     }
 
     @Override

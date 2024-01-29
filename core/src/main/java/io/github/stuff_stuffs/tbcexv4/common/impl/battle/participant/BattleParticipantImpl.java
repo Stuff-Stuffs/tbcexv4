@@ -305,20 +305,20 @@ public class BattleParticipantImpl extends DeltaSnapshotParticipant<BattlePartic
             Pather.PathNode cursor = pathNode;
             while (cursor != null) {
                 final BattlePos battlePos = cursor.pos();
-                if (cachedCollisionChecker.inBounds(battlePos.x(), battlePos.y(), battlePos.z())) {
+                if (!cachedCollisionChecker.inBounds(battlePos.x(), battlePos.y(), battlePos.z())) {
                     return Result.failure(MoveError.OUTSIDE_BATTLE);
                 }
-                if (cachedCollisionChecker.check(battlePos.x(), battlePos.y(), battlePos.z(), Double.NaN)) {
+                if (!cachedCollisionChecker.check(battlePos.x(), battlePos.y(), battlePos.z(), Double.NaN)) {
                     return Result.failure(MoveError.ENV_COLLISION);
                 }
                 cursor = cursor.prev();
             }
             delta(transactionContext, new PosDelta(pos));
-            pos = new BattlePos(node.pos().x(), node.pos().y(), node.pos().z());
-            try (final var span = preSpan.push(new MoveParticipantTrace(handle(), node), transactionContext)) {
+            pos = pathNode.pos();
+            try (final var span = preSpan.push(new MoveParticipantTrace(handle(), pathNode), transactionContext)) {
                 events.invoker(BasicParticipantEvents.MOVE_EVENT_KEY, transactionContext).onMoveEvent(this, pathNode, transactionContext, span);
             }
-            return new Result.Success<>(node);
+            return new Result.Success<>(pathNode);
         }
     }
 
