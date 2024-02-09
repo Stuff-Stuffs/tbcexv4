@@ -5,7 +5,6 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Property;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyType;
-import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state.TimedContainer;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Easing;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
@@ -19,7 +18,7 @@ public class PropertyImpl<T> implements Property<T> {
     private final PropertyType<T> type;
     private final List<DefaultValueEvent<T>> defaultValues;
     private final Map<AnimationContext, Set<DefaultValueEvent<T>>> valuesByContext;
-    private final Map<ReservationLevel, LevelManager<T>> levelManagers;
+    private final LevelManager<T>[] levelManagers;
     private long nextId = 0;
     private T value;
 
@@ -29,10 +28,14 @@ public class PropertyImpl<T> implements Property<T> {
         valuesByContext = new Object2ReferenceOpenHashMap<>();
         value = defaultValue;
         defaultValues.add(new DefaultValueEvent<>(Double.NEGATIVE_INFINITY, defaultValue, nextId++));
-        levelManagers = new EnumMap<>(ReservationLevel.class);
+        levelManagers = new LevelManager[LEVELS.length];
         for (final ReservationLevel level : LEVELS) {
-            levelManagers.put(level, new LevelManager<>(this));
+            levelManagers[level.ordinal()] = new LevelManager<>(this);
         }
+    }
+
+    public void checkpoint() {
+        valuesByContext.clear();
     }
 
     @Override
@@ -47,7 +50,7 @@ public class PropertyImpl<T> implements Property<T> {
         } else if (context.cutoff() < endTime) {
             endTime = context.cutoff();
         }
-        return levelManagers.get(level).reserve(modifier, startTime, endTime, inOut, context);
+        return levelManagers[level.ordinal()].reserve(modifier, startTime, endTime, inOut, context);
     }
 
     @Override
@@ -82,24 +85,33 @@ public class PropertyImpl<T> implements Property<T> {
             defaultValues.removeAll(removed);
         }
         for (final ReservationLevel level : LEVELS) {
-            levelManagers.get(level).clearAll(context);
+            levelManagers[level.ordinal()].clearAll(context);
         }
     }
 
     public void compute(final double time) {
         final int size = defaultValues.size();
-        int index = size - 1;
-        if (size < 8) {
-            for (int i = 0; i < size; i++) {
-                final DefaultValueEvent<T> event = defaultValues.get(i);
-                if (event.time > time) {
-                    index = i - 1;
-                    break;
+        final int index;
+        outer:
+        {
+            int low = 0;
+            int high = defaultValues.size() - 1;
+
+            while (low <= high) {
+                final int mid = (low + high) >>> 1;
+                final DefaultValueEvent<T> midVal = defaultValues.get(mid);
+                final int cmp = Double.compare(midVal.time, time);
+
+                if (cmp < 0) {
+                    low = mid + 1;
+                } else if (cmp > 0) {
+                    high = mid - 1;
+                } else {
+                    index = mid;
+                    break outer;
                 }
             }
-        } else {
-            final DefaultValueEvent<T> event = new DefaultValueEvent<>(time, null, Long.MAX_VALUE);
-            index = Collections.binarySearch(defaultValues, event);
+            index = -(low + 1);
         }
         final int rIndex;
         if (index >= 0) {
@@ -108,8 +120,8 @@ public class PropertyImpl<T> implements Property<T> {
             rIndex = Math.max(Math.min(size - 1, -index - 2), 0);
         }
         T val = defaultValues.get(rIndex).val;
-        for (final ReservationLevel level : LEVELS) {
-            val = levelManagers.get(level).compute(val, time);
+        for (final LevelManager<T> manager : levelManagers) {
+            val = manager.compute(val, time);
         }
         value = val;
     }
@@ -126,7 +138,7 @@ public class PropertyImpl<T> implements Property<T> {
         }
         for (final ReservationLevel reservationLevel : LEVELS) {
             if (level == null || level.ordinal() < reservationLevel.ordinal()) {
-                last = Math.max(last, levelManagers.get(reservationLevel).lastEvent());
+                last = Math.max(last, levelManagers[reservationLevel.ordinal()].lastEvent());
             }
         }
         return last;

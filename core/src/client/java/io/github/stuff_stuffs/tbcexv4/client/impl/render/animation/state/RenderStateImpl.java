@@ -20,8 +20,15 @@ public abstract class RenderStateImpl implements RenderState {
         map = new Object2ReferenceLinkedOpenHashMap<>();
     }
 
+    public void checkpoint() {
+        for (int i = 0, size = list.size(); i < size; i++) {
+            list.get(i).checkpoint();
+        }
+    }
+
     public void cleanup(final AnimationContext context, final double time) {
-        for (final PropertyImpl<?> property : map.values()) {
+        for (int i = 0, size = list.size(); i < size; i++) {
+            PropertyImpl<?> property = list.get(i);
             property.clearAll(context);
         }
     }
@@ -35,11 +42,12 @@ public abstract class RenderStateImpl implements RenderState {
         return last;
     }
 
-    public void update(final double time) {
+    public int update(final double time) {
         for (int i = 0, size = list.size(); i < size; i++) {
             final PropertyImpl<?> property = list.get(i);
             property.compute(time);
         }
+        return 0;
     }
 
     @Override

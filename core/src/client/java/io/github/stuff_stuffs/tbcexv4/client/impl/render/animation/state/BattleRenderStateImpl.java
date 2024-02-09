@@ -32,7 +32,14 @@ public class BattleRenderStateImpl extends RenderStateImpl implements BattleRend
     }
 
     @Override
-    public void update(final double time) {
+    public void checkpoint() {
+        super.checkpoint();
+        participantContainer.checkpoint();
+        effectContainer.checkpoint();
+    }
+
+    @Override
+    public int update(final double time) {
         super.update(time);
         cachedParticipants.clear();
         cachedEffects.clear();
@@ -44,6 +51,7 @@ public class BattleRenderStateImpl extends RenderStateImpl implements BattleRend
         for (final Identifier child : effectContainer.children(time)) {
             cachedEffects.add(effectContainer.get(child, time));
         }
+        return 0;
     }
 
     @Override

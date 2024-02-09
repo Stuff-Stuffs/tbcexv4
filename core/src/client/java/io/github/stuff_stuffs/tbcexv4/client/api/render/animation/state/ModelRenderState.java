@@ -10,6 +10,7 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Prope
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRenderer;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Tbcexv4Util;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Quaternionf;
@@ -41,6 +42,10 @@ public interface ModelRenderState extends RenderState {
     Set<String> children(double time);
 
     List<ModelRenderState> getChildren(String id, double time);
+
+    void multiply(MatrixStack matrices);
+
+    void multiplyInverted(MatrixStack matrices);
 
     @Override
     RenderState parent();

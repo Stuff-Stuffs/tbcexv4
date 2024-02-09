@@ -2,8 +2,6 @@ package io.github.stuff_stuffs.tbcexv4.client.api.render.renderer;
 
 import io.github.stuff_stuffs.tbcexv4.client.api.render.BattleRenderContext;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
-import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.RenderState;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
@@ -17,7 +15,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 public class DefaultModelRenderer implements ModelRenderer {
-    private static final Quaternionf SCRATCH_ROTATION = new Quaternionf();
 
     @Override
     public void render(final BattleRenderContext context, final ModelRenderState state) {
@@ -33,7 +30,10 @@ public class DefaultModelRenderer implements ModelRenderer {
             final MatrixStack lightMatrices = context.lightMatrices();
             matrices.push();
             lightMatrices.push();
-            walkUp(matrices, lightMatrices, state, true, state.getProperty(ModelRenderState.LAST_INVERSION).get());
+            walkUp(matrices, lightMatrices, state, state.getProperty(ModelRenderState.LAST_INVERSION).get());
+            final Vec3d offset = modelData.offset();
+            matrices.translate(offset.x, offset.y, offset.z);
+            lightMatrices.translate(offset.x, offset.y, offset.z);
             final Matrix4f pMat = matrices.peek().getPositionMatrix();
             final Matrix3f nMat = matrices.peek().getNormalMatrix();
             final VertexConsumerProvider consumers = context.parent().consumers();
@@ -154,14 +154,16 @@ public class DefaultModelRenderer implements ModelRenderer {
         pMat.transform(vertex7);
         vertex7.mul(1 / vertex7.w);
 
-        final int light0 = context.light(x0, y0, z0);
-        final int light1 = context.light(x1, y0, z0);
-        final int light2 = context.light(x1, y1, z0);
-        final int light3 = context.light(x0, y1, z0);
-        final int light4 = context.light(x0, y0, z1);
-        final int light5 = context.light(x1, y0, z1);
-        final int light6 = context.light(x1, y1, z1);
-        final int light7 = context.light(x0, y1, z1);
+        final BattleRenderContext.LightResult lightResult = new BattleRenderContext.LightResult();
+        context.light(x0, y0, z0, x1, y1, z1, lightResult);
+        final int light0 = lightResult.l0;
+        final int light1 = lightResult.l1;
+        final int light2 = lightResult.l2;
+        final int light3 = lightResult.l3;
+        final int light4 = lightResult.l4;
+        final int light5 = lightResult.l5;
+        final int light6 = lightResult.l6;
+        final int light7 = lightResult.l7;
         //DOWN 5401
         final Vector3f scratch = new Vector3f(0, -1, 0);
         scratch.mul(nMat);
@@ -211,45 +213,13 @@ public class DefaultModelRenderer implements ModelRenderer {
         buffer.vertex(vertex7.x, vertex7.y, vertex7.z).color(color).texture(u5, v2).overlay(OverlayTexture.DEFAULT_UV).light(light7).normal(scratch.x, scratch.y, scratch.z).next();
     }
 
-    protected void walkUp(final MatrixStack matrices, final MatrixStack lightMatrices, final ModelRenderState state, final boolean root, final boolean inversion) {
-        final RenderState parent = state.parent();
-        if (parent instanceof final ParticipantRenderState participant) {
-            final Vec3d position = participant.getProperty(ParticipantRenderState.POSITION).get();
-            matrices.translate(position.x, position.y, position.z);
-            lightMatrices.translate(position.x, position.y, position.z);
-            if (inversion) {
-                matrices.scale(-1, -1, 1);
-                lightMatrices.scale(-1, -1, 1);
-            }
-        } else if (parent instanceof final ModelRenderState next) {
-            walkUp(matrices, lightMatrices, next, false, inversion);
-        }
-        final Optional<ModelRenderState.ModelData> opt = state.getProperty(ModelRenderState.MODEL_DATA).get();
-        if (opt.isPresent()) {
-            final ModelRenderState.ModelData modelData = opt.get();
-            final Vec3d position = modelData.position();
-            matrices.translate(position.x, position.y, position.z);
-            lightMatrices.translate(position.x, position.y, position.z);
-        }
-        final Vec3d translation = state.getProperty(ModelRenderState.TRANSLATION).get();
-        matrices.translate(translation.x, translation.y, translation.z);
-        lightMatrices.translate(translation.x, translation.y, translation.z);
-        final Quaternionfc rotation = state.getProperty(ModelRenderState.ROTATION).get();
-        rotation.get(SCRATCH_ROTATION);
-        if (opt.isPresent()) {
-            final ModelRenderState.ModelData modelData = opt.get();
-            SCRATCH_ROTATION.mul(modelData.rotation());
-        }
-        matrices.multiply(SCRATCH_ROTATION);
-        lightMatrices.multiply(SCRATCH_ROTATION);
-        final Vec3d scale = state.getProperty(ModelRenderState.SCALE).get();
-        matrices.scale((float) scale.x, (float) scale.y, (float) scale.z);
-        lightMatrices.scale((float) scale.x, (float) scale.y, (float) scale.z);
-        if (root && opt.isPresent()) {
-            final ModelRenderState.ModelData modelData = opt.get();
-            final Vec3d offset = modelData.offset();
-            matrices.translate(offset.x, offset.y, offset.z);
-            lightMatrices.translate(offset.x, offset.y, offset.z);
+    protected void walkUp(final MatrixStack matrices, final MatrixStack lightMatrices, final ModelRenderState state, final boolean inversion) {
+        if(!inversion) {
+            state.multiply(matrices);
+            state.multiply(lightMatrices);
+        } else {
+            state.multiplyInverted(matrices);
+            state.multiplyInverted(lightMatrices);
         }
     }
 }

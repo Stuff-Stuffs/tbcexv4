@@ -11,6 +11,7 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleEf
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.BattleEffectRendererRegistry;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRenderer;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.ModelRendererRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.api.ui.Tbcexv4UiRegistry;
 import io.github.stuff_stuffs.tbcexv4.client.impl.battle.ClientBattleImpl;
@@ -64,6 +65,7 @@ import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 public class Tbcexv4Client implements ClientModInitializer {
     private static @Nullable BattleHandle WATCHING = null;
@@ -71,6 +73,26 @@ public class Tbcexv4Client implements ClientModInitializer {
     private static @Nullable BattleParticipantHandle CONTROLLING = null;
     private static final Map<BattleHandle, Set<BattleParticipantHandle>> POSSIBLE_WATCHING = new Object2ReferenceOpenHashMap<>();
     private static final Map<UUID, DelayedResponse<Tbcexv4ClientApi.RequestResult>> ONGOING_RESULTS = new Object2ReferenceOpenHashMap<>();
+    private static final Comparator<ModelRenderState> MODEL_RENDER_STATE_COMPARATOR = new Comparator<ModelRenderState>() {
+        @Override
+        public int compare(final ModelRenderState o0, final ModelRenderState o1) {
+            final ModelRenderer renderer0 = o0.getProperty(ModelRenderState.RENDERER).get();
+            final ModelRenderer renderer1 = o1.getProperty(ModelRenderState.RENDERER).get();
+            if (renderer0 != renderer1) {
+                return Integer.compare(renderer0.hashCode(), renderer1.hashCode());
+            }
+            final Optional<ModelRenderState.TextureData> texture0 = o0.getProperty(ModelRenderState.TEXTURE_DATA).get();
+            final Optional<ModelRenderState.TextureData> texture1 = o1.getProperty(ModelRenderState.TEXTURE_DATA).get();
+            if (texture0.isEmpty() && texture1.isEmpty()) {
+                return 0;
+            } else if (texture0.isEmpty()) {
+                return -1;
+            } else if (texture1.isEmpty()) {
+                return 1;
+            }
+            return texture0.get().id().compareTo(texture1.get().id());
+        }
+    };
 
     @Override
     public void onInitializeClient() {
@@ -195,8 +217,14 @@ public class Tbcexv4Client implements ClientModInitializer {
             matrices.translate(-pos.x, -pos.y, -pos.z);
             matrices.translate(WATCHED_BATTLE.worldX(0), WATCHED_BATTLE.worldY(0), WATCHED_BATTLE.worldZ(0));
             final BattleRenderStateImpl state = (BattleRenderStateImpl) WATCHED_BATTLE.animationQueue().state();
+            final List<ModelRenderState> models = new ArrayList<>();
             for (final ParticipantRenderState participant : state.cachedParticipants()) {
-                renderModel(participant.modelRoot(), renderContext);
+                walkModelTree(participant.modelRoot(), models::add);
+            }
+            models.sort(MODEL_RENDER_STATE_COMPARATOR);
+            for (final ModelRenderState model : models) {
+                final ModelRenderer renderer = model.getProperty(ModelRenderState.RENDERER).get();
+                renderer.render(renderContext, model);
             }
             for (final BattleEffectRenderState effect : state.cachedEffects()) {
                 renderBattleEffect(effect, renderContext);
@@ -248,10 +276,10 @@ public class Tbcexv4Client implements ClientModInitializer {
         });
     }
 
-    private void renderModel(final ModelRenderState state, final BattleRenderContext context) {
-        state.getProperty(ModelRenderState.RENDERER).get().render(context, state);
+    private void walkModelTree(final ModelRenderState state, final Consumer<ModelRenderState> consumer) {
+        consumer.accept(state);
         for (final ModelRenderState child : ((ModelRenderStateImpl) state).cached()) {
-            renderModel(child, context);
+            walkModelTree(child, consumer);
         }
     }
 

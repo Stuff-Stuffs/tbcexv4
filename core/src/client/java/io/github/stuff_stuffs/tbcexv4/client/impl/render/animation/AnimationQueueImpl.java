@@ -26,6 +26,7 @@ public class AnimationQueueImpl implements AnimationQueue {
     public void checkpoint(final double time) {
         events.headSet(time).clear();
         events.add(time);
+        state.checkpoint();
     }
 
     @Override

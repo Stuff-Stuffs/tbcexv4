@@ -4,6 +4,8 @@ import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.*;
 import org.jetbrains.annotations.Nullable;
 
@@ -12,34 +14,36 @@ import java.util.function.Function;
 
 public class TimedContainer<K, V extends RenderStateImpl> {
     public static final int INVALID_SERIAL_NUMBER = -1;
-    private final Object2ReferenceMap<K, Container> containers;
-    private final Object2ReferenceMap<Key<K>, V> values;
+    private final Object2ReferenceMap<K, Container<V>> containers;
     private final Function<K, V> factory;
 
     public TimedContainer(final Function<K, V> factory) {
         this.factory = factory;
         containers = new Object2ReferenceLinkedOpenHashMap<>();
-        values = new Object2ReferenceOpenHashMap<>();
     }
 
     public @Nullable V get(final K k, final double time) {
-        final int serialNumber = serialNumber(k, time);
+        final Container<V> container = containers.get(k);
+        if (container == null) {
+            return null;
+        }
+        final int serialNumber = container.serialNumber(time);
         if (serialNumber == INVALID_SERIAL_NUMBER) {
             return null;
         }
-        final Key<K> key = new Key<>(k, serialNumber);
-        V value = values.get(key);
-        if(value!=null) {
+        final Int2ObjectMap<V> values = container.values;
+        V value = values.get(serialNumber);
+        if (value != null) {
             return value;
         }
         value = factory.apply(k);
-        values.put(key, value);
+        values.put(serialNumber, value);
         return value;
     }
 
     public Set<K> children(final double time) {
         final Set<K> result = new ObjectOpenHashSet<>();
-        for (final Object2ReferenceMap.Entry<K, Container> entry : Object2ReferenceMaps.fastIterable(containers)) {
+        for (final Object2ReferenceMap.Entry<K, Container<V>> entry : Object2ReferenceMaps.fastIterable(containers)) {
             if (entry.getValue().serialNumber(time) != INVALID_SERIAL_NUMBER) {
                 result.add(entry.getKey());
             }
@@ -47,20 +51,23 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         return result;
     }
 
-    public void update(final double time) {
-        for (final Object2ReferenceMap.Entry<K, Container> entry : Object2ReferenceMaps.fastIterable(containers)) {
-            final int serialNumber = entry.getValue().serialNumber(time);
+    public int update(final double time) {
+        int flags = 0;
+        for (final Object2ReferenceMap.Entry<K, Container<V>> entry : Object2ReferenceMaps.fastIterable(containers)) {
+            final Container<V> container = entry.getValue();
+            final int serialNumber = container.serialNumber(time);
             if (serialNumber != INVALID_SERIAL_NUMBER) {
-                final V value = values.get(new Key<>(entry.getKey(), serialNumber));
+                final V value = container.values.get(serialNumber);
                 if (value != null) {
-                    value.update(time);
+                    flags |= value.update(time);
                 }
             }
         }
+        return flags;
     }
 
     public int serialNumber(final K key, final double time) {
-        final Container container = containers.get(key);
+        final Container<V> container = containers.get(key);
         if (key == null) {
             return INVALID_SERIAL_NUMBER;
         }
@@ -71,25 +78,31 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         if (context.cutoff() < time) {
             return Result.success(new TimedEventImpl(context.cutoff()));
         }
-        return containers.computeIfAbsent(key, k -> new Container()).addOrRemove(time, context, true);
+        return containers.computeIfAbsent(key, k -> new Container<>()).addOrRemove(time, context, true);
     }
 
     public Result<Animation.TimedEvent, Unit> remove(final K key, final double time, final AnimationContext context) {
         if (context.cutoff() < time) {
             return Result.success(new TimedEventImpl(context.cutoff()));
         }
-        return containers.computeIfAbsent(key, k -> new Container()).addOrRemove(time, context, false);
+        return containers.computeIfAbsent(key, k -> new Container<>()).addOrRemove(time, context, false);
     }
 
     public void clear(final AnimationContext context, final double time) {
-        for (final Map.Entry<K, Container> entry : containers.entrySet()) {
-            final K key = entry.getKey();
-            final int serial = serialNumber(key, time);
-            if (serial != INVALID_SERIAL_NUMBER) {
-                values.get(new Key<>(key, serial)).cleanup(context, time);
-            }
-            final Container container = entry.getValue();
+        for (final Container<V> container : containers.values()) {
             container.clear(context);
+            final int serial = container.serialNumber(time);
+            if (serial != INVALID_SERIAL_NUMBER) {
+                container.values.get(serial).cleanup(context, time);
+            }
+        }
+    }
+
+    public void checkpoint() {
+        for (final Container<V> container : containers.values()) {
+            for (final V value : container.values.values()) {
+                value.checkpoint();
+            }
         }
     }
 
@@ -104,18 +117,20 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         }
     }
 
-    private static final class Container {
+    private static final class Container<V> {
         private final List<Entry> entries;
         private final Map<AnimationContext, Set<Entry>> map;
+        private final Int2ObjectMap<V> values;
         private long nextId;
 
         private Container() {
             entries = new ArrayList<>();
             map = new Object2ReferenceOpenHashMap<>();
+            values = new Int2ObjectOpenHashMap<>();
         }
 
         private int serialNumber(final double time) {
-            int index;
+            final int index;
             outer:
             {
                 int low = 0;
@@ -204,13 +219,7 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         }
     }
 
-    private static final class TimedEventImpl implements Animation.TimedEvent {
-        private final double time;
-
-        private TimedEventImpl(final double time) {
-            this.time = time;
-        }
-
+    private record TimedEventImpl(double time) implements Animation.TimedEvent {
         @Override
         public double start() {
             return time;
