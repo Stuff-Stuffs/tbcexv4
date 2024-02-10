@@ -8,7 +8,6 @@ public class Tbcexv4ContentBase implements ModInitializer {
 
     @Override
     public void onInitialize() {
-
     }
 
     public static Identifier id(final String path) {

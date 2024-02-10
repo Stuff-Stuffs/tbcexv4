@@ -1,6 +1,8 @@
 package io.github.stuff_stuffs.tbcexv4.common.internal;
 
 import com.mojang.datafixers.util.Unit;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.stuff_stuffs.event_gen.api.event.EventKey;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Api;
 import io.github.stuff_stuffs.tbcexv4.common.api.Tbcexv4Registries;
@@ -21,6 +23,9 @@ import io.github.stuff_stuffs.tbcexv4.common.internal.world.BattlePersistentStat
 import io.github.stuff_stuffs.tbcexv4.common.internal.world.ServerBattleWorld;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
+import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
+import net.fabricmc.fabric.api.dimension.v1.FabricDimensions;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -34,8 +39,11 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
+import net.minecraft.world.TeleportTarget;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.WorldChunk;
@@ -61,6 +69,8 @@ public class Tbcexv4 implements ModInitializer {
     public static final ChunkTicketType<Unit> BATTLE_LOAD_CHUNK_TICKET_TYPE = ChunkTicketType.create(MOD_ID + ":battle_load", (a, b) -> 0, 1);
     private static final Map<RegistryKey<World>, Map<ChunkPos, Chunk>> UPDATED_BIOMES = new Object2ReferenceOpenHashMap<>();
     private static final AtomicReference<DamageTypeGraph> CACHED_DAMAGE_GRAPH = new AtomicReference<>(null);
+    private static final AttachmentType<PlayerEnterBattleState> ENTER_BATTLE_ATTACHMENT_TYPE = AttachmentRegistry.<PlayerEnterBattleState>builder().copyOnDeath().persistent(PlayerEnterBattleState.CODEC).buildAndRegister(id("enter_battle"));
+
 
     @Override
     public void onInitialize() {
@@ -77,7 +87,7 @@ public class Tbcexv4 implements ModInitializer {
                 final Optional<? extends Battle> opt = world.battleManager().getOrLoadBattle(current);
                 if (opt.isPresent()) {
                     final Battle battle = opt.get();
-                    entity.teleport(world, battle.worldX(battle.xSize()/2), battle.worldY(battle.ySize()/2), battle.worldZ(battle.ySize()/2), 0, 0);
+                    entity.teleport(world, battle.worldX(battle.xSize() / 2), battle.worldY(battle.ySize() / 2), battle.worldZ(battle.ySize() / 2), 0, 0);
                 }
             }
             ((ServerPlayerExtensions) entity).tbcexv4$setWatchIndex(0);
@@ -119,6 +129,31 @@ public class Tbcexv4 implements ModInitializer {
                     if (world instanceof final ServerBattleWorld battleWorld) {
                         battleWorld.battleManager().reload(list);
                     }
+                }
+            }
+        });
+        Tbcexv4InternalEvents.BATTLE_WATCH_EVENT.register(Tbcexv4InternalEvents.PRE, (prev, current, entity) -> {
+            if (prev != null || current == null) {
+                return;
+            }
+            final RegistryKey<World> key = entity.getServerWorld().getRegistryKey();
+            if (!Tbcexv4.checkGenerated(key.getValue())) {
+                entity.setAttached(ENTER_BATTLE_ATTACHMENT_TYPE, new PlayerEnterBattleState(key, entity.getBlockPos()));
+            }
+        });
+        Tbcexv4InternalEvents.BATTLE_WATCH_EVENT.register((prev, current, entity) -> {
+            if (current == null) {
+                final PlayerEnterBattleState attached = entity.removeAttached(ENTER_BATTLE_ATTACHMENT_TYPE);
+                boolean fallback = true;
+                if (attached != null) {
+                    final ServerWorld world = entity.server.getWorld(attached.dimensionKey());
+                    if (world != null) {
+                        FabricDimensions.teleport(entity, world, new TeleportTarget(attached.pos.toCenterPos(), Vec3d.ZERO, 0, 0));
+                        fallback = false;
+                    }
+                }
+                if (fallback) {
+                    entity.networkHandler.player = entity.server.getPlayerManager().respawnPlayer(entity, true);
                 }
             }
         });
@@ -241,5 +276,13 @@ public class Tbcexv4 implements ModInitializer {
     }
 
     private record KeyHandlePair(EventKey<?, ?> key, MethodHandle factoryMethod) {
+    }
+
+    public record PlayerEnterBattleState(RegistryKey<World> dimensionKey, BlockPos pos) {
+        public static final Codec<PlayerEnterBattleState> CODEC = RecordCodecBuilder.create(instance ->
+                instance.group(
+                        RegistryKey.createCodec(RegistryKeys.WORLD).fieldOf("key").forGetter(PlayerEnterBattleState::dimensionKey),
+                        BlockPos.CODEC.fieldOf("pos").forGetter(PlayerEnterBattleState::pos)
+                ).apply(instance, PlayerEnterBattleState::new));
     }
 }

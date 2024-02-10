@@ -101,7 +101,7 @@ public class BattleManager implements AutoCloseable {
             return Optional.of(battle.battle);
         }
         try {
-            final NbtCompound compound = NbtIo.readCompressed(handle.toPath(battleDirectory), NbtTagSizeTracker.ofUnlimitedBytes());
+            final NbtCompound compound = NbtIo.readCompressed(handle.toPath(battleDirectory), NbtSizeTracker.ofUnlimitedBytes());
             final Optional<Pair<BattlePersistentState.Token, ServerBattleImpl>> deserialized = ServerBattleImpl.deserialize(compound, handle, world, createAiController(handle), this::setupListeners);
             if (deserialized.isPresent()) {
                 final Pair<BattlePersistentState.Token, ServerBattleImpl> pair = deserialized.get();
@@ -187,7 +187,7 @@ public class BattleManager implements AutoCloseable {
             return data;
         }
         try {
-            final NbtCompound compound = NbtIo.readCompressed(idToFilename(id), NbtTagSizeTracker.ofUnlimitedBytes());
+            final NbtCompound compound = NbtIo.readCompressed(idToFilename(id), NbtSizeTracker.ofUnlimitedBytes());
             final Optional<LoadedPlayerData> result = LoadedPlayerData.CODEC.parse(NbtOps.INSTANCE, compound.get("data")).result();
             if (result.isPresent()) {
                 data = result.get();
@@ -245,13 +245,11 @@ public class BattleManager implements AutoCloseable {
             if (handle == null) {
                 final GameMode mode = player.interactionManager.getPreviousGameMode();
                 player.changeGameMode(mode == null ? player.server.getDefaultGameMode() : mode);
-                player.networkHandler.player = player.getServer().getPlayerManager().respawnPlayer(player, true);
             } else {
                 final Optional<? extends Battle> battle = getOrLoadBattle(handle);
                 if (battle.isEmpty()) {
                     ((ServerPlayerExtensions) player).tbcev4$setWatching(null);
                     ServerPlayNetworking.send(player, WatchRequestResponsePacket.createEmpty());
-                    player.networkHandler.player = player.getServer().getPlayerManager().respawnPlayer(player, true);
                 } else {
                     player.changeGameMode(GameMode.SPECTATOR);
                     final int index = ((ServerPlayerExtensions) player).tbcexv4$watchIndex();

@@ -17,6 +17,7 @@ import org.joml.Quaternionfc;
 import java.util.Optional;
 
 public final class PropertyTypes {
+    public static final PropertyType<Double> NORMALIZED_DOUBLE = new PropertyType<>(Double.class, Codec.DOUBLE, (start, end, time) -> MathHelper.clamp(start + (end - start) * time, 0, 1), () -> 0.0);
     public static final PropertyType<Vec3d> VEC3D = new PropertyType<>(Vec3d.class, Vec3d.CODEC, (start, end, time) -> start.multiply(1 - time).add(end.multiply(time)), () -> Vec3d.ZERO);
     public static final PropertyType<Vec3d> SCALE = new PropertyType<>(Vec3d.class, Vec3d.CODEC, (start, end, time) -> start.multiply(1 - time).add(end.multiply(time)), () -> new Vec3d(1, 1, 1));
     public static final PropertyType<Quaternionfc> ROTATION = new PropertyType<>(Quaternionfc.class, RecordCodecBuilder.create(instance -> instance.group(
@@ -61,6 +62,7 @@ public final class PropertyTypes {
     public static final PropertyType<Boolean> FLAG = new PropertyType<>(Boolean.class, Codec.BOOL, ((start, end, time) -> time < 0.5 ? start : end), () -> false);
 
     public static void init() {
+        PropertyType.register(Tbcexv4.id("normalized_double"), VEC3D);
         PropertyType.register(Tbcexv4.id("vec3d"), VEC3D);
         PropertyType.register(Tbcexv4.id("rotation"), ROTATION);
         PropertyType.register(Tbcexv4.id("lock"), LOCK);

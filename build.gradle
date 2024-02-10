@@ -6,6 +6,18 @@ plugins {
 
 def utilProjectPrefix = ":util"
 
+def subprojectDeps(project, List<String> depNames) {
+    project.dependencies {
+        depNames.each {
+            api project.dependencies.project(path: ":$it", configuration: 'namedElements')
+        }
+
+        depNames.each {
+            clientImplementation findProject(":$it").sourceSets.client.output
+        }
+    }
+}
+
 allprojects {
     group = project.maven_group
     version = project.mod_version

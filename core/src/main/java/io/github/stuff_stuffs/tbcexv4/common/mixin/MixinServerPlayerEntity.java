@@ -24,7 +24,7 @@ public class MixinServerPlayerEntity implements ServerPlayerExtensions {
 
     @Override
     public void tbcev4$setWatching(@Nullable final BattleHandle handle) {
-        @Nullable final BattleHandle prev = tbcev4$watching;
+        final @Nullable  BattleHandle prev = tbcev4$watching;
         tbcev4$watching = handle;
         if(handle==null) {
             tbcexv4$watchIndex = 0;

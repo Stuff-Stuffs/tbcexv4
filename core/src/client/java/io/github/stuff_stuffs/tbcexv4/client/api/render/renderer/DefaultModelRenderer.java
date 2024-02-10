@@ -8,8 +8,12 @@ import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import org.joml.*;
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -30,7 +34,7 @@ public class DefaultModelRenderer implements ModelRenderer {
             final MatrixStack lightMatrices = context.lightMatrices();
             matrices.push();
             lightMatrices.push();
-            walkUp(matrices, lightMatrices, state, state.getProperty(ModelRenderState.LAST_INVERSION).get());
+            applyTransformation(matrices, lightMatrices, state, state.getProperty(ModelRenderState.LAST_INVERSION).get());
             final Vec3d offset = modelData.offset();
             matrices.translate(offset.x, offset.y, offset.z);
             lightMatrices.translate(offset.x, offset.y, offset.z);
@@ -45,7 +49,8 @@ public class DefaultModelRenderer implements ModelRenderer {
                 final ModelRenderState.TextureData textureData = data.get();
                 final Function<Identifier, RenderLayer> layerFactory = textureData.transparent() ? RenderLayer::getEntityTranslucent : RenderLayer::getEntityCutout;
                 final VertexConsumer buffer = consumers.getBuffer(layerFactory.apply(textureData.id()));
-                drawTextured(buffer, extents, pMat, nMat, color, textureData, context);
+                final int lightEmission = MathHelper.clamp((int) Math.round(state.getProperty(ModelRenderState.LIGHT_EMISSION).get() * 15.0), 0, 15);
+                drawTextured(buffer, extents, pMat, nMat, color, textureData, context, lightEmission);
             }
             matrices.pop();
             lightMatrices.pop();
@@ -97,7 +102,7 @@ public class DefaultModelRenderer implements ModelRenderer {
         buffer.vertex(pMat, x0, y1, z1).color(color).next();
     }
 
-    protected void drawTextured(final VertexConsumer buffer, final Vec3d extents, final Matrix4f pMat, final Matrix3f nMat, final int color, final ModelRenderState.TextureData data, final BattleRenderContext context) {
+    protected void drawTextured(final VertexConsumer buffer, final Vec3d extents, final Matrix4f pMat, final Matrix3f nMat, final int color, final ModelRenderState.TextureData data, final BattleRenderContext context, final int emissionLight) {
         final float x1 = (float) (extents.x / 2);
         final float y1 = (float) (extents.y / 2);
         final float z1 = (float) (extents.z / 2);
@@ -124,38 +129,30 @@ public class DefaultModelRenderer implements ModelRenderer {
 
         final Vector4f vertex0 = new Vector4f(x0, y0, z0, 1);
         pMat.transform(vertex0);
-        vertex0.mul(1 / vertex0.w);
 
         final Vector4f vertex1 = new Vector4f(x1, y0, z0, 1);
         pMat.transform(vertex1);
-        vertex1.mul(1 / vertex1.w);
 
         final Vector4f vertex2 = new Vector4f(x1, y1, z0, 1);
         pMat.transform(vertex2);
-        vertex2.mul(1 / vertex2.w);
 
         final Vector4f vertex3 = new Vector4f(x0, y1, z0, 1);
         pMat.transform(vertex3);
-        vertex3.mul(1 / vertex3.w);
 
         final Vector4f vertex4 = new Vector4f(x0, y0, z1, 1);
         pMat.transform(vertex4);
-        vertex4.mul(1 / vertex4.w);
 
         final Vector4f vertex5 = new Vector4f(x1, y0, z1, 1);
         pMat.transform(vertex5);
-        vertex5.mul(1 / vertex5.w);
 
         final Vector4f vertex6 = new Vector4f(x1, y1, z1, 1);
         pMat.transform(vertex6);
-        vertex6.mul(1 / vertex6.w);
 
         final Vector4f vertex7 = new Vector4f(x0, y1, z1, 1);
         pMat.transform(vertex7);
-        vertex7.mul(1 / vertex7.w);
 
         final BattleRenderContext.LightResult lightResult = new BattleRenderContext.LightResult();
-        context.light(x0, y0, z0, x1, y1, z1, lightResult);
+        context.light(x0, y0, z0, x1, y1, z1, emissionLight, lightResult);
         final int light0 = lightResult.l0;
         final int light1 = lightResult.l1;
         final int light2 = lightResult.l2;
@@ -213,8 +210,8 @@ public class DefaultModelRenderer implements ModelRenderer {
         buffer.vertex(vertex7.x, vertex7.y, vertex7.z).color(color).texture(u5, v2).overlay(OverlayTexture.DEFAULT_UV).light(light7).normal(scratch.x, scratch.y, scratch.z).next();
     }
 
-    protected void walkUp(final MatrixStack matrices, final MatrixStack lightMatrices, final ModelRenderState state, final boolean inversion) {
-        if(!inversion) {
+    protected void applyTransformation(final MatrixStack matrices, final MatrixStack lightMatrices, final ModelRenderState state, final boolean inversion) {
+        if (!inversion) {
             state.multiply(matrices);
             state.multiply(lightMatrices);
         } else {

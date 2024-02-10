@@ -42,7 +42,7 @@ public class BattleRenderContextImpl implements BattleRenderContext {
         return parent;
     }
 
-    private int light(final int x, final int y, final int z) {
+    private int light(final int x, final int y, final int z, final int emissionLight) {
         final long key = BlockPos.asLong(x, y, z);
         final int index = (int) HashCommon.mix(key) & LIGHT_CACHE_MASK;
         if (lightCacheKeys[index] == key) {
@@ -50,14 +50,15 @@ public class BattleRenderContextImpl implements BattleRenderContext {
         }
         final ClientWorld world = MinecraftClient.getInstance().world;
         scratchPos.set(x, y, z);
-        final int light = LightmapTextureManager.pack(world.getLightLevel(LightType.BLOCK, scratchPos), world.getLightLevel(LightType.SKY, scratchPos));
+        final int blockLight = emissionLight >= 15 ? 15 : Math.max(emissionLight, world.getLightLevel(LightType.BLOCK, scratchPos));
+        final int light = LightmapTextureManager.pack(blockLight, world.getLightLevel(LightType.SKY, scratchPos));
         lightCacheKeys[index] = key;
         lightCache[index] = light;
         return light;
     }
 
     @Override
-    public int light(final double x, final double y, final double z) {
+    public int light(final double x, final double y, final double z, final int emissionLight) {
         lightMatrices.peek().getPositionMatrix().transform(lightScratch0.set((float) x, (float) y, (float) z, 1.0F));
         final int lx;
         final int ly;
@@ -98,14 +99,14 @@ public class BattleRenderContextImpl implements BattleRenderContext {
             rz = MathHelper.fractionalPart(lightScratch0.z - 0.5);
         }
         return lerpLight(
-                light(lx, ly, lz),
-                light(lx, ly, uz),
-                light(lx, uy, lz),
-                light(lx, uy, uz),
-                light(ux, ly, lz),
-                light(ux, ly, uz),
-                light(ux, uy, lz),
-                light(ux, uy, uz),
+                light(lx, ly, lz, emissionLight),
+                light(lx, ly, uz, emissionLight),
+                light(lx, uy, lz, emissionLight),
+                light(lx, uy, uz, emissionLight),
+                light(ux, ly, lz, emissionLight),
+                light(ux, ly, uz, emissionLight),
+                light(ux, uy, lz, emissionLight),
+                light(ux, uy, uz, emissionLight),
                 rx,
                 ry,
                 rz
@@ -113,7 +114,7 @@ public class BattleRenderContextImpl implements BattleRenderContext {
     }
 
     @Override
-    public void light(final double x0, final double y0, final double z0, final double x1, final double y1, final double z1, final LightResult result) {
+    public void light(final double x0, final double y0, final double z0, final double x1, final double y1, final double z1, final int emissionLight, final LightResult result) {
         final Matrix4f pMat = lightMatrices.peek().getPositionMatrix();
         pMat.transform(lightScratch0.set((float) x0, (float) y0, (float) z0, 1.0F));
         pMat.transform(lightScratch1.set((float) x1, (float) y1, (float) z1, 1.0F));
@@ -124,7 +125,7 @@ public class BattleRenderContextImpl implements BattleRenderContext {
             final double x = (x0 + x1) * 0.5;
             final double y = (y0 + y1) * 0.5;
             final double z = (z0 + z1) * 0.5;
-            final int l = light(x, y, z);
+            final int l = light(x, y, z, emissionLight);
             result.l0 = l;
             result.l1 = l;
             result.l2 = l;
@@ -136,8 +137,8 @@ public class BattleRenderContextImpl implements BattleRenderContext {
         } else if (collapseX & collapseY) {
             final double x = (x0 + x1) * 0.5;
             final double y = (y0 + y1) * 0.5;
-            final int lowerZ = light(x, y, z0);
-            final int upperZ = light(x, y, z1);
+            final int lowerZ = light(x, y, z0, emissionLight);
+            final int upperZ = light(x, y, z1, emissionLight);
             result.l0 = lowerZ;
             result.l1 = lowerZ;
             result.l2 = lowerZ;
@@ -149,8 +150,8 @@ public class BattleRenderContextImpl implements BattleRenderContext {
         } else if (collapseX & collapseZ) {
             final double x = (x0 + x1) * 0.5;
             final double z = (z0 + z1) * 0.5;
-            final int lowerY = light(x, y0, z);
-            final int upperY = light(x, y1, z);
+            final int lowerY = light(x, y0, z, emissionLight);
+            final int upperY = light(x, y1, z, emissionLight);
             result.l0 = lowerY;
             result.l1 = lowerY;
             result.l2 = upperY;
@@ -162,8 +163,8 @@ public class BattleRenderContextImpl implements BattleRenderContext {
         } else if (collapseY & collapseZ) {
             final double y = (y0 + y1) * 0.5;
             final double z = (z0 + z1) * 0.5;
-            final int lowerX = light(x0, y, z);
-            final int upperX = light(x1, y, z);
+            final int lowerX = light(x0, y, z, emissionLight);
+            final int upperX = light(x1, y, z, emissionLight);
             result.l0 = lowerX;
             result.l1 = upperX;
             result.l2 = upperX;
@@ -174,10 +175,10 @@ public class BattleRenderContextImpl implements BattleRenderContext {
             result.l7 = lowerX;
         } else if (collapseX) {
             final double x = (x0 + x1) * 0.5;
-            final int l00 = light(x, y0, z0);
-            final int l10 = light(x, y1, z0);
-            final int l01 = light(x, y0, z1);
-            final int l11 = light(x, y1, z1);
+            final int l00 = light(x, y0, z0, emissionLight);
+            final int l10 = light(x, y1, z0, emissionLight);
+            final int l01 = light(x, y0, z1, emissionLight);
+            final int l11 = light(x, y1, z1, emissionLight);
             result.l0 = l00;
             result.l1 = l00;
             result.l2 = l10;
@@ -188,10 +189,10 @@ public class BattleRenderContextImpl implements BattleRenderContext {
             result.l7 = l11;
         } else if (collapseY) {
             final double y = (y0 + y1) * 0.5;
-            final int l00 = light(x0, y, z0);
-            final int l10 = light(x1, y, z0);
-            final int l01 = light(x0, y, z1);
-            final int l11 = light(x1, y, z1);
+            final int l00 = light(x0, y, z0, emissionLight);
+            final int l10 = light(x1, y, z0, emissionLight);
+            final int l01 = light(x0, y, z1, emissionLight);
+            final int l11 = light(x1, y, z1, emissionLight);
             result.l0 = l00;
             result.l1 = l10;
             result.l2 = l10;
@@ -202,10 +203,10 @@ public class BattleRenderContextImpl implements BattleRenderContext {
             result.l7 = l01;
         } else if (collapseZ) {
             final double z = (z0 + z1) * 0.5;
-            final int l00 = light(x0, y0, z);
-            final int l10 = light(x1, y0, z);
-            final int l01 = light(x0, y1, z);
-            final int l11 = light(x1, y1, z);
+            final int l00 = light(x0, y0, z, emissionLight);
+            final int l10 = light(x1, y0, z, emissionLight);
+            final int l01 = light(x0, y1, z, emissionLight);
+            final int l11 = light(x1, y1, z, emissionLight);
             result.l0 = l00;
             result.l1 = l10;
             result.l2 = l11;
@@ -215,14 +216,14 @@ public class BattleRenderContextImpl implements BattleRenderContext {
             result.l6 = l11;
             result.l7 = l01;
         } else {
-            result.l0 = light(x0, y0, z0);
-            result.l1 = light(x1, y0, z0);
-            result.l2 = light(x1, y1, z0);
-            result.l3 = light(x0, y1, z0);
-            result.l4 = light(x0, y0, z1);
-            result.l5 = light(x1, y0, z1);
-            result.l6 = light(x1, y1, z1);
-            result.l7 = light(x0, y1, z1);
+            result.l0 = light(x0, y0, z0, emissionLight);
+            result.l1 = light(x1, y0, z0, emissionLight);
+            result.l2 = light(x1, y1, z0, emissionLight);
+            result.l3 = light(x0, y1, z0, emissionLight);
+            result.l4 = light(x0, y0, z1, emissionLight);
+            result.l5 = light(x1, y0, z1, emissionLight);
+            result.l6 = light(x1, y1, z1, emissionLight);
+            result.l7 = light(x0, y1, z1, emissionLight);
         }
     }
 

@@ -6,9 +6,17 @@ import net.minecraft.client.util.math.MatrixStack;
 public interface BattleRenderContext {
     WorldRenderContext parent();
 
-    int light(double x, double y, double z);
+    default int light(final double x, final double y, final double z) {
+        return light(x, y, z, 0);
+    }
 
-    void light(double x0, double y0, double z0, double x1, double y1, double z1, LightResult result);
+    int light(double x, double y, double z, int emissionLight);
+
+    default void light(double x0, double y0, double z0, double x1, double y1, double z1, LightResult result) {
+        light(x0,y0, z0, x1, y1, z1, 0, result);
+    }
+
+    void light(double x0, double y0, double z0, double x1, double y1, double z1, int emissionLight, LightResult result);
 
     MatrixStack lightMatrices();
 

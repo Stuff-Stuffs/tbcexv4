@@ -9,8 +9,8 @@ pluginManagement {
 	}
 }
 
-include(":core")
-project(":core").name = "tbcexv4core"
-include(":content:base")
-project(":content:base").name = "tbcexv4content_base"
-include(":util")
+include(':core')
+project(':core').name = 'tbcexv4core'
+include(':content:base')
+project(':content:base').name = 'tbcexv4content_base'
+include('util')

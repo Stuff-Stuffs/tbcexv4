@@ -27,6 +27,7 @@ public interface ModelRenderState extends RenderState {
     PropertyKey<Vec3d> SCALE = new PropertyKey<>("scale", PropertyTypes.SCALE);
     PropertyKey<Vec3d> TRANSLATION = new PropertyKey<>("translation", PropertyTypes.VEC3D);
     PropertyKey<Integer> COLOR = new PropertyKey<>("color", PropertyTypes.COLOR);
+    PropertyKey<Double> LIGHT_EMISSION = new PropertyKey<>("light_emission", PropertyTypes.NORMALIZED_DOUBLE);
     PropertyKey<Quaternionfc> ROTATION = new PropertyKey<>("rotation", PropertyTypes.ROTATION);
     PropertyKey<ModelRenderer> RENDERER = new PropertyKey<>("model_renderer", PropertyTypes.MODEL_RENDERER);
     PropertyKey<Optional<TextureData>> TEXTURE_DATA = new PropertyKey<>("texture_data", PropertyTypes.TEXTURE_DATA);
