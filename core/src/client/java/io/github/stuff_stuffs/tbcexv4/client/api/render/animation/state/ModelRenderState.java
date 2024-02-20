@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-public interface ModelRenderState extends RenderState {
+public non-sealed interface ModelRenderState extends RenderState {
     PropertyKey<Boolean> LAST_INVERSION = new PropertyKey<>("last_inversion", PropertyTypes.FLAG);
     PropertyKey<Optional<ModelData>> MODEL_DATA = new PropertyKey<>("model_data", PropertyTypes.MODEL_DATA);
     PropertyKey<Vec3d> SCALE = new PropertyKey<>("scale", PropertyTypes.SCALE);

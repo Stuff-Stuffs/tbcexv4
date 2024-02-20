@@ -141,6 +141,11 @@ public sealed interface Result<T, E> {
             return this;
         }
 
+        public Folder<T, T0, E> acceptRaw(T0 val) {
+            this.result = this.result.fold(success(val), combiner, errorCombiner);
+            return this;
+        }
+
         public Result<T, E> get() {
             return result;
         }

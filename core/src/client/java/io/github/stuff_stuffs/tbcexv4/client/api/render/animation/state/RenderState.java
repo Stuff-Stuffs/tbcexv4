@@ -11,7 +11,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-public interface RenderState {
+public sealed interface RenderState permits BattleRenderState, BattleEffectRenderState, ParticipantRenderState, ModelRenderState {
     PropertyKey<Unit> LOCK = new PropertyKey<>("lock", PropertyTypes.LOCK);
 
     <T> Property<T> getProperty(PropertyKey<T> key);

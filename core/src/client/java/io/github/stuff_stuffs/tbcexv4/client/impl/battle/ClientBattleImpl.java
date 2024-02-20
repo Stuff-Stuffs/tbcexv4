@@ -58,7 +58,7 @@ public class ClientBattleImpl implements Battle {
     private TurnManager turnManager;
     private BattleState state;
     private BattleTracer tracer;
-    private AnimationQueueImpl queue;
+    private AnimationQueue queue;
     private double time = 0;
     private final Double2ObjectSortedMap<List<BattleTracerView.Timestamp>> timestamps;
     private BattleLogContextImpl context;
@@ -92,6 +92,7 @@ public class ClientBattleImpl implements Battle {
                 }
             }
         }
+        animationQueue().activeCheckpoint(time);
         time = time + 1;
     }
 

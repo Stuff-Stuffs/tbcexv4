@@ -5,12 +5,12 @@
   "client": [
     "AccessorDilation",
     "AccessorEntityModelLoader",
-    "MixinInventoryScreen",
-    "MixinMinecraftClient",
     "AccessorModelCuboidData",
     "AccessorModelPartData",
     "AccessorTextureDimensions",
-    "AccessorTexturedModelData"
+    "AccessorTexturedModelData",
+    "MixinInventoryScreen",
+    "MixinMinecraftClient"
   ],
   "injectors": {
     "defaultRequire": 1

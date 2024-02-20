@@ -9,6 +9,7 @@ public class BattleEffectRenderStateImpl extends RenderStateImpl implements Batt
     private final BattleRenderState parent;
 
     public BattleEffectRenderStateImpl(final Identifier id, final BattleRenderState parent) {
+        super();
         this.id = id;
         this.parent = parent;
     }

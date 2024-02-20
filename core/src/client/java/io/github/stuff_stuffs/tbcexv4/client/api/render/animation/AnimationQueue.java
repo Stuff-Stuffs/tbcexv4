@@ -7,5 +7,9 @@ public interface AnimationQueue {
 
     BattleRenderState state();
 
+    void activeCheckpoint(double time);
+
+    void checkpoint(double time);
+
     void update(double time);
 }

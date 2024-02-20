@@ -12,6 +12,7 @@ import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -24,10 +25,10 @@ import java.util.Set;
 
 public class ModelRenderStateImpl extends RenderStateImpl implements ModelRenderState {
     private static final Quaternionf SCRATCH_ROTATION = new Quaternionf();
-    private final String id;
-    private final TimedContainer<String, ModelRenderStateImpl> timedContainer;
-    private final RenderState parent;
-    private final List<ModelRenderStateImpl> cached;
+    protected final String id;
+    protected final TimedContainer<String, ModelRenderStateImpl> timedContainer;
+    protected final RenderState parent;
+    protected final List<ModelRenderStateImpl> cached;
 
     final Matrix4f transform;
     final Matrix4f transformInverted;
@@ -36,14 +37,25 @@ public class ModelRenderStateImpl extends RenderStateImpl implements ModelRender
     private int cachedFlags = 0;
 
     public ModelRenderStateImpl(final String id, final RenderState parent) {
+        super();
         this.id = id;
         this.parent = parent;
-        timedContainer = new TimedContainer<>(k -> new ModelRenderStateImpl(k, this));
+        timedContainer = new TimedContainer<>(this::createChild);
         cached = new ArrayList<>();
         transform = new Matrix4f();
         transformInverted = new Matrix4f();
         normal = new Matrix3f();
         normalInverted = new Matrix3f();
+    }
+
+    protected ModelRenderStateImpl createChild(final String k) {
+        return new ModelRenderStateImpl(k, this);
+    }
+
+    @Override
+    public void clearUpTo(final double time) {
+        super.clearUpTo(time);
+        timedContainer.clearUpTo(time);
     }
 
     @Override
@@ -139,6 +151,16 @@ public class ModelRenderStateImpl extends RenderStateImpl implements ModelRender
         timedContainer.clear(context, time);
     }
 
+    @Override
+    public double lastAbove(final double t, final Property.@Nullable ReservationLevel level) {
+        double m = super.lastAbove(t, level);
+        for (final String child : timedContainer.children(t)) {
+            final double v = timedContainer.get(child, t).lastAbove(t, level);
+            m = Math.max(m, v);
+        }
+        return m;
+    }
+
     public List<? extends ModelRenderState> cached() {
         return cached;
     }
@@ -162,7 +184,7 @@ public class ModelRenderStateImpl extends RenderStateImpl implements ModelRender
     public Result<Animation.TimedEvent, Unit> removeChild(final String id, final double time, final AnimationContext context) {
         final ModelRenderStateImpl state = timedContainer.get(id, time);
         if (state != null) {
-            final double last = state.lastAbove(Property.ReservationLevel.IDLE);
+            final double last = state.lastAbove(time, Property.ReservationLevel.IDLE);
             if (last > time) {
                 return Result.failure(Unit.INSTANCE);
             }

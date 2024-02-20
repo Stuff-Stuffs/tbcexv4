@@ -10,7 +10,7 @@ import net.minecraft.util.Identifier;
 import java.util.Optional;
 import java.util.Set;
 
-public interface BattleRenderState extends RenderState {
+public non-sealed interface BattleRenderState extends RenderState {
     Optional<ParticipantRenderState> getParticipant(BattleParticipantHandle handle, double time);
 
     Set<BattleParticipantHandle> participants(double time);

@@ -66,22 +66,22 @@ public class DefaultModelRenderer implements ModelRenderer {
         final float z0 = -z1;
 
         //DOWN
-        buffer.vertex(pMat, x1, y0, z1).color(0xFFFF0000).next();
-        buffer.vertex(pMat, x0, y0, z1).color(0xFFFF0000).next();
-        buffer.vertex(pMat, x0, y0, z0).color(0xFFFF0000).next();
-        buffer.vertex(pMat, x1, y0, z0).color(0xFFFF0000).next();
+        buffer.vertex(pMat, x1, y0, z1).color(color).next();
+        buffer.vertex(pMat, x0, y0, z1).color(color).next();
+        buffer.vertex(pMat, x0, y0, z0).color(color).next();
+        buffer.vertex(pMat, x1, y0, z0).color(color).next();
 
         //UP
-        buffer.vertex(pMat, x1, y1, z0).color(0xFF00FF00).next();
-        buffer.vertex(pMat, x0, y1, z0).color(0xFF00FF00).next();
-        buffer.vertex(pMat, x0, y1, z1).color(0xFF00FF00).next();
-        buffer.vertex(pMat, x1, y1, z1).color(0xFF00FF00).next();
+        buffer.vertex(pMat, x1, y1, z0).color(color).next();
+        buffer.vertex(pMat, x0, y1, z0).color(color).next();
+        buffer.vertex(pMat, x0, y1, z1).color(color).next();
+        buffer.vertex(pMat, x1, y1, z1).color(color).next();
 
         //WEST
-        buffer.vertex(pMat, x0, y0, z0).color(0xFF0000FF).next();
-        buffer.vertex(pMat, x0, y0, z1).color(0xFF0000FF).next();
-        buffer.vertex(pMat, x0, y1, z1).color(0xFF0000FF).next();
-        buffer.vertex(pMat, x0, y1, z0).color(0xFF0000FF).next();
+        buffer.vertex(pMat, x0, y0, z0).color(color).next();
+        buffer.vertex(pMat, x0, y0, z1).color(color).next();
+        buffer.vertex(pMat, x0, y1, z1).color(color).next();
+        buffer.vertex(pMat, x0, y1, z0).color(color).next();
 
         //EAST
         buffer.vertex(pMat, x1, y0, z1).color(color).next();

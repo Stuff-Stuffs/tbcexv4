@@ -3,6 +3,7 @@ package io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state;
 import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Property;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -22,7 +23,7 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         containers = new Object2ReferenceLinkedOpenHashMap<>();
     }
 
-    public @Nullable V get(final K k, final double time) {
+    public V get(final K k, final double time) {
         final Container<V> container = containers.get(k);
         if (container == null) {
             return null;
@@ -66,12 +67,12 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         return flags;
     }
 
-    public int serialNumber(final K key, final double time) {
-        final Container<V> container = containers.get(key);
-        if (key == null) {
-            return INVALID_SERIAL_NUMBER;
-        }
-        return container.serialNumber(time);
+    public void forceAdd(final K key, final double time) {
+        containers.computeIfAbsent(key, k -> new Container<>()).forceAdd(time);
+    }
+
+    public void forceRemove(final K key, final double time, final Property.ReservationLevel level) {
+        containers.computeIfAbsent(key, l -> new Container<>()).forceRemove(time, level);
     }
 
     public Result<Animation.TimedEvent, Unit> add(final K key, final double time, final AnimationContext context) {
@@ -106,7 +107,12 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         }
     }
 
-    private record Entry(double time, boolean add, long id) implements Comparable<Entry> {
+    public void clearUpTo(final double time) {
+        containers.values().removeIf(value -> value.clearUpTo(time));
+    }
+
+    private record Entry(double time, boolean add, long id,
+                         @Nullable AnimationContext context) implements Comparable<Entry> {
         @Override
         public int compareTo(final Entry o) {
             final int c = Double.compare(time, o.time);
@@ -117,7 +123,7 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         }
     }
 
-    private static final class Container<V> {
+    private static final class Container<V extends RenderStateImpl> {
         private final List<Entry> entries;
         private final Map<AnimationContext, Set<Entry>> map;
         private final Int2ObjectMap<V> values;
@@ -174,7 +180,7 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         }
 
         private Result<Animation.TimedEvent, Unit> addOrRemove(final double time, final AnimationContext context, final boolean add) {
-            final Entry key = new Entry(time, add, nextId++);
+            final Entry key = new Entry(time, add, nextId++, context);
             int index = Collections.binarySearch(entries, key);
             if (index >= 0) {
                 index = advance(index, time);
@@ -217,6 +223,141 @@ public class TimedContainer<K, V extends RenderStateImpl> {
                 entries.removeAll(toRemove);
             }
         }
+
+        public boolean clearUpTo(final double time) {
+            int clearIndex = -1;
+            final List<Entry> list = entries;
+            final int size = list.size();
+            for (int i = 1; i < size; i += 2) {
+                if (list.get(i).time < time) {
+                    clearIndex = i;
+                }
+            }
+            for (int i = 0; i < clearIndex; i++) {
+                final Entry entry = list.get(i);
+                if (entry.context == null) {
+                    continue;
+                }
+                final Set<Entry> set = map.get(entry.context);
+                if (set != null) {
+                    if (set.remove(entry)) {
+                        if (set.isEmpty()) {
+                            map.remove(entry.context);
+                        }
+                    }
+                }
+            }
+            clearRange(0, clearIndex + 1);
+            return list.isEmpty();
+        }
+
+        private void clearRange(final int start, final int end) {
+            final List<Entry> subList = entries.subList(start, end);
+            final List<Entry> copy = new ArrayList<>(subList);
+            subList.clear();
+            for (final Entry entry : copy) {
+                values.remove(serialNumber(entry.time));
+            }
+        }
+
+        public void forceAdd(final double time) {
+            final Entry key = new Entry(time, true, nextId++, null);
+            if (entries.isEmpty()) {
+                entries.add(key);
+            }
+            final int index = Collections.binarySearch(entries, key);
+            if (index >= 0) {
+                if (index == 0) {
+                    clearRange(0, entries.size());
+                    entries.add(new Entry(time, true, nextId++, null));
+                }
+                final Entry prev = entries.get(index - 1);
+                if (prev.add) {
+                    entries.add(index, new Entry(time, false, nextId++, null));
+                    entries.add(index + 1, key);
+                    final int size = entries.size();
+                    if (index + 2 < size) {
+                        clearRange(index + 2, size);
+                    }
+                } else {
+                    entries.add(index, key);
+                    final int size = entries.size();
+                    if (index + 1 < size) {
+                        clearRange(index + 1, size);
+                    }
+                }
+                return;
+            }
+            final int rIndex = advance(-index - 1, time);
+            if (rIndex == 0) {
+                clearRange(0, entries.size());
+                entries.add(key);
+                return;
+            }
+            final Entry prev = entries.get(rIndex - 1);
+            if (prev.add) {
+                entries.add(rIndex, new Entry(time, false, nextId++, null));
+                entries.add(rIndex + 1, key);
+                final int size = entries.size();
+                if (rIndex + 2 < size) {
+                    clearRange(rIndex + 2, size);
+                }
+            } else {
+                entries.add(rIndex, key);
+                final int size = entries.size();
+                if (rIndex + 1 < size) {
+                    clearRange(rIndex + 1, size);
+                }
+            }
+        }
+
+        private void forceRemove0(final double time) {
+            final Entry key = new Entry(time, false, nextId++, null);
+            if (entries.isEmpty()) {
+                return;
+            }
+            final int index = Collections.binarySearch(entries, key);
+            if (index >= 0) {
+                if (index == 0) {
+                    clearRange(0, entries.size());
+                    return;
+                }
+                final Entry prev = entries.get(index - 1);
+                if (prev.add) {
+                    entries.add(index, key);
+                    final int size = entries.size();
+                    if (index + 1 < size) {
+                        clearRange(index + 1, size);
+                    }
+                }
+                return;
+            }
+            final int rIndex = advance(-index - 1, time);
+            if (rIndex == 0) {
+                clearRange(0, entries.size());
+                return;
+            }
+            final Entry prev = entries.get(rIndex - 1);
+            if (prev.add) {
+                entries.add(index, key);
+                final int size = entries.size();
+                if (rIndex + 1 < size) {
+                    clearRange(index + 1, size);
+                }
+            }
+        }
+
+        public void forceRemove(double time, final Property.@Nullable ReservationLevel level) {
+            final int serialNumber = serialNumber(time);
+            if (serialNumber != INVALID_SERIAL_NUMBER) {
+                final V v = values.get(serialNumber);
+                if (v != null) {
+                    final double lastAbove = v.lastAbove(time, level);
+                    time = Math.max(lastAbove, time);
+                }
+                forceRemove0(time);
+            }
+        }
     }
 
     private record TimedEventImpl(double time) implements Animation.TimedEvent {
@@ -229,8 +370,5 @@ public class TimedContainer<K, V extends RenderStateImpl> {
         public double end() {
             return time;
         }
-    }
-
-    private record Key<K>(K key, int serialNumber) {
     }
 }

@@ -5,7 +5,7 @@ import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Prope
 import io.github.stuff_stuffs.tbcexv4.client.api.render.renderer.BattleEffectRenderer;
 import net.minecraft.util.Identifier;
 
-public interface BattleEffectRenderState extends RenderState {
+public non-sealed interface BattleEffectRenderState extends RenderState {
     PropertyKey<BattleEffectRenderer> RENDERER = new PropertyKey<>("renderer", PropertyTypes.BATTLE_EFFECT_RENDERER);
 
     Identifier id();

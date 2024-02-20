@@ -4,8 +4,13 @@ import com.mojang.datafixers.util.Unit;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.Animation;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationQueue;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyKey;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.PropertyType;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleRenderState;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.RenderState;
+import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.property.PropertyImpl;
 import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state.BattleRenderStateImpl;
+import io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state.RenderStateImpl;
 import io.github.stuff_stuffs.tbcexv4.common.api.util.Result;
 import it.unimi.dsi.fastutil.doubles.DoubleAVLTreeSet;
 import it.unimi.dsi.fastutil.doubles.DoubleBidirectionalIterator;
@@ -19,10 +24,21 @@ public class AnimationQueueImpl implements AnimationQueue {
     private long nextId = 0;
 
     public AnimationQueueImpl() {
-        state = new BattleRenderStateImpl();
+        state = createState();
         events = new DoubleAVLTreeSet();
     }
 
+    protected BattleRenderStateImpl createState() {
+        return new BattleRenderStateImpl();
+    }
+
+    @Override
+    public void activeCheckpoint(final double time) {
+        checkpoint(time);
+        state.clearUpTo(time);
+    }
+
+    @Override
     public void checkpoint(final double time) {
         events.headSet(time).clear();
         events.add(time);
@@ -78,7 +94,7 @@ public class AnimationQueueImpl implements AnimationQueue {
         return state;
     }
 
-    private record AnimationContextImpl(long id, double cutoff) implements AnimationContext {
+    protected record AnimationContextImpl(long id, double cutoff) implements AnimationContext {
         @Override
         public boolean equals(final Object o) {
             if (this == o) {

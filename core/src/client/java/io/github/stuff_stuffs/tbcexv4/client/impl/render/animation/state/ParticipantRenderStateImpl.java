@@ -1,11 +1,13 @@
 package io.github.stuff_stuffs.tbcexv4.client.impl.render.animation.state;
 
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.AnimationContext;
+import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.property.Property;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.BattleRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ModelRenderState;
 import io.github.stuff_stuffs.tbcexv4.client.api.render.animation.state.ParticipantRenderState;
 import io.github.stuff_stuffs.tbcexv4.common.api.battle.participant.BattleParticipantHandle;
 import net.minecraft.util.math.Vec3d;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
@@ -19,13 +21,24 @@ public class ParticipantRenderStateImpl extends RenderStateImpl implements Parti
     final Matrix3f normalInverted;
 
     public ParticipantRenderStateImpl(final BattleParticipantHandle id, final BattleRenderState parent) {
+        super();
         this.id = id;
         this.parent = parent;
-        rootModel = new ModelRenderStateImpl("root", this);
+        rootModel = createRoot();
         transform = new Matrix4f();
         transformInverted = new Matrix4f();
         normal = new Matrix3f();
         normalInverted = new Matrix3f();
+    }
+
+    protected ModelRenderStateImpl createRoot() {
+        return new ModelRenderStateImpl("root", this);
+    }
+
+    @Override
+    public void clearUpTo(final double time) {
+        super.clearUpTo(time);
+        rootModel.clearUpTo(time);
     }
 
     @Override
@@ -47,6 +60,11 @@ public class ParticipantRenderStateImpl extends RenderStateImpl implements Parti
         }
         rootModel.updateMatrices();
         return flags;
+    }
+
+    @Override
+    public double lastAbove(final double t, final Property.@Nullable ReservationLevel level) {
+        return Math.max(super.lastAbove(t, level), rootModel.lastAbove(t, level));
     }
 
     @Override

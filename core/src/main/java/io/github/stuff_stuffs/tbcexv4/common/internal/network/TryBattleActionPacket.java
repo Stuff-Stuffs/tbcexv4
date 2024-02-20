@@ -9,7 +9,7 @@ import net.fabricmc.fabric.api.networking.v1.FabricPacket;
 import net.fabricmc.fabric.api.networking.v1.PacketType;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.NbtTagSizeTracker;
+import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.network.PacketByteBuf;
 
 import java.util.Optional;
@@ -68,6 +68,6 @@ public final class TryBattleActionPacket implements FabricPacket {
         if (type == null) {
             throw new RuntimeException();
         }
-        return new TryBattleActionPacket(type, buf.readNbt(NbtTagSizeTracker.ofUnlimitedBytes()), buf.readUuid(), buf.readUuid());
+        return new TryBattleActionPacket(type, buf.readNbt(NbtSizeTracker.ofUnlimitedBytes()), buf.readUuid(), buf.readUuid());
     }
 }
