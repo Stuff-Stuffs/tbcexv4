@@ -136,8 +136,6 @@ allprojects {
 
     dependencies {
         implementation "org.jetbrains:annotations:24.1.0"
-        modImplementation "io.wispforest:owo-lib:${project.owo_version}"
-        annotationProcessor "io.wispforest:owo-lib:${project.owo_version}"
         annotationProcessor "io.github.stuff_stuffs:EventGen:1.46-SNAPSHOT"
         api project(":util")
         annotationProcessor project(":util")
@@ -179,7 +177,6 @@ base {
 }
 
 dependencies {
-    include "io.wispforest:owo-sentinel:${project.owo_version}"
     subprojects.each {
         if (!it.path.startsWith(utilProjectPrefix)) {
             api project(path: "${it.path}", configuration: "namedElements")
